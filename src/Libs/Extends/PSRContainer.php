@@ -27,7 +27,7 @@ final class PSRContainer extends Container
      * @param class-string<T> $id
      * @return T
      */
-    public function getNew($id)
+    public function getNew($id): mixed
     {
         return parent::getNew($id);
     }
