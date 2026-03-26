@@ -1,6 +1,6 @@
 {
-    "extends": "./.nuxt/tsconfig.json",
-    "compilerOptions": {
-        "allowImportingTsExtensions": true
-    }
+  "extends": "./.nuxt/tsconfig.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true
+  }
 }

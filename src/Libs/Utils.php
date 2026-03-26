@@ -704,7 +704,7 @@ if (!function_exists('generate_uuid')) {
             $prefixUUID = $prefix ? $prefix . '-' : '';
         }
 
-        return $prefixUUID . Ramsey\Uuid\Uuid::uuid6()->toString();
+        return $prefixUUID . Symfony\Component\Uid\Uuid::v6()->toRfc4122();
     }
 }
 

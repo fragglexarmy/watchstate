@@ -1,5 +1,17 @@
 # NEWS
 
+### 2025-10-29
+
+After more than **3.5 years**, **2.2k+ commits**, **900+ stars**, and **1 million+ downloads**, we’re happy to announce
+the first stable release of **WatchState v1.0.0**.
+
+This milestone marks the project’s maturity and reliability for production use. We extend our thanks to everyone who
+provided feedback, reported bugs, and helped refine the tool your input has been invaluable.
+
+The current feature set and stability meet our goals, so future work will focus on **maintenance and bug fixes**.
+Feedback and suggestions remain welcome, but **major new features** may be limited as we prioritize **stability and
+long-term reliability**.
+
 ### 2025-08-18
 
 We have added the final feature before tagging `v1.0.0`, The new feature is a tool by which you can search your database
