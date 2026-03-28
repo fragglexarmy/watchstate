@@ -295,6 +295,8 @@
         <div class="column is-6 is-9-mobile has-text-left">
           <NuxtLink to="/help">Help</NuxtLink>
           -
+          <NuxtLink to="/help/api">API</NuxtLink>
+          -
           <NuxtLink to="/help/readme">README</NuxtLink>
           -
           <NuxtLink to="/help/faq">FAQ</NuxtLink>
