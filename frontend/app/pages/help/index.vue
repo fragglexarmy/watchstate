@@ -98,7 +98,7 @@ const choices: Array<{ number: number; title: string; text: string; url: string 
   {
     number: 8,
     title: 'API Reference',
-    text: 'Full HTTP API documentation for every current WatchState endpoint, including admin and streaming routes.',
+    text: 'Full HTTP API documentation for every current WatchState endpoint.',
     url: '/help/api',
   },
 ];
