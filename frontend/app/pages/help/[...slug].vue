@@ -29,7 +29,7 @@ onMounted(async (): Promise<void> => {
     await navigateTo(to_lower.replace('.md', ''));
   }
 
-  const special: Array<string> = ['faq', 'readme', 'news'];
+  const special: Array<string> = ['api', 'faq', 'readme', 'news'];
 
   if (special.includes(to_lower)) {
     url.value = '/guides/' + to_lower.toUpperCase() + '.md';

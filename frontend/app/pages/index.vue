@@ -272,6 +272,7 @@ import {
   makeName,
   parse_api_response,
   request,
+  ucFirst,
   TOOLTIP_DATE_FORMAT,
 } from '~/utils';
 import type { HistoryItem, JsonObject } from '~/types';

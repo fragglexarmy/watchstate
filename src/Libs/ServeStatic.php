@@ -36,10 +36,12 @@ final class ServeStatic implements LoggerAwareInterface
      */
     private const array FILES = [
         '/CHANGELOG.json' => __DIR__ . '/../../frontend/exported/CHANGELOG.json',
+        '/API.md' => __DIR__ . '/../../API.md',
         '/README.md' => __DIR__ . '/../../README.md',
         '/NEWS.md' => __DIR__ . '/../../NEWS.md',
         '/FAQ.md' => __DIR__ . '/../../FAQ.md',
         '/CHANGELOG.md' => __DIR__ . '/../../CHANGELOG.md',
+        '/guides/API.md' => __DIR__ . '/../../API.md',
         '/guides/README.md' => __DIR__ . '/../../README.md',
         '/guides/NEWS.md' => __DIR__ . '/../../NEWS.md',
         '/guides/FAQ.md' => __DIR__ . '/../../FAQ.md',

@@ -177,7 +177,7 @@ onMounted(async () => {
         if (linkToken.href.startsWith('#')) {
           return;
         }
-        const urls = ['FAQ.md', 'README.md', 'NEWS.md'];
+        const urls = ['API.md', 'FAQ.md', 'README.md', 'NEWS.md'];
         const list = ['guides/', ...urls];
         if (!list.some((l) => linkToken.href.includes(l))) {
           return;
