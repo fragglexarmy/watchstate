@@ -345,6 +345,7 @@ import {
   notification,
   stringToRegex,
   TOOLTIP_DATE_FORMAT,
+  makeGUIDLink,
 } from '~/utils';
 import { useDialog } from '~/composables/useDialog';
 import type { IgnoreItem, GuidProvider } from '~/types';
