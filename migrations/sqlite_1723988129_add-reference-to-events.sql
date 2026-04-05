@@ -1,5 +1,6 @@
 -- # migrate_up
 
+DROP TABLE IF EXISTS "_tmp_events";
 CREATE TABLE "_tmp_events"
 (
     "id"         text    NOT NULL,
@@ -36,6 +37,8 @@ CREATE INDEX "events_status" ON "events" ("status");
 CREATE INDEX "events_reference" ON "events" ("reference");
 
 -- # migrate_down
+
+DROP TABLE IF EXISTS "_tmp_events";
 
 CREATE TABLE "_tmp_events"
 (

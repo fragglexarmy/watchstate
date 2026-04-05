@@ -1,5 +1,6 @@
 -- # migrate_up
 
+DROP TABLE IF EXISTS "events";
 CREATE TABLE `events`
 (
     `id`         char(36)     NOT NULL,
