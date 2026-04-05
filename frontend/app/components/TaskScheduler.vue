@@ -1,6 +1,6 @@
 <template>
   <UAlert
-    v-if="!status.status || forceShow"
+    v-if="!status.status || props.forceShow"
     :color="status.status ? 'success' : 'error'"
     variant="soft"
     :icon="status.status ? 'i-lucide-circle-check' : 'i-lucide-triangle-alert'"
@@ -139,6 +139,4 @@ onBeforeUnmount(() => {
     timer = null;
   }
 });
-
-const { forceShow } = props;
 </script>
