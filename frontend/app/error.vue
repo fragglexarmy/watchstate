@@ -1,43 +1,56 @@
 <template>
   <NuxtLayout>
-    <div class="columns is-multiline">
-      <div class="column is-12">
-        <h1 class="title is-4">
-          {{ props.error.statusCode
-          }}<span v-if="props.error.statusMessage"> - {{ props.error.statusMessage }}</span>
-        </h1>
-      </div>
-    </div>
-    <div class="column is-12" v-if="props.error.message">
-      <div class="notification has-background-warning-90 has-text-dark">
-        <p>{{ props.error.message }}</p>
-      </div>
-    </div>
-
-    <div class="column is-12" v-if="props.error.stack">
-      <h2 class="title is-5 is-clickable" @click="showStacks = !showStacks">
-        <span class="icon-text">
-          <span class="icon">
-            <i v-if="showStacks" class="fas fa-arrow-up"></i>
-            <i v-else class="fas fa-arrow-down"></i>
+    <main class="w-full min-w-0 max-w-full space-y-4">
+      <div class="space-y-1">
+        <div class="flex items-center gap-2 text-lg font-semibold text-highlighted">
+          <UIcon name="i-lucide-triangle-alert" class="size-5 text-error" />
+          <span>
+            {{ props.error.statusCode }}
+            <span v-if="props.error.statusMessage">- {{ props.error.statusMessage }}</span>
           </span>
-          <span>Stack trace</span>
-        </span>
-      </h2>
+        </div>
 
-      <pre v-if="showStacks"><code>{{ props.error.stack }}</code></pre>
-    </div>
+        <p class="text-sm text-toned">An unexpected application error occurred.</p>
+      </div>
 
-    <div class="column is-12">
-      <h2 class="title is-5">
-        <NuxtLink to="/">
-          <span class="icon-text">
-            <span class="icon"><i class="fas fa-home"></i></span>
-            <span>Back to Home</span>
-          </span>
-        </NuxtLink>
-      </h2>
-    </div>
+      <UAlert
+        v-if="props.error.message"
+        color="warning"
+        variant="soft"
+        icon="i-lucide-triangle-alert"
+        title="Error details"
+        :description="props.error.message"
+      />
+
+      <UCard v-if="props.error.stack" class="border border-default/70 shadow-sm" :ui="cardUi">
+        <template #header>
+          <button
+            type="button"
+            class="flex items-center gap-2 text-left text-sm font-semibold text-highlighted"
+            @click="showStacks = !showStacks"
+          >
+            <UIcon
+              :name="showStacks ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+              class="size-4 text-toned"
+            />
+            <span>Stack trace</span>
+          </button>
+        </template>
+
+        <div
+          v-if="showStacks"
+          class="overflow-x-auto rounded-md border border-default bg-elevated/60 p-3"
+        >
+          <pre
+            class="whitespace-pre-wrap wrap-break-word text-xs leading-6 text-default"
+          ><code>{{ props.error.stack }}</code></pre>
+        </div>
+      </UCard>
+
+      <div class="flex justify-end">
+        <UButton color="primary" variant="soft" icon="i-lucide-house" to="/">Back to Home</UButton>
+      </div>
+    </main>
   </NuxtLayout>
 </template>
 
@@ -52,5 +65,11 @@ const props = defineProps<{
     stack?: string;
   };
 }>();
+
+const cardUi = {
+  header: 'p-4',
+  body: 'px-4 pb-4 pt-0',
+};
+
 const showStacks = ref(false);
 </script>

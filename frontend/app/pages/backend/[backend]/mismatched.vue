@@ -1,215 +1,285 @@
 <template>
-  <div>
-    <div class="columns is-multiline">
-      <div class="column is-12 is-clearfix is-unselectable">
-        <span class="title is-4">
-          <NuxtLink to="/backends">Backends</NuxtLink>
-          -
-          <NuxtLink :to="'/backend/' + backend">{{ backend }}</NuxtLink>
-          : Misidentified
-        </span>
-        <div class="is-pulled-right" v-if="hasLooked">
-          <div class="field is-grouped">
-            <p class="control">
-              <button
-                class="button is-info"
-                @click="loadContent(false)"
-                :disabled="isLoading"
-                :class="{ 'is-loading': isLoading }"
-              >
-                <span class="icon"><i class="fas fa-sync" /></span>
-              </button>
-            </p>
-          </div>
-        </div>
-        <div class="subtitle is-hidden-mobile">
-          This page will show items that <code>WatchState</code> thinks are possibly mis-identified
-          in your backend.
+  <main class="w-full min-w-0 max-w-full space-y-4">
+    <div class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+      <div class="min-w-0 space-y-1">
+        <div
+          class="flex flex-wrap items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-toned"
+        >
+          <UIcon :name="pageShell.icon" class="size-4" />
+          <span>{{ pageShell.sectionLabel }}</span>
+          <span>/</span>
+          <NuxtLink to="/backends" class="hover:text-primary">{{ pageShell.pageLabel }}</NuxtLink>
+          <span>/</span>
+          <NuxtLink
+            :to="`/backend/${backend}`"
+            class="hover:text-primary normal-case tracking-normal"
+            >{{ backend }}</NuxtLink
+          >
+          <span>/</span>
+          <span class="text-highlighted normal-case tracking-normal">Misidentified</span>
         </div>
       </div>
 
-      <div class="column is-12" v-if="false === hasLooked">
-        <div class="card">
-          <header class="card-header">
-            <p class="card-header-title is-justify-center">Request Analyze</p>
-          </header>
-          <div class="card-content">
-            <div class="content">
-              <ul>
-                <li>
-                  Checking the items will take time, you will see the spinner while
-                  <code>WatchState</code> is analyzing the entire backend libraries content. Do not
-                  reload the page.
-                </li>
-              </ul>
-            </div>
-          </div>
-          <div class="control">
-            <button
-              class="button is-fullwidth is-primary"
-              @click="() => loadContent()"
-              :disabled="isLoading"
-            >
-              <span class="icon"><i class="fas fa-check" /></span>
-              <span>Initiate The process</span>
-            </button>
-          </div>
-        </div>
+      <div v-if="hasLooked" class="flex flex-wrap items-center justify-end gap-2">
+        <UButton
+          color="neutral"
+          variant="outline"
+          size="sm"
+          icon="i-lucide-refresh-cw"
+          :loading="isLoading"
+          :disabled="isLoading"
+          @click="() => void loadContent(false)"
+        >
+          <span class="hidden sm:inline">Reload</span>
+        </UButton>
       </div>
-      <div class="column is-12" v-if="items.length < 1">
-        <Message
-          v-if="isLoading"
-          message_class="is-background-info-90 has-text-dark"
-          title="Analyzing"
-          icon="fas fa-spinner fa-spin"
-          message="Analyzing the backend content. Please wait. It will take a while..."
-        />
-        <Message
-          v-else-if="!isLoading && hasLooked"
-          message_class="has-background-success-90 has-text-dark"
-          title="Success!"
-          icon="fas fa-check"
-          message="WatchState did not find any possible mismatched items in the libraries we looked at."
-        />
-      </div>
+    </div>
 
-      <template v-if="items.length > 1">
-        <div class="column is-12">
-          <Message
-            class="has-background-warning-80 has-text-dark"
-            title="Warning"
-            icon="fas fa-exclamation-triangle"
-            message="WatchState found some items that might be mis-identified in your backend. Please review the results."
-          />
+    <UCard v-if="false === hasLooked" class="border border-default/70 shadow-sm" :ui="panelCardUi">
+      <template #header>
+        <div class="flex items-center gap-2 text-sm font-semibold text-highlighted">
+          <UIcon name="i-lucide-circle-check" class="size-4 text-toned" />
+          <span>Request Analyze</span>
         </div>
+      </template>
 
-        <div class="column is-6" v-for="item in items" :key="item.title + item.library">
-          <div class="card">
-            <header class="card-header">
-              <p class="card-header-title is-text-overflow">
-                <NuxtLink target="_blank" :to="item.webUrl" v-if="item.webUrl">{{
-                  item.title
-                }}</NuxtLink>
-                <span v-else>{{ item.title }}</span>
-              </p>
-              <div class="card-header-icon" @click="item.showItem = !item.showItem">
-                <span class="icon has-tooltip">
-                  <i
-                    class="fas fa-film"
-                    :class="{ 'fa-film': 'Movie' === item.type, 'fa-tv': 'Movie' !== item.type }"
-                  />
-                </span>
-              </div>
-            </header>
-            <div class="card-content">
-              <div class="columns is-mobile is-multiline">
-                <div class="column is-6">
-                  <strong class="is-unselectable">Library:</strong> {{ item.library }}
-                </div>
-                <div class="column is-6 has-text-right">
-                  <strong class="is-unselectable">Type:</strong> {{ item.type }}
-                </div>
-                <div class="column is-6">
-                  <strong class="is-unselectable">Year:</strong> {{ item.year ?? '???' }}
-                </div>
-                <div class="column is-6 has-text-right">
-                  <strong class="is-unselectable">Percent:</strong>
-                  <span :class="percentColor(item.percent)"> {{ item.percent.toFixed(2) }}% </span>
-                </div>
+      <div class="space-y-4 text-sm leading-6 text-default">
+        <p>
+          Checking the items will take time. WatchState will analyze the entire backend library
+          content, so avoid reloading the page during the scan.
+        </p>
+
+        <UButton
+          color="primary"
+          icon="i-lucide-circle-check"
+          :disabled="isLoading"
+          @click="() => void loadContent()"
+        >
+          Initiate the process
+        </UButton>
+      </div>
+    </UCard>
+
+    <UAlert
+      v-if="isLoading && items.length < 1"
+      color="info"
+      variant="soft"
+      icon="i-lucide-loader-circle"
+      title="Analyzing"
+      description="Analyzing the backend content. Please wait. It will take a while..."
+      :ui="{ icon: 'animate-spin' }"
+    />
+
+    <UAlert
+      v-else-if="!isLoading && hasLooked && items.length < 1"
+      color="success"
+      variant="soft"
+      icon="i-lucide-circle-check"
+      title="Success"
+      description="WatchState did not find any possible mismatched items in the libraries we looked at."
+    />
+
+    <div v-if="items.length > 0" class="space-y-4">
+      <UAlert
+        color="warning"
+        variant="soft"
+        icon="i-lucide-triangle-alert"
+        title="Review possible mismatches"
+        description="WatchState found items that might be misidentified in your backend. Review the results carefully."
+      />
+
+      <div class="grid gap-4 xl:grid-cols-2">
+        <UCard
+          v-for="item in items"
+          :key="item.title + item.library"
+          class="h-full border border-default/70 shadow-sm"
+          :ui="resultCardUi"
+        >
+          <template #header>
+            <div class="flex items-start gap-3">
+              <div class="min-w-0 flex-1">
                 <div
-                  class="column is-12"
-                  v-if="item.path"
-                  @click="
-                    (e: Event) =>
-                      (e.target as HTMLElement)?.firstElementChild?.classList?.toggle(
-                        'is-text-overflow',
-                      )
-                  "
+                  class="flex min-w-0 items-start gap-2 text-base font-semibold leading-6 text-highlighted"
                 >
-                  <div class="is-text-overflow">
-                    <strong class="is-unselectable">Path:&nbsp;</strong>
-                    <NuxtLink :to="makeSearchLink('path', item.path)">{{ item.path }}</NuxtLink>
+                  <UIcon
+                    :name="'Movie' === item.type ? 'i-lucide-film' : 'i-lucide-tv'"
+                    class="mt-0.5 size-4 shrink-0 text-toned"
+                  />
+
+                  <div class="min-w-0 flex-1">
+                    <NuxtLink
+                      v-if="item.webUrl"
+                      target="_blank"
+                      :to="item.webUrl"
+                      class="block truncate text-highlighted hover:text-primary"
+                    >
+                      {{ item.title }}
+                    </NuxtLink>
+                    <span v-else class="block truncate text-highlighted">
+                      {{ item.title }}
+                    </span>
                   </div>
                 </div>
               </div>
             </div>
-            <div class="card-content p-0 m-0" v-if="item?.showItem">
-              <div class="mt-2" style="position: relative; max-height: 343px; overflow-y: auto">
-                <code
-                  class="is-terminal is-block is-pre-wrap"
-                  v-text="JSON.stringify(item, null, 2)"
-                />
-                <button
-                  class="button m-4"
-                  v-tooltip="'Copy text'"
-                  style="position: absolute; top: 0; right: 0"
-                  @click="() => copyText(JSON.stringify(item, null, 2))"
+          </template>
+
+          <div class="space-y-3">
+            <div class="grid gap-2.5 sm:grid-cols-2">
+              <div
+                class="rounded-md border border-default bg-elevated/40 px-3 py-2.5 text-sm text-default"
+              >
+                <div
+                  class="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
                 >
-                  <span class="icon"><i class="fas fa-copy" /></span>
-                </button>
+                  <UIcon name="i-lucide-library-big" class="size-3.5" />
+                  <span>Library</span>
+                </div>
+                <div class="mt-1 font-medium text-highlighted">{{ item.library }}</div>
+              </div>
+
+              <div
+                class="rounded-md border border-default bg-elevated/40 px-3 py-2.5 text-sm text-default"
+              >
+                <div
+                  class="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
+                >
+                  <UIcon name="i-lucide-calendar" class="size-3.5" />
+                  <span>Year</span>
+                </div>
+                <div class="mt-1 font-medium text-highlighted">{{ item.year ?? '???' }}</div>
+              </div>
+
+              <div
+                class="rounded-md border border-default bg-elevated/40 px-3 py-2.5 text-sm text-default sm:col-span-2"
+              >
+                <div
+                  class="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
+                >
+                  <UIcon name="i-lucide-percent" class="size-3.5" />
+                  <span>Percent</span>
+                </div>
+                <div class="mt-1 font-medium" :class="percentColor(item.percent)">
+                  {{ item.percent.toFixed(2) }}%
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-      </template>
 
-      <div class="column is-12">
-        <Message
-          message_class="has-background-info-90 has-text-dark"
-          :toggle="show_page_tips"
-          @toggle="show_page_tips = !show_page_tips"
-          :use-toggle="true"
-          title="Tips"
-          icon="fas fa-info-circle"
-        >
-          <ul>
-            <li>
-              This service expects standard plex naming conventions
-              <NuxtLink
-                target="_blank"
-                to="https://support.plex.tv/articles/naming-and-organizing-your-tv-show-files/"
+            <div
+              v-if="item.path"
+              class="cursor-pointer rounded-md border border-default bg-elevated/40 px-3 py-2.5"
+              @click="toggleFirstChildOverflow"
+            >
+              <div
+                class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium text-default"
               >
-                for series </NuxtLink
-              >, and
-              <NuxtLink
-                target="_blank"
-                to="https://support.plex.tv/articles/naming-and-organizing-your-movie-media-files/"
-              >
-                for movies </NuxtLink
-              >. So if you libraries doesn't follow the same conventions, you will see a lot of
-              items being reported as misidentified.
-            </li>
-            <li>
-              If you see a lot of misidentified items, you might want to check the that the source
-              directory matches the item.
-            </li>
-            <li>
-              Clicking on the icon next to the title will show you the raw data that was used to
-              generate the report.
-            </li>
-          </ul>
-        </Message>
+                <span class="inline-flex items-center gap-2">
+                  <UIcon name="i-lucide-file-text" class="size-4 shrink-0 text-toned" />
+                  <NuxtLink :to="makeSearchLink('path', item.path)" class="hover:text-primary">
+                    {{ item.path }}
+                  </NuxtLink>
+                </span>
+              </div>
+            </div>
+
+            <div
+              v-if="item.showItem"
+              class="relative overflow-hidden rounded-md border border-default bg-elevated/60"
+            >
+              <code class="ws-terminal ws-terminal-panel ws-terminal-panel-md whitespace-pre-wrap">
+                {{ JSON.stringify(item, null, 2) }}
+              </code>
+
+              <UTooltip text="Copy text">
+                <UButton
+                  color="neutral"
+                  variant="soft"
+                  size="sm"
+                  icon="i-lucide-copy"
+                  class="absolute right-3 top-3"
+                  @click="() => void copyText(JSON.stringify(item, null, 2))"
+                />
+              </UTooltip>
+            </div>
+          </div>
+
+          <template #footer>
+            <div class="flex items-center justify-end gap-2">
+              <UTooltip :text="item.showItem ? 'Hide raw data' : 'Show raw data'">
+                <UButton
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  square
+                  :icon="item.showItem ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+                  :aria-label="item.showItem ? 'Hide raw data' : 'Show raw data'"
+                  @click="item.showItem = !item.showItem"
+                />
+              </UTooltip>
+            </div>
+          </template>
+        </UCard>
       </div>
     </div>
-  </div>
+
+    <UCard class="border border-default/70 shadow-sm" :ui="panelCardUi">
+      <template #header>
+        <button
+          type="button"
+          class="flex items-center gap-2 text-left text-sm font-semibold text-highlighted"
+          @click="show_page_tips = !show_page_tips"
+        >
+          <UIcon
+            :name="show_page_tips ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+            class="size-4 text-toned"
+          />
+          <UIcon name="i-lucide-info" class="size-4 text-toned" />
+          <span>Tips</span>
+        </button>
+      </template>
+
+      <div v-if="show_page_tips" class="text-sm leading-6 text-default">
+        <ul class="list-disc space-y-2 pl-5">
+          <li>
+            This service expects standard Plex naming conventions for series and movies, so custom
+            naming layouts can increase false positives.
+          </li>
+          <li>
+            If you see many misidentified items, verify that the source directory matches the item.
+          </li>
+          <li>Use the raw-data toggle on each card to inspect the payload used for the report.</li>
+        </ul>
+      </div>
+    </UCard>
+  </main>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRoute, useHead } from '#app';
 import { useStorage } from '@vueuse/core';
+import { requireTopLevelPageShell } from '~/utils/topLevelNavigation';
 import { makeSearchLink, notification, request, copyText, parse_api_response } from '~/utils';
-import Message from '~/components/Message.vue';
 import { useSessionCache } from '~/utils/cache';
 import type { MismatchedItem } from '~/types';
 
 type MismatchedItemWithUI = MismatchedItem & {
-  /** UI state: Whether to show full item details */
   showItem?: boolean;
+};
+
+const panelCardUi = {
+  header: 'p-4',
+  body: 'px-4 pb-4 pt-0',
+};
+
+const resultCardUi = {
+  header: 'p-4',
+  body: 'px-4 pb-4 pt-0',
 };
 
 const route = useRoute();
 const backend = route.params.backend as string;
+const pageShell = requireTopLevelPageShell('backends');
 const items = ref<Array<MismatchedItemWithUI>>([]);
 const isLoading = ref<boolean>(false);
 const hasLooked = ref<boolean>(false);
@@ -218,6 +288,14 @@ const cache = useSessionCache();
 const cacheKey = `backend-${backend}-mismatched`;
 
 useHead({ title: `Backends: ${backend} - Misidentified items` });
+
+const toggleFirstChildOverflow = (event: Event): void => {
+  const target = event.target as HTMLElement | null;
+
+  target?.firstElementChild?.classList?.toggle('overflow-hidden');
+  target?.firstElementChild?.classList?.toggle('text-ellipsis');
+  target?.firstElementChild?.classList?.toggle('whitespace-nowrap');
+};
 
 const loadContent = async (useCache: boolean = true): Promise<void> => {
   hasLooked.value = true;
@@ -252,13 +330,14 @@ const loadContent = async (useCache: boolean = true): Promise<void> => {
 };
 
 const percentColor = (percent: number): string => {
-  const percentInt = parseInt(percent.toString());
+  const percentInt = Number.parseInt(percent.toString(), 10);
+
   if (90 < percentInt) {
-    return 'has-text-success';
+    return 'text-success';
   } else if (50 < percentInt && percentInt < 90) {
-    return 'has-text-warning';
-  } else {
-    return 'has-text-danger';
+    return 'text-warning';
   }
+
+  return 'text-error';
 };
 </script>

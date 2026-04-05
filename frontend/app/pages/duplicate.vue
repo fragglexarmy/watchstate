@@ -1,150 +1,156 @@
 <template>
-  <div>
-    <div class="columns is-multiline">
-      <div class="column is-12 is-clearfix is-unselectable">
-        <span class="title is-4">
-          <span class="icon"><i class="fas fa-copy" /></span>
-          <span>
-            <template v-if="isMobile">DFR</template>
-            <template v-else>Duplicate File Reference</template>
-          </span>
-        </span>
-        <div class="is-pulled-right">
-          <div class="field is-grouped">
-            <div class="control has-icons-left" v-if="showFilter">
-              <input
-                type="search"
-                v-model.lazy="filter"
-                class="input"
-                id="filter"
-                placeholder="Filter displayed results."
-              />
-              <span class="icon is-left"><i class="fas fa-filter" /></span>
-            </div>
-
-            <div class="control">
-              <button class="button is-danger is-light" @click="toggleFilter">
-                <span class="icon"><i class="fas fa-filter" /></span>
-                <span v-if="!isMobile">Filter</span>
-              </button>
-            </div>
-
-            <div class="control">
-              <button class="button is-danger" @click="deleteRecords">
-                <span class="icon"><i class="fas fa-trash" /></span>
-                <span v-if="!isMobile">Delete</span>
-              </button>
-            </div>
-
-            <p class="control">
-              <button
-                class="button is-info"
-                @click.prevent="loadContent(page, true, true)"
-                :disabled="isLoading"
-                :class="{ 'is-loading': isLoading }"
-              >
-                <span class="icon"><i class="fas fa-sync" /></span>
-                <span v-if="!isMobile">Reload</span>
-              </button>
-            </p>
-          </div>
+  <div class="space-y-6">
+    <div class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+      <div class="space-y-1">
+        <div
+          class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-toned"
+        >
+          <UIcon :name="pageShell.icon" class="size-4" />
+          <span>{{ pageShell.sectionLabel }}</span>
+          <span>/</span>
+          <span>{{ pageShell.pageLabel }}</span>
         </div>
-        <div class="is-hidden-mobile">
-          <span class="subtitle">
+
+        <div>
+          <p class="mt-1 text-sm text-toned">
             This tool is useful to discover if your backends are reporting different metadata for
             same files.
-          </span>
+          </p>
         </div>
       </div>
 
-      <div class="column is-12" v-if="total && last_page > 1">
-        <div class="field is-grouped">
-          <div class="control" v-if="page !== 1">
-            <button
-              rel="first"
-              class="button"
-              @click="loadContent(1)"
-              :disabled="isLoading"
-              :class="{ 'is-loading': isLoading }"
-            >
-              <span>&lt;&lt;</span>
-            </button>
-          </div>
-          <div class="control" v-if="page > 1 && page - 1 !== 1">
-            <button
-              rel="prev"
-              class="button"
-              @click="loadContent(page - 1)"
-              :disabled="isLoading"
-              :class="{ 'is-loading': isLoading }"
-            >
-              <span>&lt;</span>
-            </button>
-          </div>
-          <div class="control">
-            <div class="select">
-              <select v-model="page" @change="loadContent(page)" :disabled="isLoading">
-                <option
-                  v-for="(item, index) in makePagination(page, last_page)"
-                  :key="index"
-                  :value="item.page"
-                >
-                  {{ item.text }}
-                </option>
-              </select>
-            </div>
-          </div>
-          <div class="control" v-if="page !== last_page && page + 1 !== last_page">
-            <button
-              rel="next"
-              class="button"
-              @click="loadContent(page + 1)"
-              :disabled="isLoading"
-              :class="{ 'is-loading': isLoading }"
-            >
-              <span>&gt;</span>
-            </button>
-          </div>
-          <div class="control" v-if="page !== last_page">
-            <button
-              rel="last"
-              class="button"
-              @click="loadContent(last_page)"
-              :disabled="isLoading"
-              :class="{ 'is-loading': isLoading }"
-            >
-              <span>&gt;&gt;</span>
-            </button>
-          </div>
-        </div>
-      </div>
+      <div class="flex flex-wrap items-center justify-end gap-2">
+        <UInput
+          v-if="showFilter"
+          id="filter"
+          v-model.lazy="filter"
+          type="search"
+          icon="i-lucide-filter"
+          placeholder="Filter displayed results."
+          size="sm"
+          class="w-full sm:w-72"
+        />
 
-      <div class="column is-12">
-        <div class="columns is-multiline" v-if="filteredItems.length > 0">
-          <template v-for="item in filteredItems" :key="item.id">
-            <Lazy
-              :unrender="true"
-              :min-height="270"
-              class="column is-6-tablet"
-              v-if="filterItem(item)"
-            >
-              <div class="card" :class="{ 'is-success': item.watched }">
-                <header class="card-header">
-                  <p class="card-header-title is-text-overflow pr-1">
+        <UButton
+          color="neutral"
+          :variant="showFilter ? 'soft' : 'outline'"
+          size="sm"
+          icon="i-lucide-filter"
+          @click="toggleFilter"
+        >
+          <span v-if="!isMobile">Filter</span>
+        </UButton>
+
+        <UButton
+          color="neutral"
+          variant="outline"
+          size="sm"
+          icon="i-lucide-trash-2"
+          @click="deleteRecords"
+        >
+          <span v-if="!isMobile">Delete</span>
+        </UButton>
+
+        <UButton
+          color="neutral"
+          variant="outline"
+          size="sm"
+          icon="i-lucide-refresh-cw"
+          :loading="isLoading"
+          :disabled="isLoading"
+          @click.prevent="loadContent(page, true, true)"
+        >
+          <span v-if="!isMobile">Reload</span>
+        </UButton>
+      </div>
+    </div>
+
+    <Pager
+      v-if="total && last_page > 1"
+      :page="page"
+      :last_page="last_page"
+      :isLoading="isLoading"
+      @navigate="loadContent"
+    />
+
+    <UAlert
+      v-if="isLoading"
+      color="info"
+      variant="soft"
+      icon="i-lucide-loader-circle"
+      title="Loading"
+      description="Loading data. Please wait..."
+      :ui="{ icon: 'animate-spin' }"
+    />
+
+    <UAlert
+      v-else-if="filteredItems.length < 1 && filter && items.length > 1"
+      color="warning"
+      variant="soft"
+      icon="i-lucide-circle-check"
+      title="Information"
+    >
+      <template #description>
+        <p class="text-sm text-default">
+          The filter <code>{{ filter }}</code> did not match any thing.
+        </p>
+      </template>
+    </UAlert>
+
+    <UAlert
+      v-else-if="filteredItems.length < 1"
+      color="success"
+      variant="soft"
+      icon="i-lucide-circle-check"
+      title="Success"
+      description="There are no duplicate file references in the database."
+    />
+
+    <div v-else class="grid gap-4 xl:grid-cols-2">
+      <Lazy
+        v-for="item in filteredItems"
+        :key="item.id"
+        :unrender="true"
+        :min-height="270"
+        class="block"
+      >
+        <UCard
+          class="h-full border shadow-sm"
+          :class="item.watched ? 'border-success/40' : 'border-default/70'"
+          :ui="itemCardUi"
+        >
+          <template #header>
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0 flex-1">
+                <div class="flex min-w-0 items-start gap-2">
+                  <UIcon
+                    :name="'episode' === item.type.toLowerCase() ? 'i-lucide-tv' : 'i-lucide-film'"
+                    class="mt-0.5 size-4 shrink-0 text-toned"
+                  />
+
+                  <div class="min-w-0 flex-1 text-base font-semibold text-highlighted">
                     <FloatingImage
                       :image="`/history/${item.id}/images/poster`"
-                      :item_class="'scaled-image'"
                       v-if="poster_enable"
                     >
-                      <NuxtLink :to="'/history/' + item.id">
+                      <NuxtLink
+                        :to="'/history/' + item.id"
+                        class="text-highlighted hover:text-primary"
+                      >
                         {{ item?.full_title || makeName(item as unknown as JsonObject) }}
                       </NuxtLink>
                     </FloatingImage>
-                    <NuxtLink :to="'/history/' + item.id" v-else>
+
+                    <NuxtLink
+                      v-else
+                      :to="'/history/' + item.id"
+                      class="text-highlighted hover:text-primary"
+                    >
                       {{ item?.full_title || makeName(item as unknown as JsonObject) }}
                     </NuxtLink>
-                  </p>
-                  <span class="card-header-icon is-flex is-align-items-center">
+                  </div>
+
+                  <div class="flex shrink-0 items-center gap-2">
                     <Popover
                       v-if="(item?.duplicate_reference_ids?.length || 0) > 0"
                       placement="top"
@@ -155,251 +161,226 @@
                       content-class="p-0"
                     >
                       <template #trigger>
-                        <span class="tag is-warning is-bold is-clickable is-size-7">
-                          <span class="icon is-small mr-1"><i class="fas fa-layer-group" /></span>
+                        <span
+                          class="inline-flex items-center gap-1 rounded-md border border-warning/30 bg-warning/10 px-2 py-1 text-xs font-semibold text-warning"
+                        >
+                          <UIcon name="i-lucide-layers-3" class="size-3.5" />
                           <span>{{ item.duplicate_reference_ids?.length }}</span>
                         </span>
                       </template>
+
                       <template #content>
                         <DuplicateRecordList :ids="item.duplicate_reference_ids ?? []" />
                       </template>
                     </Popover>
-                    <span class="icon">
-                      <i
-                        class="fas"
-                        :class="'episode' === item.type.toLowerCase() ? 'fa-tv' : 'fa-film'"
-                      />
-                    </span>
-                  </span>
-                </header>
-                <div class="card-content">
-                  <div class="columns is-multiline is-mobile">
-                    <div class="column is-12">
-                      <div class="field is-grouped">
-                        <div class="control" @click="item.expand_title = !item?.expand_title">
-                          <span class="icon"><i class="fas fa-heading" /></span>
-                        </div>
-                        <div
-                          class="control is-expanded is-clickable"
-                          :class="{
-                            'is-text-overflow': !item?.expand_title,
-                            'is-text-contents': item?.expand_title,
-                          }"
-                        >
-                          <template v-if="item?.content_title">
-                            <NuxtLink :to="makeSearchLink('subtitle', item.content_title)">
-                              {{ item.content_title }}
-                            </NuxtLink>
-                          </template>
-                          <template v-else>
-                            <NuxtLink :to="makeSearchLink('subtitle', item.title)">
-                              {{ item.title }}
-                            </NuxtLink>
-                          </template>
-                        </div>
-                        <div class="control">
-                          <span
-                            class="icon is-clickable"
-                            @click="copyText(item?.content_title ?? item.title, false)"
-                          >
-                            <i class="fas fa-copy"
-                          /></span>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="column is-12">
-                      <div class="field is-grouped">
-                        <div class="control" @click="item.expand_path = !item?.expand_path">
-                          <span class="icon"><i class="fas fa-file" /></span>
-                        </div>
-                        <div
-                          class="control is-expanded is-clickable"
-                          :class="{
-                            'is-text-overflow': !item?.expand_path,
-                            'is-text-contents': item?.expand_path,
-                          }"
-                        >
-                          <div class="is-flex is-align-items-center">
-                            <!-- Popover wrapping the NuxtLink directly (only if differences exist) -->
-                            <Popover
-                              v-if="item?.content_path && hasFileDifferences(item)"
-                              placement="bottom-start"
-                              trigger="hover"
-                              :show-delay="200"
-                              :hide-delay="200"
-                              :offset="8"
-                              content-class="p-0"
-                            >
-                              <template #trigger>
-                                <NuxtLink
-                                  :to="makeSearchLink('path', item.content_path)"
-                                  :class="{
-                                    'is-text-overflow': !item?.expand_path,
-                                    'is-text-contents': item?.expand_path,
-                                  }"
-                                  style="display: block; width: 100%"
-                                >
-                                  {{ item.content_path }}
-                                </NuxtLink>
-                              </template>
-                              <template #content>
-                                <div
-                                  class="file-diff-popover"
-                                  style="min-width: 300px; max-width: 500px"
-                                >
-                                  <div class="has-background-warning px-4 py-3 has-text-dark">
-                                    <div class="is-size-6 has-text-weight-semibold">
-                                      <span class="icon is-small"
-                                        ><i class="fas fa-exclamation-circle"
-                                      /></span>
-                                      Path Differences Found
-                                    </div>
-                                  </div>
-                                  <div class="p-3">
-                                    <FileDiff :items="getFileDiffData(item)" />
-                                  </div>
-                                </div>
-                              </template>
-                            </Popover>
-                            <NuxtLink
-                              v-else-if="item?.content_path"
-                              :to="makeSearchLink('path', item.content_path)"
-                              :class="{
-                                'is-text-overflow': !item?.expand_path,
-                                'is-text-contents': item?.expand_path,
-                              }"
-                              style="display: block; width: 100%"
-                            >
-                              {{ item.content_path }}
-                            </NuxtLink>
-                            <span v-else>No path found.</span>
-                          </div>
-                        </div>
-                        <div class="control">
-                          <span
-                            class="icon is-clickable"
-                            @click="copyText(item?.content_path || '', false)"
-                          >
-                            <i class="fas fa-copy"
-                          /></span>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="column is-12">
-                      <div class="field is-grouped">
-                        <div class="control is-expanded is-unselectable">
-                          <span class="icon"><i class="fas fa-info" />&nbsp;</span>
-                          <span>Has metadata from</span>
-                        </div>
-                        <div class="control">
-                          <NuxtLink
-                            v-for="backend in item.reported_by"
-                            :key="`${item.id}-rb-${backend}`"
-                            :to="`/backend/${backend}`"
-                            class="tag ml-1"
-                            :class="hasUniqueFilePath(item, backend) ? 'is-warning' : 'is-primary'"
-                          >
-                            {{ backend }}
-                          </NuxtLink>
-                          <NuxtLink
-                            v-for="backend in item.not_reported_by"
-                            :key="`${item.id}-nrb-${backend}`"
-                            :to="`/backend/${backend}`"
-                            class="tag is-danger ml-1"
-                          >
-                            {{ backend }}
-                          </NuxtLink>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="card-footer">
-                  <div class="card-footer-item">
-                    <span class="icon">
-                      <i
-                        class="fas"
-                        :class="{ 'fa-eye': item.watched, 'fa-eye-slash': !item.watched }"
-                      />&nbsp;
-                    </span>
-                    <span class="has-text-success" v-if="item.watched">Played</span>
-                    <span class="has-text-danger" v-else>Unplayed</span>
-                  </div>
-                  <div class="card-footer-item">
-                    <span class="icon"><i class="fas fa-calendar" />&nbsp;</span>
-                    <span
-                      class="has-tooltip"
-                      v-tooltip="
-                        `Record updated at: ${moment.unix(item.updated_at).format(TOOLTIP_DATE_FORMAT)}`
-                      "
-                    >
-                      {{ moment.unix(item.updated_at).fromNow() }}
-                    </span>
                   </div>
                 </div>
               </div>
-            </Lazy>
+            </div>
           </template>
-        </div>
 
-        <div class="column is-12" v-else>
-          <Message
-            v-if="isLoading"
-            message_class="has-background-info-90 has-text-dark"
-            title="Loading"
-            icon="fas fa-spinner fa-spin"
-            message="Loading data. Please wait..."
-          />
-          <template v-else>
-            <Message
-              message_class="has-background-warning-80 has-text-dark"
-              v-if="filter && items.length > 1"
-              title="Information"
-              icon="fas fa-check"
+          <div class="space-y-3">
+            <div
+              class="flex items-start gap-2 rounded-md border border-default bg-elevated/20 px-3 py-2 text-sm text-default"
             >
-              The filter <code>{{ filter }}</code> did not match any thing.
-            </Message>
-            <Message
-              message_class="has-background-success-90 has-text-dark"
-              v-if="!filter || items.length < 1"
-              title="Success"
-              icon="fas fa-check"
+              <button
+                type="button"
+                class="mt-0.5 shrink-0 text-toned hover:text-primary"
+                @click="item.expand_title = !item?.expand_title"
+              >
+                <UIcon name="i-lucide-heading" class="size-4" />
+              </button>
+
+              <div
+                class="min-w-0 flex-1"
+                :class="item?.expand_title ? 'wrap-break-word' : 'truncate'"
+              >
+                <NuxtLink
+                  :to="makeSearchLink('subtitle', item?.content_title || item.title)"
+                  class="hover:text-primary"
+                >
+                  {{ item?.content_title || item.title }}
+                </NuxtLink>
+              </div>
+
+              <UButton
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                square
+                icon="i-lucide-copy"
+                aria-label="Copy title"
+                @click="copyText(item?.content_title ?? item.title, false)"
+              />
+            </div>
+
+            <div
+              class="flex items-start gap-2 rounded-md border border-default bg-elevated/20 px-3 py-2 text-sm text-default"
             >
-              There are no duplicate file references in the database.
-            </Message>
+              <button
+                type="button"
+                class="mt-0.5 shrink-0 text-toned hover:text-primary"
+                @click="item.expand_path = !item?.expand_path"
+              >
+                <UIcon name="i-lucide-file-text" class="size-4" />
+              </button>
+
+              <div class="min-w-0 flex-1">
+                <Popover
+                  v-if="item?.content_path && hasFileDifferences(item)"
+                  placement="bottom-start"
+                  trigger="hover"
+                  :show-delay="200"
+                  :hide-delay="200"
+                  :offset="8"
+                  content-class="p-0"
+                >
+                  <template #trigger>
+                    <NuxtLink
+                      :to="makeSearchLink('path', item.content_path)"
+                      :class="item?.expand_path ? 'wrap-break-word' : 'block truncate'"
+                      class="hover:text-primary"
+                    >
+                      {{ item.content_path }}
+                    </NuxtLink>
+                  </template>
+
+                  <template #content>
+                    <div class="min-w-75 max-w-125 p-3">
+                      <div class="mb-3 flex items-center gap-2 text-sm font-semibold text-warning">
+                        <UIcon name="i-lucide-triangle-alert" class="size-4" />
+                        <span>Path Differences Found</span>
+                      </div>
+                      <FileDiff :items="getFileDiffData(item)" />
+                    </div>
+                  </template>
+                </Popover>
+
+                <NuxtLink
+                  v-else-if="item?.content_path"
+                  :to="makeSearchLink('path', item.content_path)"
+                  :class="item?.expand_path ? 'wrap-break-word' : 'block truncate'"
+                  class="hover:text-primary"
+                >
+                  {{ item.content_path }}
+                </NuxtLink>
+
+                <span v-else>No path found.</span>
+              </div>
+
+              <UButton
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                square
+                icon="i-lucide-copy"
+                aria-label="Copy path"
+                @click="copyText(item?.content_path || '', false)"
+              />
+            </div>
+
+            <div
+              class="rounded-md border border-default bg-elevated/20 px-3 py-2 text-sm text-default"
+            >
+              <div class="mb-2 flex items-center gap-2 font-medium text-highlighted">
+                <UIcon name="i-lucide-server" class="size-4 text-toned" />
+                <span>Has metadata from</span>
+              </div>
+
+              <div class="flex flex-wrap gap-2">
+                <NuxtLink
+                  v-for="backend in item.reported_by"
+                  :key="`${item.id}-rb-${backend}`"
+                  :to="`/backend/${backend}`"
+                  class="inline-flex items-center gap-1.5 rounded-md border border-default bg-default/60 px-2.5 py-1 text-xs font-medium text-default"
+                >
+                  <UIcon name="i-lucide-server" class="size-3.5" />
+                  {{ backend }}
+                </NuxtLink>
+
+                <NuxtLink
+                  v-for="backend in item.not_reported_by"
+                  :key="`${item.id}-nrb-${backend}`"
+                  :to="`/backend/${backend}`"
+                  class="inline-flex items-center gap-1.5 rounded-md border border-error/30 bg-error/10 px-2.5 py-1 text-xs font-medium text-error"
+                >
+                  <UIcon name="i-lucide-circle-alert" class="size-3.5" />
+                  {{ backend }}
+                </NuxtLink>
+              </div>
+            </div>
+          </div>
+
+          <template #footer>
+            <div class="grid gap-2 sm:grid-cols-2">
+              <div
+                class="flex items-center justify-center gap-2 rounded-md border border-default bg-elevated/40 px-3 py-2 text-sm text-default"
+              >
+                <UIcon
+                  :name="item.watched ? 'i-lucide-eye' : 'i-lucide-eye-off'"
+                  class="size-4 text-toned"
+                />
+                <span :class="item.watched ? 'text-success' : 'text-error'">
+                  {{ item.watched ? 'Played' : 'Unplayed' }}
+                </span>
+              </div>
+
+              <div
+                class="flex items-center justify-center gap-2 rounded-md border border-default bg-elevated/40 px-3 py-2 text-sm text-default"
+              >
+                <UIcon name="i-lucide-calendar" class="size-4 text-toned" />
+                <UTooltip
+                  :text="`Record updated at: ${moment.unix(item.updated_at).format(TOOLTIP_DATE_FORMAT)}`"
+                >
+                  <span class="cursor-help">{{ moment.unix(item.updated_at).fromNow() }}</span>
+                </UTooltip>
+              </div>
+            </div>
           </template>
-        </div>
-
-        <div class="column is-12">
-          <Message
-            message_class="has-background-info-90 has-text-dark"
-            :toggle="show_page_tips"
-            @toggle="show_page_tips = !show_page_tips"
-            :use-toggle="true"
-            title="Tips"
-            icon="fas fa-info-circle"
-          >
-            <ul>
-              <li>
-                This checker will only works
-                <b>if your media servers are actually using same file paths</b>.
-              </li>
-              <li>
-                If you see multi-episode records, that mean your metadata need to be forcibly
-                updated. Go to backends page and select the <code>9th</code> option to force
-                metadata update for that backend.
-              </li>
-              <li>
-                The initial request is quite slow as we traverse the entire database looking for
-                duplicate file references. Once the initial request is done, the subsequent requests
-                will be much faster as we cache the results. To force cache invalidation, you have
-                to click on the reload button.
-              </li>
-            </ul>
-          </Message>
-        </div>
-      </div>
+        </UCard>
+      </Lazy>
     </div>
+
+    <UCard class="border border-default/70 shadow-sm" :ui="tipsCardUi">
+      <template #header>
+        <button
+          type="button"
+          class="flex w-full items-center justify-between gap-3 text-left"
+          @click="show_page_tips = !show_page_tips"
+        >
+          <span class="inline-flex items-center gap-2 text-sm font-semibold text-highlighted">
+            <UIcon name="i-lucide-info" class="size-4 text-toned" />
+            <span>Tips</span>
+          </span>
+
+          <span class="inline-flex items-center gap-1 text-xs font-medium text-toned">
+            <UIcon
+              :name="show_page_tips ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+              class="size-4"
+            />
+            <span>{{ show_page_tips ? 'Hide' : 'Show' }}</span>
+          </span>
+        </button>
+      </template>
+
+      <ul v-if="show_page_tips" class="list-disc space-y-2 pl-5 text-sm leading-6 text-default">
+        <li>
+          This checker will only works
+          <b>if your media servers are actually using same file paths</b>.
+        </li>
+        <li>
+          If you see multi-episode records, that mean your metadata need to be forcibly updated. Go
+          to backends page and select the <code>9th</code> option to force metadata update for that
+          backend.
+        </li>
+        <li>
+          The initial request is quite slow as we traverse the entire database looking for duplicate
+          file references. Once the initial request is done, the subsequent requests will be much
+          faster as we cache the results. To force cache invalidation, you have to click on the
+          reload button.
+        </li>
+      </ul>
+    </UCard>
   </div>
 </template>
 
@@ -408,19 +389,19 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useHead, useRoute, useRouter } from '#app';
 import { useMediaQuery, useStorage } from '@vueuse/core';
 import moment from 'moment';
-import Message from '~/components/Message.vue';
 import Lazy from '~/components/Lazy.vue';
 import FloatingImage from '~/components/FloatingImage.vue';
 import FileDiff from '~/components/FileDiff.vue';
 import Popover from '~/components/Popover.vue';
 import DuplicateRecordList from '~/components/DuplicateRecordList.vue';
+import Pager from '~/components/Pager.vue';
 import { NuxtLink } from '#components';
 import { useDialog } from '~/composables/useDialog';
+import { requireTopLevelPageShell } from '~/utils/topLevelNavigation';
 import {
   awaitElement,
   copyText,
   makeName,
-  makePagination,
   makeSearchLink,
   notification,
   parse_api_response,
@@ -435,10 +416,10 @@ import type {
   JsonObject,
 } from '~/types';
 
+const pageShell = requireTopLevelPageShell('duplicate');
+
 type DuplicateItemWithUI = HistoryItem & {
-  /** UI state: whether title is expanded for display */
   expand_title?: boolean;
-  /** UI state: whether path is expanded for display */
   expand_path?: boolean;
 };
 
@@ -459,6 +440,17 @@ const last_page = computed<number>(() => Math.ceil(total.value / perpage.value))
 const isLoading = ref<boolean>(false);
 const filter = ref<string>(String(route.query.filter || ''));
 const showFilter = ref<boolean>(!!filter.value);
+
+const itemCardUi = {
+  header: 'p-4',
+  body: 'px-4 pb-4 pt-0',
+  footer: 'border-t border-default px-4 py-4',
+};
+
+const tipsCardUi = {
+  header: 'p-4',
+  body: 'px-4 pb-4 pt-0',
+};
 
 const toggleFilter = (): void => {
   showFilter.value = !showFilter.value;
@@ -513,8 +505,6 @@ const getFileDiffData = (item: DuplicateItemWithUI): Array<FileDiffInput> => {
   }
 
   const diffItems: Array<FileDiffInput> = [];
-
-  // Add the reference file first
   const referenceBackends = fileGroups[referenceFile] || [];
   const referenceBackendName =
     referenceBackends.length > 1 ? referenceBackends.sort().join(', ') : referenceBackends[0] || '';
@@ -524,7 +514,6 @@ const getFileDiffData = (item: DuplicateItemWithUI): Array<FileDiffInput> => {
     file: referenceFile,
   });
 
-  // Add only the backends that have different file paths from reference
   for (const [file, backends] of Object.entries(fileGroups)) {
     if (file !== referenceFile) {
       const mergedBackendName =
@@ -537,41 +526,6 @@ const getFileDiffData = (item: DuplicateItemWithUI): Array<FileDiffInput> => {
   }
 
   return diffItems;
-};
-
-const hasUniqueFilePath = (item: DuplicateItemWithUI, targetBackend: string): boolean => {
-  if (!item?.metadata) {
-    return false;
-  }
-
-  const reportedBackends = Object.keys(item.metadata).filter(
-    (bName) => item.metadata[bName as keyof typeof item.metadata],
-  );
-  if (reportedBackends.length <= 1) {
-    return false;
-  }
-
-  const targetMetadata = item.metadata[targetBackend as keyof typeof item.metadata];
-  const targetFile = targetMetadata?.path || '';
-
-  if (!targetFile) {
-    return false;
-  }
-
-  let backendsWithSameFile = 0;
-  for (const bName of Object.keys(item.metadata)) {
-    const bNameTyped = bName as keyof typeof item.metadata;
-    if (!item.metadata[bNameTyped]) {
-      continue;
-    }
-
-    const file = item.metadata[bNameTyped]?.path || '';
-    if (file === targetFile) {
-      backendsWithSameFile++;
-    }
-  }
-
-  return 1 === backendsWithSameFile;
 };
 
 const loadContent = async (
@@ -666,14 +620,6 @@ const filteredRows = (items: Array<DuplicateItemWithUI>): Array<DuplicateItemWit
 
 const filteredItems = computed(() => filteredRows(items.value as Array<DuplicateItemWithUI>));
 
-const filterItem = (item: DuplicateItemWithUI): boolean => {
-  if (!filter.value || !item) {
-    return true;
-  }
-
-  return stringifyItem(item).includes(filter.value.toLowerCase());
-};
-
 const stringifyItem = (item: DuplicateItemWithUI): string => {
   return JSON.stringify(item).toLowerCase();
 };
@@ -725,7 +671,7 @@ const stateCallBack = async (e: PopStateEvent): Promise<void> => {
 const deleteRecords = async (): Promise<void> => {
   const { status: confirmStatus } = await useDialog().confirmDialog({
     message: `Delete '${total.value}' items?`,
-    confirmColor: 'is-danger',
+    confirmColor: 'error',
   });
 
   if (true !== confirmStatus) {

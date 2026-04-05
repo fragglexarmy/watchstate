@@ -10,7 +10,7 @@ export default function useEventsStats(only: Array<keyof EventsStats> = []) {
   const stats = ref<EventsStats>({ pending: 0, running: 0, completed: 0, failed: 0, cancelled: 0 });
   const loading = ref<boolean>(true);
   const intervalRef = ref<ReturnType<typeof setInterval> | null>(null);
-  const frequency = 15000;
+  const frequency = 60000;
 
   const load = async (): Promise<void> => {
     try {

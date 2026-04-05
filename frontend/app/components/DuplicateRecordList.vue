@@ -1,59 +1,69 @@
 <template>
-  <div class="p-3" style="min-width: 260px; max-width: 320px">
-    <div v-if="isLoading" class="is-flex is-align-items-center is-size-7 has-text-weight-medium">
-      <span class="icon has-text-info mr-2"><i class="fas fa-spinner fa-spin" /></span>
+  <div class="w-[320px] max-w-[90vw] p-3">
+    <div v-if="isLoading" class="flex items-center gap-2 text-sm font-medium text-default">
+      <UIcon name="i-lucide-loader-circle" class="size-4 animate-spin text-info" />
       <span>Loading records...</span>
     </div>
 
-    <div v-else-if="errorMessage" class="notification is-danger is-light is-size-7">
-      <span class="icon-text">
-        <span class="icon has-text-danger"><i class="fas fa-exclamation-triangle" /></span>
-        <span>{{ errorMessage }}</span>
-      </span>
-    </div>
+    <UAlert
+      v-else-if="errorMessage"
+      color="error"
+      variant="soft"
+      icon="i-lucide-triangle-alert"
+      :description="errorMessage"
+    />
 
-    <div v-else-if="0 === records.length" class="notification is-info is-light is-size-7">
-      <span class="icon-text">
-        <span class="icon has-text-info"><i class="fas fa-info-circle" /></span>
-        <span>No other records reference this file.</span>
-      </span>
-    </div>
+    <UAlert
+      v-else-if="0 === records.length"
+      color="info"
+      variant="soft"
+      icon="i-lucide-info"
+      description="No other records reference this file."
+    />
 
-    <div v-else>
-      <h2 class="is-size-6 has-text-weight-semibold mb-3">
-        <span class="icon"><i class="fas fa-copy" /></span>
-        Duplicate File references.
-      </h2>
-      <div v-for="(record, index) in records" :key="record.id" class="py-2">
-        <div class="level is-mobile mb-1">
-          <div class="level-left">
-            <div class="level-item">
-              <NuxtLink :to="`/backend/${record.via}`" class="is-small tag is-info is-small">
-                <span class="icon"><i class="fas fa-server" /></span>
-                {{ record.via }}
-              </NuxtLink>
+    <div v-else class="space-y-3">
+      <div class="flex items-center gap-2 text-sm font-semibold text-highlighted">
+        <UIcon name="i-lucide-copy" class="size-4" />
+        <span>Duplicate file references</span>
+      </div>
+
+      <div class="space-y-2">
+        <div
+          v-for="(record, index) in records"
+          :key="record.id"
+          class="space-y-2 rounded-md border border-default bg-default/80 p-3"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <NuxtLink
+              :to="`/backend/${record.via}`"
+              class="inline-flex items-center gap-1 rounded-md border border-info/30 bg-info/10 px-2.5 py-1 text-xs font-medium text-info"
+            >
+              <UIcon name="i-lucide-server" class="size-3.5" />
+              <span>{{ record.via }}</span>
+            </NuxtLink>
+
+            <div v-if="record.updated" class="inline-flex items-center gap-1 text-xs text-toned">
+              <UIcon name="i-lucide-clock-3" class="size-3.5" />
+              <span>{{ moment.unix(record.updated).fromNow() }}</span>
             </div>
           </div>
-          <div class="level-right" v-if="record.updated">
-            <div class="level-item has-text-grey-light is-size-7 is-flex is-align-items-center">
-              <span class="icon is-small"><i class="fas fa-clock" /></span>
-              <span class="ml-1">{{ moment.unix(record.updated).fromNow() }}</span>
-            </div>
-          </div>
-        </div>
-        <p class="is-size-7 mb-0">
-          <NuxtLink :to="`/history/${record.id}`">
+
+          <NuxtLink
+            :to="`/history/${record.id}`"
+            class="block text-sm font-medium text-default hover:text-primary"
+          >
             {{ record.full_title || makeName(record as unknown as JsonObject) }}
           </NuxtLink>
-        </p>
-        <hr v-if="index < records.length - 1" class="my-2" />
+
+          <USeparator v-if="index < records.length - 1" />
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import moment from 'moment';
 import { NuxtLink } from '#components';
 import { makeName, parse_api_response, request } from '~/utils';

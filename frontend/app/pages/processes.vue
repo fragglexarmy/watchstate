@@ -1,123 +1,112 @@
 <template>
-  <div>
-    <div class="columns is-multiline">
-      <div class="column is-12 is-clearfix is-unselectable">
-        <span class="title is-4">
-          <span class="icon"><i class="fas fa-microchip" /></span>
-          Processes
-        </span>
-        <div class="is-pulled-right">
-          <div class="field is-grouped">
-            <div class="control has-icons-left" v-if="showFilter">
-              <input
-                type="search"
-                v-model.lazy="filter"
-                class="input"
-                id="filter"
-                placeholder="Filter displayed results."
-              />
-              <span class="icon is-left">
-                <i class="fas fa-filter"></i>
-              </span>
-            </div>
-            <div class="control">
-              <button class="button is-danger is-light" @click="toggleFilter">
-                <span class="icon"><i class="fas fa-filter"></i></span>
-              </button>
-            </div>
-            <p class="control">
-              <button
-                class="button is-info"
-                @click="loadContent"
-                :disabled="isLoading"
-                :class="{ 'is-loading': isLoading }"
-              >
-                <span class="icon"><i class="fas fa-sync" /></span>
-              </button>
-            </p>
-          </div>
-        </div>
-        <div class="is-hidden-mobile">
-          <span class="subtitle">
-            This page gives you overview of all the processes that are currently running on the
-            system/container.
-          </span>
-        </div>
-      </div>
-
-      <div class="column is-12" v-if="items.length < 1 || filteredRows(items).length < 1">
-        <Message
-          v-if="isLoading"
-          message_class="has-background-info-90 has-text-dark"
-          title="Loading"
-          icon="fas fa-spinner fa-spin"
-          message="Loading data. Please wait..."
-        />
-        <Message
-          v-else
-          class="has-background-warning-80 has-text-dark"
-          title="Warning"
-          icon="fas fa-exclamation-triangle"
-          :use-close="true"
-          @close="filter = ''"
+  <main class="w-full min-w-0 max-w-full space-y-4">
+    <div class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+      <div class="space-y-1">
+        <div
+          class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-toned"
         >
-          <div>
-            <span class="icon" v-if="filter"><i class="fas fa-filter" /></span>
-            No items found.
-            <span v-if="filter"
-              >For query: <code class="is-underlined is-bold" v-text="filter"
-            /></span>
-          </div>
-        </Message>
+          <UIcon :name="pageShell.icon" class="size-4" />
+          <span>{{ pageShell.sectionLabel }}</span>
+          <span>/</span>
+          <span>{{ pageShell.pageLabel }}</span>
+        </div>
+
+        <div>
+          <p class="mt-1 text-sm text-toned">
+            This page gives you overview of all the processes that are currently running.
+          </p>
+        </div>
       </div>
 
-      <div v-else-if="items" class="column is-12">
-        <div class="table-container" style="max-height: 70vh; overflow-y: auto">
-          <table class="table is-fullwidth is-hoverable is-striped is-bordered">
-            <thead>
-              <tr>
-                <th colspan="2" class="has-text-centered">PID</th>
-                <th>Memory</th>
-                <th>CPU</th>
-                <th>Time</th>
-                <th>Command</th>
-              </tr>
-            </thead>
-            <tbody>
-              <template v-for="item in items" :key="item.pid">
-                <tr v-if="filterItem(item)">
-                  <td class="has-text-centered is-vcentered">
-                    <button
-                      class="button is-danger is-small"
-                      @click="killProcess(item)"
-                      :disabled="'Z' === item.stat"
-                    >
-                      <span class="icon"><i class="fas fa-trash" /></span>
-                    </button>
-                  </td>
-                  <td class="is-vcentered">{{ item.pid }}</td>
-                  <td class="is-vcentered">{{ item.mem }}</td>
-                  <td class="is-vcentered">{{ item.cpu }}</td>
-                  <td class="is-vcentered">{{ item.time }}</td>
-                  <td class="is-vcentered">{{ item.command }}</td>
-                </tr>
-              </template>
-            </tbody>
-          </table>
-        </div>
+      <div class="flex flex-wrap items-center justify-end gap-2">
+        <UInput
+          v-if="showFilter || filter"
+          id="filter"
+          v-model.lazy="filter"
+          type="search"
+          placeholder="Filter displayed results."
+          icon="i-lucide-filter"
+          size="sm"
+          class="w-full sm:w-72"
+        />
+
+        <UButton
+          color="neutral"
+          :variant="showFilter ? 'soft' : 'outline'"
+          size="sm"
+          icon="i-lucide-filter"
+          @click="toggleFilter"
+        >
+          <span class="hidden sm:inline">Filter</span>
+        </UButton>
+
+        <UButton
+          color="neutral"
+          variant="outline"
+          size="sm"
+          icon="i-lucide-refresh-cw"
+          :loading="isLoading"
+          :disabled="isLoading"
+          @click="loadContent"
+        >
+          <span class="hidden sm:inline">Reload</span>
+        </UButton>
       </div>
     </div>
-  </div>
+
+    <UAlert
+      v-if="items.length < 1 || filteredItems.length < 1"
+      :color="isLoading ? 'info' : 'warning'"
+      variant="soft"
+      :icon="isLoading ? 'i-lucide-loader-circle' : 'i-lucide-triangle-alert'"
+      :title="isLoading ? 'Loading' : 'Warning'"
+      :description="
+        isLoading
+          ? 'Loading data. Please wait...'
+          : `No items found${filter ? ` for query: ${filter}` : '.'}`
+      "
+      :ui="isLoading ? { icon: 'animate-spin' } : undefined"
+    />
+
+    <UCard v-else :ui="tableCardUi" class="border border-default/70 bg-default/90 shadow-sm">
+      <UTable
+        :data="filteredItems"
+        :columns="columns"
+        :loading="isLoading"
+        sticky="header"
+        :ui="tableUi"
+      >
+        <template #action-cell="{ row }">
+          <div class="text-center">
+            <UTooltip text="Stop process">
+              <UButton
+                color="error"
+                variant="soft"
+                size="xs"
+                icon="i-lucide-x"
+                :disabled="'Z' === row.original.stat"
+                @click="killProcess(row.original)"
+              />
+            </UTooltip>
+          </div>
+        </template>
+      </UTable>
+    </UCard>
+  </main>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useHead, useRoute } from '#app';
-import Message from '~/components/Message.vue';
-import { request, awaitElement, notification } from '~/utils';
+import type { TableColumn } from '@nuxt/ui';
+import { UButton, UTooltip } from '#components';
 import { useDialog } from '~/composables/useDialog';
+import { requireTopLevelPageShell } from '~/utils/topLevelNavigation';
+import { awaitElement, notification, parse_api_response, request } from '~/utils';
 
 useHead({ title: 'Processes' });
+
+const pageShell = requireTopLevelPageShell('processes');
 
 interface ProcessItem {
   user: string;
@@ -133,27 +122,109 @@ interface ProcessItem {
   command: string;
 }
 
+const route = useRoute();
+
 const items = ref<Array<ProcessItem>>([]);
 const isLoading = ref<boolean>(false);
-const filter = ref<string>(String(useRoute().query.filter ?? ''));
+const filter = ref<string>(String(route.query.filter ?? ''));
 const showFilter = ref<boolean>(!!filter.value);
+
+const tableCardUi = {
+  body: 'p-0',
+};
+
+const tableUi = {
+  root: 'max-h-[70vh] overflow-auto',
+  th: 'px-3 py-2 text-sm text-left font-medium text-toned',
+  td: 'px-3 py-2 text-sm text-default align-top',
+};
+
+const normalizeProcessValue = (value: unknown): string => {
+  if (typeof value === 'number') {
+    return value.toString();
+  }
+
+  return typeof value === 'string' ? value.toLowerCase() : '';
+};
+
+const filterItem = (item: ProcessItem): boolean => {
+  const search = filter.value.trim().toLowerCase();
+
+  if (!search) {
+    return true;
+  }
+
+  return Object.values(item).some((value) => normalizeProcessValue(value).includes(search));
+};
+
+const filteredItems = computed<Array<ProcessItem>>(() =>
+  items.value.filter((item) => filterItem(item)),
+);
+
+const columns: Array<TableColumn<ProcessItem>> = [
+  {
+    id: 'action',
+    header: 'Action',
+    meta: {
+      class: {
+        th: 'w-20 text-center',
+        td: 'w-20 text-center',
+      },
+    },
+  },
+  {
+    accessorKey: 'pid',
+    header: 'PID',
+    meta: {
+      class: {
+        td: 'font-mono text-xs text-default',
+      },
+    },
+  },
+  {
+    accessorKey: 'mem',
+    header: 'Memory',
+  },
+  {
+    accessorKey: 'cpu',
+    header: 'CPU',
+  },
+  {
+    accessorKey: 'time',
+    header: 'Time',
+  },
+  {
+    accessorKey: 'command',
+    header: 'Command',
+    meta: {
+      class: {
+        td: 'font-mono text-xs text-default whitespace-normal break-all',
+      },
+    },
+  },
+];
 
 const loadContent = async (): Promise<void> => {
   if (isLoading.value) {
     return;
   }
+
   isLoading.value = true;
+
   try {
     const response = await request('/system/processes');
-    const json = await response.json();
-    if (!response.ok) {
+    const json = await parse_api_response<{ processes: Array<ProcessItem> }>(response);
+
+    if ('error' in json) {
       notification('error', 'Error', `${json.error.code}: ${json.error.message}`);
       return;
     }
+
     if (!('processes' in json)) {
       notification('error', 'Error', 'Invalid response from the server.');
       return;
     }
+
     items.value = json.processes;
   } finally {
     isLoading.value = false;
@@ -162,31 +233,13 @@ const loadContent = async (): Promise<void> => {
 
 const toggleFilter = (): void => {
   showFilter.value = !showFilter.value;
+
   if (!showFilter.value) {
     filter.value = '';
     return;
   }
+
   awaitElement('#filter', (_, elm) => (elm as HTMLInputElement).focus());
-};
-
-const filteredRows = (rows: Array<ProcessItem>): Array<ProcessItem> => {
-  if (!filter.value) {
-    return rows;
-  }
-  return rows.filter((i) =>
-    Object.values(i).some((v) =>
-      typeof v === 'string' ? v.toLowerCase().includes(filter.value.toLowerCase()) : false,
-    ),
-  );
-};
-
-const filterItem = (item: ProcessItem): boolean => {
-  if (!filter.value || !item) {
-    return true;
-  }
-  return Object.values(item).some((v) =>
-    typeof v === 'string' ? v.toLowerCase().includes(filter.value.toLowerCase()) : false,
-  );
 };
 
 const killProcess = async (item: ProcessItem): Promise<void> => {
@@ -194,13 +247,13 @@ const killProcess = async (item: ProcessItem): Promise<void> => {
     return;
   }
 
-  const { status: confirmStatus } = await useDialog().confirmDialog({
-    title: `Kill process`,
+  const { status } = await useDialog().confirmDialog({
+    title: 'Kill process',
     rawHTML: `Killing a process without knowing what it does can cause system instability. Are you sure you want to proceed?<br><br>PID: <code>${item.pid}: ${item.user}</code><br>Process: <code>${item.command}</code>`,
-    confirmColor: 'is-danger',
+    confirmColor: 'error',
   });
 
-  if (true !== confirmStatus) {
+  if (true !== status) {
     return;
   }
 
@@ -208,17 +261,19 @@ const killProcess = async (item: ProcessItem): Promise<void> => {
 
   try {
     const response = await request(`/system/processes/${item.pid}`, { method: 'DELETE' });
-    if (!response.ok) {
-      const json = await response.json();
+    const json = await parse_api_response<Record<string, never>>(response);
+
+    if ('error' in json) {
       notification('error', 'Error', `${json.error.code}: ${json.error.message}`);
       return;
     }
+
     notification('success', 'Success', `Successfully killed #${item.pid}.`);
-    items.value = items.value.filter((item) => item.pid !== item.pid);
+    items.value = items.value.filter((entry) => entry.pid !== item.pid);
   } finally {
     isLoading.value = false;
   }
 };
 
-onMounted(() => loadContent());
+onMounted(() => void loadContent());
 </script>

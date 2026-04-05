@@ -1,260 +1,295 @@
-<style scoped>
-.text-container {
-  max-height: 50vh;
-  overflow-y: auto;
-}
-</style>
 <template>
-  <div>
-    <div class="columns is-multiline">
-      <div class="column is-12 is-clearfix is-unselectable">
-        <div class="is-pulled-right">
-          <div class="field is-grouped">
-            <div class="control has-icons-left" v-if="toggleFilter">
-              <input
-                type="search"
-                v-model.lazy="query"
-                class="input"
-                id="filter"
-                placeholder="Filter"
-              />
-              <span class="icon is-left"><i class="fas fa-filter" /></span>
-            </div>
-
-            <div class="control">
-              <button
-                class="button is-danger is-light"
-                @click="toggleFilter = !toggleFilter"
-                :disabled="!item?.logs || item.logs.length < 1"
-                v-tooltip.bottom="'Filter event logs.'"
-              >
-                <span class="icon"><i class="fas fa-filter" /></span>
-              </button>
-            </div>
-
-            <p class="control">
-              <button
-                class="button is-warning"
-                @click="resetEvent(0 === item.status ? 4 : 0)"
-                :disabled="1 === item.status"
-                v-tooltip.bottom="'Reset event.'"
-              >
-                <span class="icon">
-                  <i
-                    class="fas"
-                    :class="{
-                      'fa-trash-arrow-up': 0 !== item.status,
-                      'fa-power-off': 0 === item.status,
-                    }"
-                  ></i>
-                </span>
-              </button>
-            </p>
-            <p class="control">
-              <button
-                class="button is-danger"
-                @click="deleteItem"
-                :disabled="1 === item.status"
-                v-tooltip.bottom="'Delete event.'"
-              >
-                <span class="icon"><i class="fas fa-trash" /></span>
-              </button>
-            </p>
-            <p class="control">
-              <button
-                class="button is-purple"
-                @click="wrapLines = !wrapLines"
-                v-tooltip.bottom="'Toggle wrap line'"
-              >
-                <span class="icon"><i class="fas fa-text-width" /></span>
-              </button>
-            </p>
-            <p class="control">
-              <button
-                class="button"
-                @click="() => copyText(JSON.stringify(item, null, 2))"
-                :disabled="isLoading"
-                v-tooltip.bottom="'Copy event.'"
-              >
-                <span class="icon"><i class="fas fa-copy" /></span>
-              </button>
-            </p>
-            <p class="control">
-              <button
-                class="button is-info"
-                @click="loadContent()"
-                :class="{ 'is-loading': isLoading }"
-                :disabled="isLoading"
-                v-tooltip.bottom="'Reload event data.'"
-              >
-                <span class="icon"><i class="fas fa-sync" /></span>
-              </button>
-            </p>
-          </div>
-        </div>
-        <div class="is-hidden-mobile">
-          <span class="subtitle"></span>
-        </div>
+  <div class="space-y-4">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div class="min-w-0 flex-1">
+        <p class="text-sm text-toned"></p>
       </div>
 
-      <div class="column is-12" v-if="isLoading && !item?.id">
-        <Message
-          v-if="isLoading"
-          message_class="has-background-info-90 has-text-dark"
-          title="Loading"
-          icon="fas fa-spinner fa-spin"
-          message="Loading data. Please wait..."
+      <div class="flex flex-wrap items-center gap-2">
+        <UInput
+          v-if="toggleFilter"
+          id="filter"
+          v-model="query"
+          type="search"
+          icon="i-lucide-filter"
+          size="sm"
+          placeholder="Filter"
         />
+
+        <UTooltip text="Filter event logs.">
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="sm"
+            icon="i-lucide-filter"
+            :disabled="!item?.logs || item.logs.length < 1"
+            @click="toggleFilter = !toggleFilter"
+          >
+            <span class="hidden sm:inline">Filter</span>
+          </UButton>
+        </UTooltip>
+
+        <UTooltip text="Reset event.">
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="sm"
+            :icon="0 !== item.status ? 'i-lucide-rotate-ccw' : 'i-lucide-power'"
+            :disabled="1 === item.status"
+            @click="resetEvent(0 === item.status ? 4 : 0)"
+          >
+            <span class="hidden sm:inline">Reset</span>
+          </UButton>
+        </UTooltip>
+
+        <UTooltip text="Delete event.">
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="sm"
+            icon="i-lucide-trash-2"
+            :disabled="1 === item.status"
+            @click="deleteItem"
+          >
+            <span class="hidden sm:inline">Delete</span>
+          </UButton>
+        </UTooltip>
+
+        <UTooltip :text="wrapLines ? 'Disable wrap lines' : 'Enable wrap lines'">
+          <UButton
+            color="neutral"
+            :variant="wrapLines ? 'soft' : 'outline'"
+            size="sm"
+            icon="i-lucide-wrap-text"
+            @click="wrapLines = !wrapLines"
+          >
+            <span class="hidden sm:inline">Wrap Lines</span>
+          </UButton>
+        </UTooltip>
+
+        <UTooltip text="Copy event.">
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="sm"
+            icon="i-lucide-copy"
+            :disabled="isLoading"
+            @click="() => copyText(JSON.stringify(item, null, 2))"
+          >
+            <span class="hidden sm:inline">Copy Event</span>
+          </UButton>
+        </UTooltip>
+
+        <UTooltip text="Reload event data.">
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="sm"
+            icon="i-lucide-refresh-cw"
+            :loading="isLoading"
+            :disabled="isLoading"
+            @click="loadContent"
+          >
+            <span class="hidden sm:inline">Reload</span>
+          </UButton>
+        </UTooltip>
       </div>
     </div>
 
-    <div v-if="!isLoading || item?.id" class="columns is-multiline">
-      <div class="column is-12">
-        <div class="notification">
-          <p class="title is-5">
-            Event
-            <span class="tag is-info is-clickable" @click="copyText(item.id)">{{
-              item.event
-            }}</span>
-            <template v-if="item.reference">
-              with reference <span class="tag is-info is-light">{{ item.reference }}</span>
-            </template>
-            was created
-            <span class="tag is-warning">
-              <time
-                class="has-tooltip"
-                v-tooltip="moment(item.created_at).format(TOOLTIP_DATE_FORMAT)"
-              >
-                {{ moment(item.created_at).fromNow() }}
-              </time> </span
-            >, and last updated
-            <span class="tag is-danger">
-              <span v-if="!item.updated_at">not started</span>
-              <time
-                v-else
-                class="has-tooltip"
-                v-tooltip="moment(item.updated_at).format(TOOLTIP_DATE_FORMAT)"
-              >
-                {{ moment(item.updated_at).fromNow() }}
-              </time> </span
-            >, with status of
-            <span class="tag" :class="getEventStatusClass(item.status)"
-              >{{ item.status }}: {{ item.status_name }}</span
-            >.
-          </p>
-        </div>
-      </div>
+    <UAlert
+      v-if="isLoading && !item?.id"
+      color="info"
+      variant="soft"
+      icon="i-lucide-loader-circle"
+      title="Loading"
+      description="Loading data. Please wait..."
+      :ui="{ icon: 'animate-spin' }"
+    />
 
-      <div class="column is-12" v-if="item?.event_data && Object.keys(item.event_data).length > 0">
-        <h2 class="title is-4 is-clickable is-unselectable" @click="toggleData = !toggleData">
-          <span class="icon">
-            <i
-              class="fas"
-              :class="{ 'fa-arrow-down': !toggleData, 'fa-arrow-up': toggleData }"
-            /> </span
-          >&nbsp;
-          <span>{{ !toggleData ? 'Show' : 'Hide' }} attached data</span>
-        </h2>
-        <div v-if="toggleData" class="is-relative">
+    <template v-if="!isLoading || item?.id">
+      <UCard class="border border-default/70 shadow-sm">
+        <div class="flex flex-wrap items-center gap-2 text-sm text-default">
+          <span>Event</span>
+          <UBadge color="info" variant="soft">{{ item.event }}</UBadge>
+
+          <template v-if="item.reference">
+            <span>with reference</span>
+            <UBadge color="neutral" variant="outline">{{ item.reference }}</UBadge>
+          </template>
+
+          <span>was created</span>
+          <UTooltip :text="moment(item.created_at).format(TOOLTIP_DATE_FORMAT)">
+            <UBadge color="warning" variant="soft">
+              {{ moment(item.created_at).fromNow() }}
+            </UBadge>
+          </UTooltip>
+
+          <span>and last updated</span>
+          <template v-if="!item.updated_at">
+            <UBadge color="neutral" variant="outline">not started</UBadge>
+          </template>
+          <template v-else>
+            <UTooltip :text="moment(item.updated_at).format(TOOLTIP_DATE_FORMAT)">
+              <UBadge color="error" variant="soft">
+                {{ moment(item.updated_at).fromNow() }}
+              </UBadge>
+            </UTooltip>
+          </template>
+
+          <span>with status of</span>
+          <UBadge :color="getEventStatusColor(item.status)">
+            <span class="inline-flex items-center gap-1">
+              <UIcon
+                :name="getEventStatusIcon(item.status)"
+                :class="getEventStatusIconClass(item.status)"
+              />
+              <span>{{ item.status }}: {{ item.status_name }}</span>
+            </span>
+          </UBadge>
+        </div>
+      </UCard>
+
+      <UCard
+        v-if="item?.event_data && Object.keys(item.event_data).length > 0"
+        class="border border-default/70 shadow-sm"
+        :ui="cardUi"
+      >
+        <template #header>
+          <button
+            type="button"
+            class="flex items-center gap-2 text-left text-sm font-semibold text-highlighted"
+            @click="toggleData = !toggleData"
+          >
+            <UIcon
+              :name="toggleData ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+              class="size-4 text-toned"
+            />
+            <span>{{ !toggleData ? 'Show' : 'Hide' }} attached data</span>
+          </button>
+        </template>
+
+        <div v-if="toggleData" class="relative">
           <code
-            class="text-container is-block p-4 is-terminal"
-            :class="{ 'is-pre': !wrapLines, 'is-pre-wrap': wrapLines }"
+            class="ws-terminal ws-terminal-panel ws-terminal-panel-lg"
+            :class="wrapLines ? 'whitespace-pre-wrap' : 'whitespace-pre'"
           >
             {{ JSON.stringify(item.event_data, null, 2) }}
           </code>
-          <button
-            class="button m-4"
-            v-tooltip="'Copy event data'"
-            @click="() => copyText(JSON.stringify(item.event_data, null, 2))"
-            style="position: absolute; top: 0; right: 0"
-          >
-            <span class="icon"><i class="fas fa-copy"></i></span>
-          </button>
+          <UTooltip text="Copy event data">
+            <UButton
+              color="neutral"
+              variant="soft"
+              size="sm"
+              icon="i-lucide-copy"
+              class="absolute right-3 top-3"
+              @click="() => copyText(JSON.stringify(item.event_data, null, 2))"
+            />
+          </UTooltip>
         </div>
-      </div>
+      </UCard>
 
-      <div class="column is-12" v-if="item?.logs && item.logs.length > 0">
-        <h2 class="title is-4 is-clickable is-unselectable" @click="toggleLogs = !toggleLogs">
-          <span class="icon">
-            <i
-              class="fas"
-              :class="{ 'fa-arrow-down': !toggleLogs, 'fa-arrow-up': toggleLogs }"
-            /> </span
-          >&nbsp;
-          <span>{{ !toggleLogs ? 'Show' : 'Hide' }} event logs</span>
-        </h2>
-        <div v-if="toggleLogs" class="is-relative">
+      <UCard
+        v-if="item?.logs && item.logs.length > 0"
+        class="border border-default/70 shadow-sm"
+        :ui="cardUi"
+      >
+        <template #header>
+          <button
+            type="button"
+            class="flex items-center gap-2 text-left text-sm font-semibold text-highlighted"
+            @click="toggleLogs = !toggleLogs"
+          >
+            <UIcon
+              :name="toggleLogs ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+              class="size-4 text-toned"
+            />
+            <span>{{ !toggleLogs ? 'Show' : 'Hide' }} event logs</span>
+          </button>
+        </template>
+
+        <div v-if="toggleLogs" class="relative">
           <code
-            class="is-block text-container p-4 is-terminal"
-            :class="{ 'is-pre': !wrapLines, 'is-pre-wrap': wrapLines }"
+            class="ws-terminal ws-terminal-panel ws-terminal-panel-lg"
+            :class="wrapLines ? 'whitespace-pre-wrap' : 'whitespace-pre'"
           >
             <span
-              class="is-block pt-1"
               v-for="(logLine, index) in filteredRows"
-              :key="'log_line-' + index"
+              :key="`log_line-${index}`"
+              class="block pt-1"
               v-text="logLine"
             />
           </code>
-          <button
-            class="button m-4"
-            v-tooltip="'Copy logs'"
-            @click="() => copyText(filteredRows.join('\n'))"
-            style="position: absolute; top: 0; right: 0"
-          >
-            <span class="icon"><i class="fas fa-copy"></i></span>
-          </button>
+          <UTooltip text="Copy logs">
+            <UButton
+              color="neutral"
+              variant="soft"
+              size="sm"
+              icon="i-lucide-copy"
+              class="absolute right-3 top-3"
+              @click="() => copyText(filteredRows.join('\n'))"
+            />
+          </UTooltip>
         </div>
-      </div>
+      </UCard>
 
-      <div class="column is-12" v-if="item?.options && Object.keys(item.options).length > 0">
-        <h2 class="title is-4 is-clickable is-unselectable" @click="toggleOptions = !toggleOptions">
-          <span class="icon">
-            <i
-              class="fas"
-              :class="{ 'fa-arrow-down': !toggleOptions, 'fa-arrow-up': toggleOptions }"
-            ></i> </span
-          >&nbsp;
-          <span>{{ !toggleOptions ? 'Show' : 'Hide' }} attached options</span>
-        </h2>
-        <div v-if="toggleOptions" class="is-relative">
+      <UCard
+        v-if="item?.options && Object.keys(item.options).length > 0"
+        class="border border-default/70 shadow-sm"
+        :ui="cardUi"
+      >
+        <template #header>
+          <button
+            type="button"
+            class="flex items-center gap-2 text-left text-sm font-semibold text-highlighted"
+            @click="toggleOptions = !toggleOptions"
+          >
+            <UIcon
+              :name="toggleOptions ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+              class="size-4 text-toned"
+            />
+            <span>{{ !toggleOptions ? 'Show' : 'Hide' }} attached options</span>
+          </button>
+        </template>
+
+        <div v-if="toggleOptions" class="relative">
           <code
-            class="is-block text-container p-4 is-terminal"
-            :class="{ 'is-pre': !wrapLines, 'is-pre-wrap': wrapLines }"
+            class="ws-terminal ws-terminal-panel ws-terminal-panel-lg"
+            :class="wrapLines ? 'whitespace-pre-wrap' : 'whitespace-pre'"
           >
             {{ JSON.stringify(item.options, null, 2) }}
           </code>
-          <button
-            class="button m-4"
-            v-tooltip="'Copy options'"
-            @click="() => copyText(JSON.stringify(item.options, null, 2))"
-            style="position: absolute; top: 0; right: 0"
-          >
-            <span class="icon"><i class="fas fa-copy"></i></span>
-          </button>
+          <UTooltip text="Copy options">
+            <UButton
+              color="neutral"
+              variant="soft"
+              size="sm"
+              icon="i-lucide-copy"
+              class="absolute right-3 top-3"
+              @click="() => copyText(JSON.stringify(item.options, null, 2))"
+            />
+          </UTooltip>
         </div>
-      </div>
-    </div>
+      </UCard>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
-import { useHead, createError } from '#app';
-import {
-  copyText,
-  disableOpacity,
-  enableOpacity,
-  notification,
-  parse_api_response,
-  TOOLTIP_DATE_FORMAT,
-  request,
-  makeEventName,
-  getEventStatusClass,
-} from '~/utils';
+import { computed, onMounted, ref, watch } from 'vue';
+import { createError, useHead } from '#app';
 import moment from 'moment';
 import { useStorage } from '@vueuse/core';
 import { useDialog } from '~/composables/useDialog';
 import type { EventsItem, GenericError } from '~/types';
+import {
+  copyText,
+  getEventStatusClass,
+  makeEventName,
+  notification,
+  parse_api_response,
+  request,
+  TOOLTIP_DATE_FORMAT,
+} from '~/utils';
 
 const emit = defineEmits<{
   closeOverlay: [];
@@ -274,6 +309,11 @@ const toggleData = useStorage<boolean>('events_toggle_data', true);
 const toggleOptions = useStorage<boolean>('events_toggle_options', true);
 const wrapLines = useStorage<boolean>('logs_wrap_lines', false);
 
+const cardUi = {
+  header: 'p-4',
+  body: 'px-4 pb-4 pt-0',
+};
+
 watch(toggleFilter, () => {
   if (!toggleFilter.value) {
     query.value = '';
@@ -284,11 +324,54 @@ const filteredRows = computed<Array<string>>(() => {
   if (!query.value) {
     return item.value.logs ?? [];
   }
+
   return item.value.logs?.filter((m) => m.toLowerCase().includes(query.value.toLowerCase())) ?? [];
 });
 
+const getEventStatusColor = (status: number) => {
+  const value = getEventStatusClass(status);
+
+  if (value.includes('danger')) {
+    return 'error';
+  }
+
+  if (value.includes('warning')) {
+    return 'warning';
+  }
+
+  if (value.includes('success')) {
+    return 'success';
+  }
+
+  if (value.includes('info')) {
+    return 'info';
+  }
+
+  return 'neutral';
+};
+
+const getEventStatusIcon = (status: number): string => {
+  switch (status) {
+    case 0:
+      return 'i-lucide-clock-3';
+    case 1:
+      return 'i-lucide-loader-circle';
+    case 2:
+      return 'i-lucide-circle-check';
+    case 3:
+      return 'i-lucide-circle-x';
+    case 4:
+      return 'i-lucide-ban';
+    default:
+      return 'i-lucide-circle-help';
+  }
+};
+
+const getEventStatusIconClass = (status: number): string => {
+  return 1 === status ? 'size-3.5 animate-spin' : 'size-3.5';
+};
+
 onMounted(async () => {
-  disableOpacity();
   if (!props.id) {
     throw createError({
       statusCode: 404,
@@ -297,8 +380,6 @@ onMounted(async () => {
   }
   return await loadContent();
 });
-
-onBeforeUnmount(async () => enableOpacity());
 
 const loadContent = async (): Promise<void> => {
   try {
@@ -325,11 +406,9 @@ const loadContent = async (): Promise<void> => {
       if (!timer.value) {
         timer.value = setInterval(async () => await loadContent(), 5000);
       }
-    } else {
-      if (timer.value) {
-        clearInterval(timer.value);
-        timer.value = null;
-      }
+    } else if (timer.value) {
+      clearInterval(timer.value);
+      timer.value = null;
     }
 
     item.value = json;
@@ -349,8 +428,7 @@ const deleteItem = async (): Promise<void> => emit('delete', item.value);
 const resetEvent = async (status: number = 0): Promise<void> => {
   const { status: confirmStatus } = await useDialog().confirmDialog({
     message: `Reset '${makeEventName(item.value.id)}'?`,
-    opacityControl: false,
-    confirmColor: 'is-warning',
+    confirmColor: 'warning',
   });
 
   if (true !== confirmStatus) {
@@ -361,7 +439,7 @@ const resetEvent = async (status: number = 0): Promise<void> => {
     const response = await request(`/system/events/${item.value.id}`, {
       method: 'PATCH',
       body: JSON.stringify({
-        status: status,
+        status,
         reset_logs: true,
       }),
     });

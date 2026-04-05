@@ -1,45 +1,79 @@
 <template>
-  <div class="columns is-multiline" v-if="url">
-    <div class="column is-12">
-      <Markdown :file="url" />
+  <main v-if="url" class="w-full min-w-0 max-w-full space-y-4">
+    <div class="space-y-1">
+      <div
+        class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-toned"
+      >
+        <UIcon :name="pageShell.icon" class="size-4" />
+        <span>{{ pageShell.sectionLabel }}</span>
+        <span class="text-toned">/</span>
+        <NuxtLink to="/help" class="hover:text-primary">{{ pageShell.pageLabel }}</NuxtLink>
+        <span class="text-toned">/</span>
+        <span class="truncate text-highlighted normal-case tracking-normal">{{ pageTitle }}</span>
+      </div>
     </div>
-  </div>
+
+    <Markdown :file="url" />
+  </main>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { useRoute, useHead, navigateTo } from '#app';
+import { computed, ref, watch } from 'vue';
+import { navigateTo, useHead, useRoute } from '#app';
+import { NuxtLink } from '#components';
 import Markdown from '~/components/Markdown.vue';
+import { requireTopLevelPageShell } from '~/utils/topLevelNavigation';
 
 const route = useRoute();
+const pageShell = requireTopLevelPageShell('help');
 const slug = ref<string>('');
 const url = ref<string>('');
 
-if (route.params.slug) {
-  if (Array.isArray(route.params.slug) && route.params.slug.length > 0) {
-    slug.value = route.params.slug.join('/');
-  } else if (typeof route.params.slug === 'string') {
-    slug.value = route.params.slug;
-  }
-}
+const pageTitle = computed<string>(() => {
+  const queryTitle = route.query.title;
 
-onMounted(async (): Promise<void> => {
-  const to_lower = String(slug.value).toLowerCase();
-  if (to_lower.includes('.md')) {
-    await navigateTo(to_lower.replace('.md', ''));
+  if ('string' === typeof queryTitle && queryTitle.length > 0) {
+    return queryTitle;
   }
 
-  const special: Array<string> = ['api', 'faq', 'readme', 'news'];
-
-  if (special.includes(to_lower)) {
-    url.value = '/guides/' + to_lower.toUpperCase() + '.md';
-    return;
-  }
-
-  url.value = '/guides/' + slug.value + '.md';
-
-  if (route.query.title) {
-    useHead({ title: `Guide - ${route.query.title}` });
-  }
+  return slug.value
+    .split('/')
+    .filter(Boolean)
+    .map((part) => part.replace(/-/g, ' '))
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' / ');
 });
+
+useHead({ title: computed(() => `Guide - ${pageTitle.value}`) });
+
+watch(
+  () => [route.params.slug, route.query.title],
+  async () => {
+    slug.value = '';
+
+    if (route.params.slug) {
+      if (Array.isArray(route.params.slug) && route.params.slug.length > 0) {
+        slug.value = route.params.slug.join('/');
+      } else if ('string' === typeof route.params.slug) {
+        slug.value = route.params.slug;
+      }
+    }
+
+    const toLower = String(slug.value).toLowerCase();
+
+    if (toLower.includes('.md')) {
+      await navigateTo(toLower.replace('.md', ''));
+      return;
+    }
+
+    const special: Array<string> = ['api', 'faq', 'readme', 'news'];
+
+    if (special.includes(toLower)) {
+      url.value = '/guides/' + toLower.toUpperCase() + '.md';
+    } else {
+      url.value = '/guides/' + slug.value + '.md';
+    }
+  },
+  { immediate: true },
+);
 </script>

@@ -1,130 +1,181 @@
 <template>
-  <div>
-    <div class="columns is-multiline">
-      <div class="column is-12 is-clearfix is-unselectable">
-        <span class="title is-4">
-          <span class="icon"><i class="fas fa-redo"></i></span>
-          System reset
-        </span>
-
-        <div class="is-pulled-right">
-          <div class="field is-grouped"></div>
-        </div>
-
-        <div class="is-hidden-mobile">
-          <span class="subtitle">Reset the system state.</span>
-        </div>
+  <main class="w-full min-w-0 max-w-full space-y-4">
+    <div class="space-y-1">
+      <div
+        class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-toned"
+      >
+        <UIcon :name="pageShell.icon" class="size-4" />
+        <span>{{ pageShell.sectionLabel }}</span>
+        <span>/</span>
+        <span>{{ pageShell.pageLabel }}</span>
       </div>
-
-      <div class="column is-12" v-if="error">
-        <Message
-          message_class="is-background-warning-80 has-text-dark"
-          title="Error"
-          icon="fas fa-exclamation-circle"
-          :use-close="true"
-          @close="error = null"
-          :message="`${error?.error.code}: ${error?.error.message}`"
-        />
-      </div>
-
-      <template v-if="isResetting">
-        <div class="column is-12">
-          <Message
-            message_class="has-background-warning-90 has-text-dark"
-            title="Working..."
-            icon="fas fa-spin fa-exclamation-triangle"
-            message="Reset in progress, Please wait..."
-          />
-        </div>
-      </template>
-      <template v-else>
-        <div class="column is-12">
-          <Message
-            message_class="is-background-warning-80 has-text-dark"
-            title="Important information"
-            icon="fas fa-exclamation-triangle"
-          >
-            <p>
-              Are you sure you want to reset
-              <span class="has-text-danger is-bold is-underlined">all users</span> local state?
-            </p>
-
-            <h5 class="has-text-dark">This operation will do the following:</h5>
-
-            <ul>
-              <li>Remove all data from local databases.</li>
-              <li>Flush to cached data.</li>
-              <li>Reset all users backends last sync date.</li>
-            </ul>
-
-            <p class="is-underlined is-bold">
-              There is no undo operation. This action is irreversible.
-            </p>
-          </Message>
-        </div>
-
-        <div class="column is-12">
-          <Confirm
-            @confirmed="resetSystem()"
-            :title="`Perform local state reset for all users`"
-            title-icon="fa-redo"
-            warning="Depending on your hardware speed, the reset operation might take long time. do not interrupt the process, or close the browser tab. You will be redirected to the index page automatically once the process is complete. Otherwise, you might end up with a corrupted database and/or state."
-          />
-        </div>
-      </template>
     </div>
-  </div>
+
+    <UAlert
+      v-if="error"
+      color="error"
+      variant="soft"
+      icon="i-lucide-triangle-alert"
+      title="Error"
+      :description="`${error.error.code}: ${error.error.message}`"
+      :close="{
+        onClick: () => {
+          error = null;
+        },
+      }"
+    />
+
+    <UAlert
+      v-if="isResetting"
+      color="warning"
+      variant="soft"
+      icon="i-lucide-loader-circle"
+      title="Reset in progress"
+      description="Removing local state and clearing sync markers. Please wait..."
+      :ui="{ icon: 'animate-spin' }"
+    />
+
+    <UCard class="border border-default/70 shadow-sm" :ui="panelCardUi">
+      <template #header>
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div class="min-w-0 flex-1 space-y-2">
+            <div class="flex flex-wrap items-center gap-2">
+              <h1 class="text-base font-semibold text-highlighted">Local State Reset</h1>
+              <UBadge color="error" variant="soft">Irreversible</UBadge>
+              <UBadge color="warning" variant="soft">All users</UBadge>
+            </div>
+
+            <p class="text-sm leading-6 text-default">
+              Remove local WatchState state for every user. Backend definitions remain configured.
+            </p>
+          </div>
+        </div>
+      </template>
+
+      <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div class="rounded-md border border-default bg-elevated/40 px-3 py-3">
+          <div
+            class="mb-2 inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
+          >
+            <UIcon name="i-lucide-database" class="size-4" />
+            <span>Local records</span>
+          </div>
+
+          <p class="text-sm leading-6 text-default">Remove all stored WatchState records.</p>
+        </div>
+
+        <div class="rounded-md border border-default bg-elevated/40 px-3 py-3">
+          <div
+            class="mb-2 inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
+          >
+            <UIcon name="i-lucide-trash-2" class="size-4" />
+            <span>Cache</span>
+          </div>
+
+          <p class="text-sm leading-6 text-default">Flush cached runtime data.</p>
+        </div>
+
+        <div
+          class="rounded-md border border-default bg-elevated/40 px-3 py-3 sm:col-span-2 xl:col-span-1"
+        >
+          <div
+            class="mb-2 inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
+          >
+            <UIcon name="i-lucide-history" class="size-4" />
+            <span>Sync markers</span>
+          </div>
+
+          <p class="text-sm leading-6 text-default">
+            Clear import and export last-sync dates for every configured backend.
+          </p>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex flex-wrap items-center justify-end gap-2">
+          <UButton
+            color="error"
+            variant="solid"
+            size="sm"
+            icon="i-lucide-rotate-ccw"
+            :loading="isResetting"
+            :disabled="isResetting"
+            @click="resetSystem"
+          >
+            Perform local state reset
+          </UButton>
+        </div>
+      </template>
+    </UCard>
+  </main>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { useRoute, navigateTo } from '#app';
-import Message from '~/components/Message.vue';
-import { request, notification, parse_api_response } from '~/utils';
-import Confirm from '~/components/Confirm.vue';
+import { navigateTo, useHead, useRoute } from '#app';
+import { useDialog } from '~/composables/useDialog';
+import { requireTopLevelPageShell } from '~/utils/topLevelNavigation';
+import { notification, parse_api_response, request } from '~/utils';
 import { useSessionCache } from '~/utils/cache';
 import type { GenericError } from '~/types';
-import { useDialog } from '~/composables/useDialog';
 
+useHead({ title: 'Reset' });
+
+const pageShell = requireTopLevelPageShell('reset');
+
+const route = useRoute();
 const error = ref<GenericError | null>(null);
 const isResetting = ref<boolean>(false);
 
+const panelCardUi = {
+  header: 'p-4',
+  body: 'px-4 pb-4 pt-0',
+  footer: 'px-4 pb-4 pt-0',
+};
+
 const resetSystem = async (): Promise<void> => {
-  const { status: confirmStatus } = await useDialog().confirmDialog({
-    title: 'Confirm system reset',
-    message: 'Last chance! Are you sure you want to reset the system state?',
-    confirmText: 'Yes, reset it',
-    confirmColor: 'is-danger',
+  const { status } = await useDialog().confirmDialog({
+    title: 'Confirm local state reset',
+    message:
+      'This will delete all local WatchState state for every user and cannot be undone. Do you want to continue?',
+    confirmText: 'Reset local state',
+    confirmColor: 'error',
   });
 
-  if (true !== confirmStatus) {
+  if (true !== status) {
     return;
   }
 
   isResetting.value = true;
+  error.value = null;
 
   try {
-    const response = await request(`/system/reset`, { method: 'DELETE' });
-    const json = await parse_api_response<GenericError>(response);
+    const response = await request('/system/reset', { method: 'DELETE' });
+    const json = await parse_api_response<{ message?: string }>(response);
 
-    if ('reset' !== useRoute().name) {
+    if ('reset' !== route.name) {
       return;
     }
 
-    if (true !== response.ok) {
+    if ('error' in json) {
       error.value = json;
       return;
     }
 
-    notification('success', 'Success', `System has been successfully reset.`);
+    if (true !== response.ok) {
+      error.value = { error: { code: response.status, message: response.statusText } };
+      return;
+    }
+
+    notification('success', 'Success', json.message ?? 'System has been successfully reset.');
     await navigateTo('/');
 
-    // -- remove all session storage due to the reset.
     try {
       useSessionCache().clear();
     } catch {}
-  } catch (e: any) {
-    error.value = { error: { code: 500, message: e.message } };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : 'Unexpected error';
+    error.value = { error: { code: 500, message } };
   } finally {
     isResetting.value = false;
   }

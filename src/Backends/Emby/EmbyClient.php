@@ -50,6 +50,7 @@ use Psr\Http\Message\ServerRequestInterface as iRequest;
 use Psr\Http\Message\StreamInterface as iStream;
 use Psr\Http\Message\UriInterface as iUri;
 use Psr\Log\LoggerInterface as iLogger;
+use Symfony\Contracts\HttpClient\HttpClientInterface as iHttp;
 use Throwable;
 
 /**
@@ -456,19 +457,10 @@ class EmbyClient implements iClient
             return [];
         }
 
-        foreach ($queue as $_key => $response) {
-            $requestData = $response->getInfo('user_data');
+        $http = Container::get(iHttp::class);
+        assert($http instanceof iHttp, 'Expected HTTP client for library content requests.');
 
-            try {
-                $requestData['ok']($response);
-            } catch (Throwable $e) {
-                $requestData['error']($e);
-            }
-
-            $queue[$_key] = null;
-
-            gc_collect_cycles();
-        }
+        send_requests(requests: $queue, client: $http, logger: $this->logger);
 
         return $mapper->getObjects();
     }

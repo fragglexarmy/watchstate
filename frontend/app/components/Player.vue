@@ -18,21 +18,24 @@
 </style>
 
 <template>
-  <video
-    ref="video"
-    :poster="posterUrl"
-    :controls="isControls"
-    :title="title"
-    preload="auto"
-    playsinline
-  >
-    <source :src="link" type="application/x-mpegURL" />
-  </video>
+  <div class="overflow-hidden rounded-md border border-default/70 bg-black shadow-sm">
+    <video
+      ref="video"
+      class="block aspect-video w-full bg-black"
+      :poster="posterUrl"
+      :controls="isControls"
+      :title="title"
+      preload="auto"
+      playsinline
+    >
+      <source :src="link" type="application/x-mpegURL" />
+    </video>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUpdated, onBeforeUnmount } from 'vue';
-import { request, disableOpacity, enableOpacity, notification } from '~/utils';
+import { request, notification } from '~/utils';
 import Hls from 'hls.js';
 import 'plyr/dist/plyr.css';
 import Plyr from 'plyr';
@@ -148,7 +151,6 @@ const prepareVideoPlayer = async () => {
 };
 
 onMounted(() => {
-  disableOpacity();
   if (/(iPhone|iPod|iPad).*AppleWebKit/i.test(navigator.userAgent)) {
     document.documentElement.style.setProperty('--webkit-text-track-display', 'block');
   }
@@ -159,6 +161,5 @@ onUpdated(() => prepareVideoPlayer());
 
 onBeforeUnmount(() => {
   destroyPlayer();
-  enableOpacity();
 });
 </script>

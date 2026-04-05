@@ -29,7 +29,7 @@ Attach screenshots if it helps explain your bug report.
 
 **Basic report**
 <!-- 
-You can generate a report from More > Basic report
+You can generate a report from Diagnostics > System Report
 
 Please put the output in a code block like this
 

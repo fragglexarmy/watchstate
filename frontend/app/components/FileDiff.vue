@@ -1,83 +1,71 @@
 <template>
-  <div class="file-diff-container">
-    <div v-if="!diffResult.hasDifferences" class="notification is-success is-light">
-      <span class="icon-text">
-        <span class="icon has-text-success">
-          <i class="fas fa-check-circle" />
-        </span>
-        <span>All backends have identical file paths</span>
-      </span>
-    </div>
+  <div class="space-y-3">
+    <UAlert
+      v-if="!diffResult.hasDifferences"
+      color="success"
+      variant="soft"
+      icon="i-lucide-circle-check"
+      description="All backends have identical file paths"
+    />
 
-    <div v-else class="file-diff-compact">
-      <div class="mb-3">
-        <div class="is-size-7 has-text-weight-semibold has-text-primary is-dark mb-1">
-          <span class="icon is-small"><i class="fas fa-star" /></span>
-          Reference: {{ diffResult.referenceBackend }}
-        </div>
-
-        <div
-          class="px-2 py-1 is-size-7"
-          style="
-            border-radius: 3px;
-            border-left: 3px solid var(--bulma-warning);
-            background-color: var(--bulma-scheme-main-bis);
-            color: var(--bulma-text);
-            word-break: break-all;
-          "
-        >
-          <template v-if="diffResult.referenceSegments && diffResult.referenceSegments.length > 0">
-            <span
-              v-for="(segment, segIndex) in diffResult.referenceSegments"
-              :key="`ref-seg-${segIndex}`"
-              :class="getCompactSegmentClass(segment)"
-            >
-              {{ segment.segment }}
-            </span>
-          </template>
-          <template v-else>
-            {{ diffResult.referencePath }}
-          </template>
-        </div>
-      </div>
-
-      <div
-        v-for="(chunk, chunkIndex) in diffResult.chunks"
-        :key="`chunk-${chunkIndex}`"
-        class="mb-2"
-      >
-        <div class="is-size-7 has-text-weight-semibold has-text-warning mb-1">
-          <span class="icon is-small">
-            <i class="fas fa-exclamation-triangle" />
-          </span>
-          {{ chunk.header }}
-        </div>
-        <div v-for="(line, lineIndex) in chunk.lines" :key="`${chunkIndex}-${lineIndex}`">
+    <div v-else class="space-y-3">
+      <UCard>
+        <div class="space-y-2">
           <div
-            class="px-2 py-1 is-size-7"
-            style="
-              border-radius: 3px;
-              border-left: 3px solid var(--bulma-warning);
-              background-color: var(--bulma-scheme-main-bis);
-              color: var(--bulma-text);
-              word-break: break-all;
-            "
+            class="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-primary"
           >
-            <template v-if="line.pathSegments && line.pathSegments.length > 0">
+            <UIcon name="i-lucide-star" class="size-3.5" />
+            <span>Reference: {{ diffResult.referenceBackend }}</span>
+          </div>
+
+          <div
+            class="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm break-all text-default"
+          >
+            <template
+              v-if="diffResult.referenceSegments && diffResult.referenceSegments.length > 0"
+            >
               <span
-                v-for="(segment, segIndex) in line.pathSegments"
-                :key="`seg-${segIndex}`"
+                v-for="(segment, segIndex) in diffResult.referenceSegments"
+                :key="`ref-seg-${segIndex}`"
                 :class="getCompactSegmentClass(segment)"
               >
                 {{ segment.segment }}
               </span>
             </template>
             <template v-else>
-              {{ line.content }}
+              {{ diffResult.referencePath }}
             </template>
           </div>
         </div>
-      </div>
+      </UCard>
+
+      <UCard v-for="(chunk, chunkIndex) in diffResult.chunks" :key="`chunk-${chunkIndex}`">
+        <div class="space-y-2">
+          <div class="flex items-center gap-2 text-sm font-semibold text-warning">
+            <UIcon name="i-lucide-triangle-alert" class="size-4" />
+            <span>{{ chunk.header }}</span>
+          </div>
+
+          <div v-for="(line, lineIndex) in chunk.lines" :key="`${chunkIndex}-${lineIndex}`">
+            <div
+              class="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm break-all text-default"
+            >
+              <template v-if="line.pathSegments && line.pathSegments.length > 0">
+                <span
+                  v-for="(segment, segIndex) in line.pathSegments"
+                  :key="`seg-${segIndex}`"
+                  :class="getCompactSegmentClass(segment)"
+                >
+                  {{ segment.segment }}
+                </span>
+              </template>
+              <template v-else>
+                {{ line.content }}
+              </template>
+            </div>
+          </div>
+        </div>
+      </UCard>
     </div>
   </div>
 </template>
@@ -88,8 +76,8 @@ import type {
   FileDiffChunk,
   FileDiffInput,
   FileDiffLine,
-  FileDiffResult,
   FileDiffPathSegment,
+  FileDiffResult,
 } from '~/types';
 
 const props = withDefaults(defineProps<{ items: Array<FileDiffInput>; contextLines?: number }>(), {
@@ -253,15 +241,12 @@ const createDiffChunks = (
   others: Array<FileDiffInput>,
 ): Array<FileDiffChunk> => {
   const chunks: Array<FileDiffChunk> = [];
-
-  // Only show backends that have DIFFERENT paths from the reference path
   const differentFiles = others.filter((item) => item.file !== reference.file);
 
   if (0 === differentFiles.length) {
     return [];
   }
 
-  // Create one chunk per backend with different path
   for (const item of differentFiles) {
     const diff = getPathDifference(reference.file, item.file);
     const otherSegments = createDisplaySegments(diff, false);
@@ -276,7 +261,7 @@ const createDiffChunks = (
       },
     ];
 
-    chunks.push({ referenceStart: 1, referenceLines: 1, lines: lines, header: item.backend });
+    chunks.push({ referenceStart: 1, referenceLines: 1, lines, header: item.backend });
   }
 
   return chunks;
@@ -299,7 +284,6 @@ const diffResult = computed<FileDiffResult>(() => {
   const reference = chooseReference(props.items);
   const others = props.items;
   const chunks = createDiffChunks(reference, others);
-
   const otherPaths = others.filter((item) => item.file !== reference.file).map((item) => item.file);
   const referenceSegments = createReferenceSegments(reference.file, otherPaths);
 
@@ -311,51 +295,14 @@ const diffResult = computed<FileDiffResult>(() => {
   return {
     referencePath: reference.file,
     referenceBackend: reference.backend,
-    chunks: chunks,
+    chunks,
     hasDifferences: chunks.length > 0,
-    stats: { additions: 0, deletions: 0, modifications: modifications },
-    referenceSegments: referenceSegments,
+    stats: { additions: 0, deletions: 0, modifications },
+    referenceSegments,
   };
 });
 
 const getCompactSegmentClass = (segment: FileDiffPathSegment): string => {
-  if (segment.isDifferent) {
-    return 'has-background-warning has-text-dark px-1';
-  }
-  return 'has-text-grey-dark';
+  return segment.isDifferent ? 'font-semibold text-warning' : 'text-toned';
 };
 </script>
-
-<style scoped>
-.file-diff-container {
-  max-width: 900px;
-}
-
-.file-diff-compact {
-  font-family: 'Courier New', monospace;
-  font-size: 0.8rem;
-  max-width: 100%;
-}
-
-.path-comparison {
-  font-family: 'Courier New', monospace;
-  font-size: 0.9rem;
-}
-
-.path-segments {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-/* Ensure proper text wrapping for long paths */
-.card-content {
-  word-break: break-all;
-}
-
-/* Better spacing for icon-text components */
-.icon-text .icon {
-  margin-right: 0.5rem;
-}
-</style>

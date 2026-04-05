@@ -31,6 +31,14 @@ export default defineNuxtConfig({
       version: '1.0.0',
     },
   },
+  colorMode: {
+    preference: 'dark',
+    fallback: 'dark',
+    classSuffix: '',
+  },
+  icon: {
+    serverBundle: 'local',
+  },
   app: {
     head: {
       meta: [
@@ -49,7 +57,7 @@ export default defineNuxtConfig({
     },
   },
 
-  modules: ['@vueuse/nuxt', 'floating-vue/nuxt', '@pinia/nuxt', '@nuxt/eslint'],
+  modules: ['@nuxt/ui', '@vueuse/nuxt', '@pinia/nuxt', '@nuxt/eslint'],
 
   nitro: {
     output: {
@@ -59,15 +67,37 @@ export default defineNuxtConfig({
     ...extraNitro,
   },
 
-  build: {
-    transpile: ['vue-toastification'],
-  },
-
-  css: ['vue-toastification/dist/index.css'],
+  css: ['~/assets/css/tailwind.css'],
 
   telemetry: false,
   compatibilityDate: '2025-08-02',
   experimental: {
     checkOutdatedBuildInterval: 1000 * 60 * 10,
+  },
+  vite: {
+    optimizeDeps: {
+      include: [
+        'moment',
+        '@microsoft/fetch-event-source',
+        '@xterm/addon-fit',
+        '@xterm/xterm',
+        'vuedraggable', // CJS
+        '@vue/devtools-core',
+        '@vue/devtools-kit',
+        'hls.js',
+        'plyr',
+        'marked',
+        'marked-base-url',
+        'marked-alert',
+        'marked-gfm-heading-id',
+
+      ],
+    },
+    server: {
+      allowedHosts: true,
+    },
+    build: {
+      chunkSizeWarningLimit: 2000,
+    },
   },
 });

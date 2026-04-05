@@ -227,6 +227,7 @@ return (function () {
             'config' => 'console.enable.all',
             'description' => 'All executing all commands in the console. They must be prefixed with $',
             'type' => 'bool',
+            'danger' => true,
         ],
         [
             'key' => 'WS_PROFILER_COLLECTOR',

@@ -1,52 +1,43 @@
 <template>
-  <div>
-    <div class="field">
-      <label class="label" for="user">Browse as</label>
-      <div class="control has-icons-left">
-        <div class="select is-fullwidth">
-          <select v-model="api_user" class="is-capitalized" :disabled="isLoading">
-            <option v-for="user in users" :key="'user-' + user" :value="user">
-              {{ user }}
-            </option>
-          </select>
-        </div>
-        <div class="icon is-left">
-          <i class="fas fa-user"></i>
-        </div>
-      </div>
-      <p class="has-text-danger">
-        <span class="icon"><i class="fas fa-exclamation" /></span>
-        Browse the WebUI as the selected user. Not all API endpoints support non-main user.
-      </p>
-    </div>
-    <div class="control has-text-right">
-      <div class="field is-grouped is-grouped-right">
-        <div class="control">
-          <button
-            type="submit"
-            class="button is-primary"
-            :disabled="!api_user || isLoading"
-            @click="reloadPage"
-          >
-            <span class="icon"><i class="fas fa-sync" /></span>
-            <span>Reload</span>
-          </button>
-        </div>
-        <div class="control">
-          <button type="button" class="button is-info" @click="gotoUsers">
-            <span class="icon"><i class="fas fa-users" /></span>
-            <span>Users management</span>
-          </button>
-        </div>
-      </div>
+  <div class="space-y-4">
+    <UFormField label="Browse as" name="user">
+      <USelect
+        id="user"
+        v-model="api_user"
+        :items="users"
+        icon="i-lucide-user"
+        class="w-full"
+        :disabled="isLoading"
+      />
+    </UFormField>
+
+    <UAlert
+      color="warning"
+      variant="soft"
+      icon="i-lucide-triangle-alert"
+      description="Browse the WebUI as the selected user. Not all API endpoints support non-main user."
+    />
+
+    <div class="flex flex-col justify-end gap-2 sm:flex-row">
+      <UButton
+        type="button"
+        color="primary"
+        variant="solid"
+        icon="i-lucide-refresh-cw"
+        :disabled="!api_user || isLoading"
+        @click="reloadPage"
+      >
+        Reload
+      </UButton>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { onMounted, ref } from 'vue';
+import { navigateTo, useRoute } from '#app';
 import { useStorage } from '@vueuse/core';
-import { request, notification } from '~/utils';
+import { notification, request } from '~/utils';
 
 const api_user = useStorage<string>('api_user', 'main');
 const users = ref<Array<string>>(['main']);
@@ -87,9 +78,5 @@ const reloadPage = async () => {
     return;
   }
   await navigateTo('/');
-};
-const gotoUsers = async () => {
-  await emitter('close');
-  await navigateTo('/users');
 };
 </script>

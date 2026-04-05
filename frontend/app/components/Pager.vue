@@ -1,91 +1,94 @@
 <template>
-  <div class="field is-grouped">
-    <div class="control">
-      <button
-        rel="first"
-        class="button"
-        v-if="page !== 1"
-        @click="changePage(1)"
-        :disabled="isLoading"
-        :class="{ 'is-loading': isLoading }"
-      >
-        <span class="icon"><i class="fas fa-angle-double-left"></i></span>
-      </button>
-    </div>
-    <div class="control">
-      <button
-        rel="prev"
-        class="button"
-        v-if="page > 1 && page - 1 !== 1"
-        @click="changePage(page - 1)"
-        :disabled="isLoading"
-        :class="{ 'is-loading': isLoading }"
-      >
-        <span class="icon"><i class="fas fa-angle-left"></i></span>
-      </button>
-    </div>
-    <div class="control">
-      <div class="select">
-        <select
-          id="pager_list"
-          v-model="currentPage"
-          @change="changePage(currentPage)"
-          :disabled="isLoading"
-        >
-          <option
-            v-for="(item, index) in makePagination(page, last_page)"
-            :key="`pager-${index}`"
-            :value="item.page"
-            :disabled="0 === item.page"
-          >
-            {{ item.text }}
-          </option>
-        </select>
-      </div>
-    </div>
-    <div class="control">
-      <button
-        rel="next"
-        class="button"
-        v-if="page !== last_page && page + 1 !== last_page"
-        @click="changePage(page + 1)"
-        :disabled="isLoading"
-        :class="{ 'is-loading': isLoading }"
-      >
-        <span class="icon"><i class="fas fa-angle-right"></i></span>
-      </button>
-    </div>
-    <div class="control">
-      <button
-        rel="last"
-        class="button"
-        v-if="page !== last_page"
-        @click="changePage(last_page)"
-        :disabled="isLoading"
-        :class="{ 'is-loading': isLoading }"
-      >
-        <span class="icon"><i class="fas fa-angle-double-right"></i></span>
-      </button>
-    </div>
+  <div class="flex max-w-full min-w-0 flex-nowrap items-center gap-2">
+    <UButton
+      v-if="page !== 1"
+      rel="first"
+      aria-label="Go to first page"
+      color="neutral"
+      variant="outline"
+      size="sm"
+      icon="i-lucide-chevrons-left"
+      class="hidden shrink-0 sm:inline-flex"
+      :disabled="isLoading"
+      :loading="isLoading"
+      square
+      @click="changePage(1)"
+    />
+
+    <UButton
+      v-if="page > 1 && page - 1 !== 1"
+      rel="prev"
+      aria-label="Go to previous page"
+      color="neutral"
+      variant="outline"
+      size="sm"
+      icon="i-lucide-chevron-left"
+      class="shrink-0"
+      :disabled="isLoading"
+      :loading="isLoading"
+      square
+      @click="changePage(page - 1)"
+    />
+
+    <USelect
+      id="pager_list"
+      v-model="currentPage"
+      :items="paginationItems"
+      value-key="page"
+      label-key="text"
+      color="neutral"
+      variant="outline"
+      size="sm"
+      class="w-40 shrink-0 sm:w-48"
+      :disabled="isLoading"
+      :ui="{ base: 'w-full' }"
+      @update:model-value="changePage"
+    />
+
+    <UButton
+      v-if="page !== last_page && page + 1 !== last_page"
+      rel="next"
+      aria-label="Go to next page"
+      color="neutral"
+      variant="outline"
+      size="sm"
+      icon="i-lucide-chevron-right"
+      class="hidden shrink-0 sm:inline-flex"
+      :disabled="isLoading"
+      :loading="isLoading"
+      square
+      @click="changePage(page + 1)"
+    />
+
+    <UButton
+      v-if="page !== last_page"
+      rel="last"
+      aria-label="Go to last page"
+      color="neutral"
+      variant="outline"
+      size="sm"
+      icon="i-lucide-chevrons-right"
+      class="shrink-0"
+      :disabled="isLoading"
+      :loading="isLoading"
+      square
+      @click="changePage(last_page)"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { makePagination } from '~/utils';
 
 const emit = defineEmits<{
-  /** Emitted when the page changes */
   (e: 'navigate', page: number): void;
 }>();
 
 const props = withDefaults(
   defineProps<{
-    /** Current page number (1-based) */
     page: number;
-    /** Last page number */
     last_page: number;
-    /** If true, disables navigation and shows loading state */
     isLoading?: boolean;
   }>(),
   {
@@ -93,13 +96,30 @@ const props = withDefaults(
   },
 );
 
-const currentPage = ref<number>(props.page);
+const currentPage = ref(props.page);
 
-const changePage = (p: number): void => {
-  if (p < 1 || p > props.last_page) {
+const paginationItems = computed(() =>
+  makePagination(props.page, props.last_page).map((item) => ({
+    ...item,
+    disabled: item.page === 0,
+  })),
+);
+
+watch(
+  () => props.page,
+  (value) => {
+    currentPage.value = value;
+  },
+);
+
+const changePage = (page: number | string): void => {
+  const nextPage = Number(page);
+  if (Number.isNaN(nextPage) || nextPage < 1 || nextPage > props.last_page) {
+    currentPage.value = props.page;
     return;
   }
-  emit('navigate', p);
-  currentPage.value = p;
+
+  emit('navigate', nextPage);
+  currentPage.value = nextPage;
 };
 </script>

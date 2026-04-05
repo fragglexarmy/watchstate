@@ -1,26 +1,40 @@
 <template>
-  <vTooltip @show="loadContent" @hide="stopTimer">
+  <UPopover
+    mode="hover"
+    :open-delay="150"
+    :close-delay="150"
+    :arrow="false"
+    :content="{ side: 'top', sideOffset: 10, collisionPadding: 8 }"
+    :ui="{ content: 'w-auto rounded-md border border-default bg-default/95 p-2 shadow-xl' }"
+    @update:open="handleOpenChange"
+  >
     <slot />
-    <template #popper>
-      <span class="icon" v-if="!url"><i class="fas fa-circle-notch fa-spin"></i></span>
-      <template v-else>
-        <img
-          :src="url"
-          class="card-image"
-          :class="item_class"
-          :alt="props.title"
-          @error="clearCache"
-          :crossorigin="props.privacy ? 'anonymous' : 'use-credentials'"
-          :referrerpolicy="props.privacy ? 'no-referrer' : 'origin'"
+
+    <template #content>
+      <div class="flex min-h-12 min-w-12 items-center justify-center">
+        <UIcon
+          v-if="isPreloading && !url"
+          name="i-lucide-loader-circle"
+          class="size-5 animate-spin text-info"
         />
-      </template>
+
+        <img
+          v-else-if="url"
+          :src="url"
+          class="poster-image max-w-full rounded-md border border-default bg-elevated/60 shadow-sm"
+          :alt="title"
+          @error="clearCache"
+          :crossorigin="privacy ? 'anonymous' : 'use-credentials'"
+          :referrerpolicy="privacy ? 'no-referrer' : 'origin'"
+        />
+      </div>
     </template>
-  </vTooltip>
+  </UPopover>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { request, notification, awaiter } from '~/utils';
+import { awaiter, notification, request } from '~/utils';
 import { useSessionCache } from '~/utils/cache';
 
 const props = defineProps<{
@@ -32,8 +46,6 @@ const props = defineProps<{
   loader?: () => Promise<void>;
   /** If true, use anonymous CORS and no-referrer */
   privacy?: boolean;
-  /** CSS class for the image */
-  item_class?: string;
 }>();
 
 const cache = useSessionCache();
@@ -41,9 +53,7 @@ const cache = useSessionCache();
 const url = ref<string | undefined>();
 const error = ref<boolean>(false);
 const isPreloading = ref<boolean>(false);
-
-const loadTimer: ReturnType<typeof setTimeout> | null = null;
-const cancelRequest = new AbortController();
+let cancelRequest = new AbortController();
 
 const defaultLoader = async (): Promise<void> => {
   try {
@@ -52,9 +62,12 @@ const defaultLoader = async (): Promise<void> => {
       return;
     }
 
-    if (!props.image) {
+    if (!props.image || isPreloading.value) {
       return;
     }
+
+    cancelRequest = new AbortController();
+    isPreloading.value = true;
 
     const cb = props.image.startsWith('/') ? request : fetch;
     const response = await cb(props.image, { signal: cancelRequest.signal });
@@ -66,12 +79,13 @@ const defaultLoader = async (): Promise<void> => {
     const objUrl = URL.createObjectURL(await response.blob());
     cache.set(props.image, objUrl);
     url.value = objUrl;
-  } catch (e: any) {
-    if (e === 'not_needed') {
+  } catch (e: unknown) {
+    if ('not_needed' === e) {
       return;
     }
+
     console.error(e);
-    notification('error', 'Error', `ImageView Request failure. ${e}`);
+    notification('error', 'Error', `ImageView Request failure. ${String(e)}`);
   } finally {
     isPreloading.value = false;
   }
@@ -89,9 +103,6 @@ const stopTimer = async (): Promise<void> => {
   }
 
   await awaiter(() => isPreloading.value);
-  if (loadTimer) {
-    clearTimeout(loadTimer);
-  }
   isPreloading.value = false;
   url.value = undefined;
   cancelRequest.abort('not_needed');
@@ -101,14 +112,48 @@ const loadContent = async (): Promise<void> => {
   if (props.loader) {
     return props.loader();
   }
+
   return defaultLoader();
 };
 
 const clearCache = async (): Promise<void> => {
+  error.value = true;
+
   if (props.image) {
     cache.remove(props.image);
   }
+
   url.value = undefined;
-  return loadContent();
+  await loadContent();
+  error.value = false;
 };
+
+const handleOpenChange = async (value: boolean) => {
+  if (value) {
+    await loadContent();
+    return;
+  }
+
+  await stopTimer();
+};
+
+const { privacy, title } = props;
 </script>
+
+<style scoped>
+.poster-image {
+  width: 100%;
+  height: auto;
+  max-width: 180px;
+  max-height: 270px;
+  display: block;
+  margin: 0 auto;
+}
+
+@media screen and (max-width: 1024px) {
+  .poster-image {
+    max-width: 120px;
+    max-height: 180px;
+  }
+}
+</style>

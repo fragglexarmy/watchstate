@@ -1,410 +1,410 @@
 <template>
-  <div>
-    <div class="columns is-multiline">
-      <div class="column is-12 is-clearfix is-unselectable">
-        <span class="title is-4">
-          <span class="icon"><i class="fas fa-database"></i></span>
-          Data Parity
-        </span>
-        <div class="is-pulled-right">
-          <div class="field is-grouped">
-            <div class="control has-icons-left" v-if="showFilter">
-              <input
-                type="search"
-                v-model.lazy="filter"
-                class="input"
-                id="filter"
-                placeholder="Filter displayed results."
-              />
-              <span class="icon is-left">
-                <i class="fas fa-filter"></i>
-              </span>
-            </div>
-
-            <div class="control">
-              <button class="button is-danger is-light" @click="toggleFilter">
-                <span class="icon"><i class="fas fa-filter"></i></span>
-              </button>
-            </div>
-
-            <div class="control" v-if="min && max" v-tooltip.bottom="'Minimum number of backends'">
-              <div class="select">
-                <select v-model="min" :disabled="isDeleting || isLoading">
-                  <option v-for="i in numberRange(1, max + 1)" :key="`min-${i}`" :value="i">
-                    {{ i }}
-                  </option>
-                </select>
-              </div>
-            </div>
-            <p class="control">
-              <button
-                class="button is-danger"
-                @click="deleteData"
-                v-tooltip.bottom="'Delete The reported records'"
-                :disabled="isDeleting || isLoading || items.length < 1"
-                :class="{ 'is-loading': isDeleting }"
-              >
-                <span class="icon"><i class="fas fa-trash"></i></span>
-              </button>
-            </p>
-
-            <div class="control">
-              <button
-                class="button is-info is-light"
-                @click="selectAll = !selectAll"
-                data-tooltip="Toggle select all"
-              >
-                <span class="icon">
-                  <i
-                    class="fas fa-check-square"
-                    :class="{ 'fa-check-square': !selectAll, 'fa-square': selectAll }"
-                  ></i>
-                </span>
-              </button>
-            </div>
-
-            <p class="control">
-              <button
-                class="button is-info"
-                @click.prevent="loadContent(page, true, true)"
-                :disabled="isLoading"
-                :class="{ 'is-loading': isLoading }"
-              >
-                <span class="icon"><i class="fas fa-sync"></i></span>
-              </button>
-            </p>
-          </div>
+  <div class="space-y-6">
+    <div class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+      <div class="space-y-1">
+        <div
+          class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-toned"
+        >
+          <UIcon :name="pageShell.icon" class="size-4" />
+          <span>{{ pageShell.sectionLabel }}</span>
+          <span>/</span>
+          <span>{{ pageShell.pageLabel }}</span>
         </div>
-        <div class="is-hidden-mobile">
-          <span class="subtitle"
-            >This page shows local database records not being reported by the specified number of
-            backends.</span
-          >
+
+        <div>
+          <p class="mt-1 text-sm text-toned">
+            This page shows local database records not being reported by the specified number of
+            backends.
+          </p>
         </div>
       </div>
 
-      <div class="column is-12" v-if="total && last_page > 1">
-        <div class="field is-grouped">
-          <div class="control" v-if="page !== 1">
-            <button
-              rel="first"
-              class="button"
-              @click="loadContent(1)"
-              :disabled="isLoading"
-              :class="{ 'is-loading': isLoading }"
-            >
-              <span>&lt;&lt;</span>
-            </button>
-          </div>
-          <div class="control" v-if="page > 1 && page - 1 !== 1">
-            <button
-              rel="prev"
-              class="button"
-              @click="loadContent(page - 1)"
-              :disabled="isLoading"
-              :class="{ 'is-loading': isLoading }"
-            >
-              <span>&lt;</span>
-            </button>
-          </div>
-          <div class="control">
-            <div class="select">
-              <select v-model="page" @change="loadContent(page)" :disabled="isLoading">
-                <option
-                  v-for="(item, index) in makePagination(page, last_page)"
-                  :key="index"
-                  :value="item.page"
-                >
-                  {{ item.text }}
-                </option>
-              </select>
-            </div>
-          </div>
-          <div class="control" v-if="page !== last_page && page + 1 !== last_page">
-            <button
-              rel="next"
-              class="button"
-              @click="loadContent(page + 1)"
-              :disabled="isLoading"
-              :class="{ 'is-loading': isLoading }"
-            >
-              <span>&gt;</span>
-            </button>
-          </div>
-          <div class="control" v-if="page !== last_page">
-            <button
-              rel="last"
-              class="button"
-              @click="loadContent(last_page)"
-              :disabled="isLoading"
-              :class="{ 'is-loading': isLoading }"
-            >
-              <span>&gt;&gt;</span>
-            </button>
-          </div>
-        </div>
-      </div>
+      <div class="flex flex-wrap items-center justify-end gap-2">
+        <UInput
+          v-if="showFilter"
+          id="filter"
+          v-model.lazy="filter"
+          type="search"
+          icon="i-lucide-filter"
+          placeholder="Filter displayed results."
+          size="sm"
+          class="w-full sm:w-72"
+        />
 
-      <div class="column is-12" v-if="selected_ids.length > 0">
-        <div class="field is-grouped is-justify-content-center">
-          <div class="control">
-            <button
-              class="button is-danger"
-              @click="massDelete()"
-              :disabled="massActionInProgress"
-              :class="{ 'is-loading': massActionInProgress }"
-            >
-              <span class="icon"><i class="fas fa-trash"></i></span>
-              <span class="is-hidden-mobile"
-                >Delete '{{ selected_ids.length }}' selected item/s</span
-              >
-            </button>
-          </div>
-        </div>
-      </div>
+        <UButton
+          color="neutral"
+          :variant="showFilter ? 'soft' : 'outline'"
+          size="sm"
+          icon="i-lucide-filter"
+          @click="toggleFilter"
+        >
+          <span class="hidden sm:inline">Filter</span>
+        </UButton>
 
-      <div class="column is-12">
-        <div class="columns is-multiline" v-if="filteredRows(items)?.length > 0">
-          <template v-for="item in items" :key="item.id">
-            <Lazy
-              :unrender="true"
-              :min-height="343"
-              class="column is-6-tablet"
-              v-if="filterItem(item)"
-            >
-              <div
-                class="card is-flex is-full-height is-flex-direction-column"
-                :class="{ 'is-success': item.watched }"
-              >
-                <header class="card-header">
-                  <p class="card-header-title is-text-overflow pr-1">
-                    <span class="icon">
-                      <label class="checkbox">
-                        <input type="checkbox" :value="item.id" v-model="selected_ids" /> </label
-                      >&nbsp;
-                    </span>
-                    <FloatingImage
-                      :image="`/history/${item.id}/images/poster`"
-                      :item_class="'scaled-image'"
-                      v-if="poster_enable"
-                    >
-                      <NuxtLink :to="`/history/${item.id}`">{{ makeName(item) }}</NuxtLink>
-                    </FloatingImage>
-                    <NuxtLink :to="`/history/${item.id}`" v-else>{{ makeName(item) }}</NuxtLink>
-                  </p>
-                  <span class="card-header-icon" @click="item.showRawData = !item?.showRawData">
-                    <span class="icon">
-                      <i
-                        class="fas"
-                        :class="{
-                          'fa-tv': 'episode' === item.type.toLowerCase(),
-                          'fa-film': 'movie' === item.type.toLowerCase(),
-                        }"
-                      ></i>
-                    </span>
-                  </span>
-                </header>
-                <div class="card-content is-flex-grow-1">
-                  <div class="columns is-multiline is-mobile">
-                    <div class="column is-12">
-                      <div class="field is-grouped">
-                        <div
-                          class="control is-clickable"
-                          :class="{
-                            'is-text-overflow': !item?.expand_title,
-                            'is-text-contents': item?.expand_title,
-                          }"
-                          @click="item.expand_title = !item?.expand_title"
-                        >
-                          <span class="icon"><i class="fas fa-heading"></i>&nbsp;</span>
-                          <template v-if="item?.content_title">
-                            <NuxtLink :to="makeSearchLink('subtitle', item.content_title)">
-                              {{ item.content_title }}
-                            </NuxtLink>
-                          </template>
-                          <template v-else>
-                            <NuxtLink :to="makeSearchLink('subtitle', item.title)">{{
-                              item.title
-                            }}</NuxtLink>
-                          </template>
-                        </div>
-                        <div class="control">
-                          <span
-                            class="icon is-clickable"
-                            @click="copyText(item?.content_title ?? item.title, false)"
-                          >
-                            <i class="fas fa-copy"></i
-                          ></span>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="column is-12">
-                      <div class="field is-grouped">
-                        <div
-                          class="control is-clickable"
-                          :class="{
-                            'is-text-overflow': !item?.expand_path,
-                            'is-text-contents': item?.expand_path,
-                          }"
-                          @click="item.expand_path = !item?.expand_path"
-                        >
-                          <span class="icon"><i class="fas fa-file"></i>&nbsp;</span>
-                          <NuxtLink
-                            v-if="item?.content_path"
-                            :to="makeSearchLink('path', item.content_path)"
-                          >
-                            {{ item.content_path }}
-                          </NuxtLink>
-                          <span v-else>No path found.</span>
-                        </div>
-                        <div class="control">
-                          <span
-                            class="icon is-clickable"
-                            @click="copyText(item?.content_path || '', false)"
-                          >
-                            <i class="fas fa-copy"></i
-                          ></span>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="column is-12">
-                      <div class="field is-grouped">
-                        <div class="control is-expanded is-unselectable">
-                          <span class="icon"><i class="fas fa-info"></i>&nbsp;</span>
-                          <span>Has metadata from</span>
-                        </div>
-                        <div class="control">
-                          <NuxtLink
-                            v-for="reportedBackend in item.reported_by"
-                            :key="`${item.id}-rb-${reportedBackend}`"
-                            :to="'/backend/' + reportedBackend"
-                            class="tag is-primary ml-1"
-                          >
-                            {{ reportedBackend }}
-                          </NuxtLink>
-                          <NuxtLink
-                            v-for="missingBackend in item.not_reported_by"
-                            :key="`${item.id}-nrb-${missingBackend}`"
-                            :to="'/backend/' + missingBackend"
-                            class="tag is-danger ml-1"
-                          >
-                            {{ missingBackend }}
-                          </NuxtLink>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="card-content p-0 m-0" v-if="item?.showRawData">
-                  <pre
-                    style="position: relative; max-height: 343px"
-                    class="is-terminal"
-                  ><code>{{ JSON.stringify(item, null, 2)
-                  }}</code>
-    <button class="button is-small m-4" @click="() => copyText(JSON.stringify(item, null, 2))"
-      style="position: absolute; top:0; right:0;">
-      <span class="icon"><i class="fas fa-copy"></i></span>
-    </button>
-  </pre>
-                </div>
-                <div class="card-footer">
-                  <div class="card-footer-item">
-                    <span class="icon">
-                      <i
-                        class="fas"
-                        :class="{ 'fa-eye': item.watched, 'fa-eye-slash': !item.watched }"
-                      ></i
-                      >&nbsp;
-                    </span>
-                    <span class="has-text-success" v-if="item.watched">Played</span>
-                    <span class="has-text-danger" v-else>Unplayed</span>
-                  </div>
-                  <div class="card-footer-item">
-                    <span class="icon"><i class="fas fa-calendar"></i>&nbsp;</span>
-                    <span
-                      class="has-tooltip"
-                      v-tooltip="
-                        `Record updated at: ${moment.unix(item.updated_at).format(TOOLTIP_DATE_FORMAT)}`
-                      "
-                    >
-                      {{ moment.unix(item.updated_at).fromNow() }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </Lazy>
-          </template>
-        </div>
-
-        <div class="column is-12" v-else>
-          <Message
-            v-if="isLoading"
-            message_class="has-background-info-90 has-text-dark"
-            title="Loading"
-            icon="fas fa-spinner fa-spin"
-            message="Loading data. Please wait..."
+        <UTooltip v-if="min && max" text="Minimum number of backends">
+          <USelect
+            v-model="min"
+            :items="minItems"
+            value-key="value"
+            size="sm"
+            class="w-20"
+            :disabled="isDeleting || isLoading"
           />
-          <template v-else>
-            <Message
-              message_class="has-background-warning-80 has-text-dark"
-              v-if="filter && items.length > 1"
-              title="Information"
-              icon="fas fa-check"
-            >
-              The filter <code>{{ filter }}</code> did not match any records.
-            </Message>
-            <Message
-              message_class="has-background-success-90 has-text-dark"
-              v-if="!filter || items.length < 1"
-              title="Success"
-              icon="fas fa-check"
-            >
-              WatchState did not find any records matching the criteria. All records has at least
-              <code>{{ min }}</code>
-              backends reporting it.
-            </Message>
-          </template>
-        </div>
+        </UTooltip>
 
-        <div class="column is-12">
-          <Message
-            message_class="has-background-info-90 has-text-dark"
-            :toggle="show_page_tips"
-            @toggle="show_page_tips = !show_page_tips"
-            :use-toggle="true"
-            title="Tips"
-            icon="fas fa-info-circle"
+        <UTooltip text="Delete The reported records">
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="sm"
+            icon="i-lucide-trash-2"
+            :loading="isDeleting"
+            :disabled="isDeleting || isLoading || items.length < 1"
+            @click="deleteData"
           >
-            <ul>
-              <li>
-                You can specify the minimum number of backends that need to report the record to be
-                considered valid.
-              </li>
-              <li>
-                By clicking the <span class="fa fa-trash"></span> icon you will delete the the
-                reported items from the local database. If the items are not fixed by the time
-                <code>import</code> is run, they will re-appear.
-              </li>
-              <li>
-                Deleting records works by deleting everything at or below the specified number of
-                backends. For example, if you set the minimum to <code>3</code>, all records that
-                are reported by <code>3</code> or fewer backends will be deleted.
-              </li>
-              <li>
-                Records showing here most likely means your backends, are not reporting same data.
-                This could be due to many reasons, including using different external databases i.e.
-                <code>TheMovieDB</code> vs <code>TheTVDB</code>.
-              </li>
-              <li>
-                The results are cached in your browser temporarily to provide faster response, as
-                the operation to generate the report is quite intensive. If you want to refresh the
-                data, click the <span class="fa fa-sync"></span> icon.
-              </li>
-            </ul>
-          </Message>
-        </div>
+            <span class="hidden sm:inline">Delete</span>
+          </UButton>
+        </UTooltip>
+
+        <UButton
+          color="neutral"
+          :variant="selectAll ? 'soft' : 'outline'"
+          size="sm"
+          :icon="!selectAll ? 'i-lucide-square-check' : 'i-lucide-square'"
+          @click="selectAll = !selectAll"
+        >
+          <span class="hidden sm:inline">{{ !selectAll ? 'Select' : 'Unselect' }}</span>
+        </UButton>
+
+        <UButton
+          color="neutral"
+          variant="outline"
+          size="sm"
+          icon="i-lucide-refresh-cw"
+          :loading="isLoading"
+          :disabled="isLoading"
+          @click.prevent="loadContent(page, true, true)"
+        >
+          <span class="hidden sm:inline">Reload</span>
+        </UButton>
       </div>
     </div>
+
+    <Pager
+      v-if="total && last_page > 1"
+      :page="page"
+      :last_page="last_page"
+      :isLoading="isLoading"
+      @navigate="loadContent"
+    />
+
+    <div
+      v-if="selected_ids.length > 0"
+      class="flex flex-wrap items-center justify-between gap-3 rounded-md border border-default bg-default px-3 py-3"
+    >
+      <div class="flex flex-wrap items-center gap-2">
+        <UBadge color="neutral" variant="soft" size="sm">{{ selected_ids.length }}</UBadge>
+
+        <UButton
+          color="neutral"
+          variant="outline"
+          size="sm"
+          icon="i-lucide-trash-2"
+          :loading="massActionInProgress"
+          :disabled="massActionInProgress"
+          @click="massDelete"
+        >
+          Delete
+        </UButton>
+      </div>
+
+      <div class="text-xs text-toned">{{ filteredRows(items).length }} displayed</div>
+    </div>
+
+    <UAlert
+      v-if="isLoading"
+      color="info"
+      variant="soft"
+      icon="i-lucide-loader-circle"
+      title="Loading"
+      description="Loading data. Please wait..."
+      :ui="{ icon: 'animate-spin' }"
+    />
+
+    <UAlert
+      v-else-if="filteredRows(items).length < 1 && filter && items.length > 1"
+      color="warning"
+      variant="soft"
+      icon="i-lucide-circle-check"
+      title="Information"
+    >
+      <template #description>
+        <p class="text-sm text-default">
+          The filter <code>{{ filter }}</code> did not match any records.
+        </p>
+      </template>
+    </UAlert>
+
+    <UAlert
+      v-else-if="filteredRows(items).length < 1"
+      color="success"
+      variant="soft"
+      icon="i-lucide-circle-check"
+      title="Success"
+    >
+      <template #description>
+        <p class="text-sm text-default">
+          WatchState did not find any records matching the criteria. All records has at least
+          <code>{{ min }}</code> backends reporting it.
+        </p>
+      </template>
+    </UAlert>
+
+    <div v-else class="grid gap-4 xl:grid-cols-2">
+      <Lazy
+        v-for="item in items"
+        v-show="filterItem(item)"
+        :key="item.id"
+        :unrender="true"
+        :min-height="343"
+        class="block"
+      >
+        <UCard
+          class="h-full border shadow-sm"
+          :class="item.watched ? 'border-success/40' : 'border-default/70'"
+          :ui="itemCardUi"
+        >
+          <template #header>
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0 flex flex-1 items-start gap-2">
+                <UButton
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  square
+                  :icon="'episode' === item.type.toLowerCase() ? 'i-lucide-tv' : 'i-lucide-film'"
+                  @click="item.showRawData = !item?.showRawData"
+                />
+
+                <div class="min-w-0 flex-1 text-base font-semibold text-highlighted">
+                  <FloatingImage :image="`/history/${item.id}/images/poster`" v-if="poster_enable">
+                    <NuxtLink
+                      :to="`/history/${item.id}`"
+                      class="text-highlighted hover:text-primary"
+                      >{{ makeName(item) }}</NuxtLink
+                    >
+                  </FloatingImage>
+                  <NuxtLink
+                    v-else
+                    :to="`/history/${item.id}`"
+                    class="text-highlighted hover:text-primary"
+                    >{{ makeName(item) }}</NuxtLink
+                  >
+                </div>
+              </div>
+
+              <UTooltip :text="selected_ids.includes(item.id) ? 'Unselect item' : 'Select item'">
+                <UCheckbox
+                  color="primary"
+                  :model-value="selected_ids.includes(item.id)"
+                  @update:model-value="toggleSelected(item.id, $event)"
+                />
+              </UTooltip>
+            </div>
+          </template>
+
+          <div class="space-y-3">
+            <div
+              class="flex items-start gap-2 rounded-md border border-default bg-elevated/20 px-3 py-2 text-sm text-default"
+            >
+              <button
+                type="button"
+                class="mt-0.5 shrink-0 text-toned hover:text-primary"
+                @click="item.expand_title = !item?.expand_title"
+              >
+                <UIcon name="i-lucide-heading" class="size-4" />
+              </button>
+              <div
+                class="min-w-0 flex-1"
+                :class="item?.expand_title ? 'wrap-break-word' : 'truncate'"
+              >
+                <NuxtLink
+                  :to="makeSearchLink('subtitle', item?.content_title || item.title)"
+                  class="hover:text-primary"
+                >
+                  {{ item?.content_title || item.title }}
+                </NuxtLink>
+              </div>
+              <UButton
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                square
+                icon="i-lucide-copy"
+                @click="copyText(item?.content_title ?? item.title, false)"
+              />
+            </div>
+
+            <div
+              class="flex items-start gap-2 rounded-md border border-default bg-elevated/20 px-3 py-2 text-sm text-default"
+            >
+              <button
+                type="button"
+                class="mt-0.5 shrink-0 text-toned hover:text-primary"
+                @click="item.expand_path = !item?.expand_path"
+              >
+                <UIcon name="i-lucide-file-text" class="size-4" />
+              </button>
+              <div
+                class="min-w-0 flex-1"
+                :class="item?.expand_path ? 'wrap-break-word' : 'truncate'"
+              >
+                <NuxtLink
+                  v-if="item?.content_path"
+                  :to="makeSearchLink('path', item.content_path)"
+                  class="hover:text-primary"
+                >
+                  {{ item.content_path }}
+                </NuxtLink>
+                <span v-else>No path found.</span>
+              </div>
+              <UButton
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                square
+                icon="i-lucide-copy"
+                @click="copyText(item?.content_path || '', false)"
+              />
+            </div>
+
+            <div
+              class="rounded-md border border-default bg-elevated/20 px-3 py-2 text-sm text-default"
+            >
+              <div class="mb-2 flex items-center gap-2 font-medium text-highlighted">
+                <UIcon name="i-lucide-server" class="size-4 text-toned" />
+                <span>Has metadata from</span>
+              </div>
+
+              <div class="flex flex-wrap gap-2">
+                <NuxtLink
+                  v-for="reportedBackend in item.reported_by"
+                  :key="`${item.id}-rb-${reportedBackend}`"
+                  :to="'/backend/' + reportedBackend"
+                  class="inline-flex items-center gap-1.5 rounded-md border border-default bg-default/60 px-2.5 py-1 text-xs font-medium text-default"
+                >
+                  <UIcon name="i-lucide-server" class="size-3.5" />
+                  {{ reportedBackend }}
+                </NuxtLink>
+                <NuxtLink
+                  v-for="missingBackend in item.not_reported_by"
+                  :key="`${item.id}-nrb-${missingBackend}`"
+                  :to="'/backend/' + missingBackend"
+                  class="inline-flex items-center gap-1.5 rounded-md border border-error/30 bg-error/10 px-2.5 py-1 text-xs font-medium text-error"
+                >
+                  <UIcon name="i-lucide-circle-alert" class="size-3.5" />
+                  {{ missingBackend }}
+                </NuxtLink>
+              </div>
+            </div>
+
+            <div
+              v-if="item?.showRawData"
+              class="relative overflow-auto rounded-md border border-default bg-elevated/20 p-3"
+            >
+              <UButton
+                color="neutral"
+                variant="soft"
+                size="xs"
+                icon="i-lucide-copy"
+                class="absolute right-3 top-3"
+                @click="copyText(JSON.stringify(item, null, 2))"
+              />
+              <pre
+                class="max-h-85.75 overflow-auto pr-12 text-xs text-default"
+              ><code>{{ JSON.stringify(item, null, 2) }}</code></pre>
+            </div>
+          </div>
+
+          <template #footer>
+            <div class="grid gap-2 sm:grid-cols-2">
+              <div
+                class="flex items-center justify-center gap-2 rounded-md border border-default bg-elevated/40 px-3 py-2 text-sm text-default"
+              >
+                <UIcon
+                  :name="item.watched ? 'i-lucide-eye' : 'i-lucide-eye-off'"
+                  class="size-4 text-toned"
+                />
+                <span :class="item.watched ? 'text-success' : 'text-error'">{{
+                  item.watched ? 'Played' : 'Unplayed'
+                }}</span>
+              </div>
+              <div
+                class="flex items-center justify-center gap-2 rounded-md border border-default bg-elevated/40 px-3 py-2 text-sm text-default"
+              >
+                <UIcon name="i-lucide-calendar" class="size-4 text-toned" />
+                <UTooltip
+                  :text="`Record updated at: ${moment.unix(item.updated_at).format(TOOLTIP_DATE_FORMAT)}`"
+                >
+                  <span class="cursor-help">{{ moment.unix(item.updated_at).fromNow() }}</span>
+                </UTooltip>
+              </div>
+            </div>
+          </template>
+        </UCard>
+      </Lazy>
+    </div>
+
+    <UCard class="border border-default/70 shadow-sm" :ui="tipsCardUi">
+      <template #header>
+        <button
+          type="button"
+          class="flex w-full items-center justify-between gap-3 text-left"
+          @click="show_page_tips = !show_page_tips"
+        >
+          <span class="inline-flex items-center gap-2 text-sm font-semibold text-highlighted">
+            <UIcon name="i-lucide-info" class="size-4 text-toned" />
+            <span>Tips</span>
+          </span>
+          <span class="inline-flex items-center gap-1 text-xs font-medium text-toned">
+            <UIcon
+              :name="show_page_tips ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+              class="size-4"
+            />
+            <span>{{ show_page_tips ? 'Hide' : 'Show' }}</span>
+          </span>
+        </button>
+      </template>
+
+      <ul v-if="show_page_tips" class="list-disc space-y-2 pl-5 text-sm leading-6 text-default">
+        <li>
+          You can specify the minimum number of backends that need to report the record to be
+          considered valid.
+        </li>
+        <li>
+          By clicking the
+          <UIcon name="i-lucide-trash-2" class="inline size-4 align-text-bottom" /> icon you will
+          delete the the reported items from the local database. If the items are not fixed by the
+          time <code>import</code> is run, they will re-appear.
+        </li>
+        <li>
+          Deleting records works by deleting everything at or below the specified number of
+          backends. For example, if you set the minimum to <code>3</code>, all records that are
+          reported by <code>3</code> or fewer backends will be deleted.
+        </li>
+        <li>
+          Records showing here most likely means your backends, are not reporting same data. This
+          could be due to many reasons, including using different external databases i.e.
+          <code>TheMovieDB</code> vs <code>TheTVDB</code>.
+        </li>
+        <li>
+          The results are cached in your browser temporarily to provide faster response, as the
+          operation to generate the report is quite intensive. If you want to refresh the data,
+          click the
+          <UIcon name="i-lucide-refresh-cw" class="inline size-4 align-text-bottom" /> icon.
+        </li>
+      </ul>
+    </UCard>
   </div>
 </template>
 
@@ -412,17 +412,18 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useHead, useRoute, useRouter } from '#app';
 import { useStorage } from '@vueuse/core';
-import Message from '~/components/Message.vue';
 import Lazy from '~/components/Lazy.vue';
+import Pager from '~/components/Pager.vue';
+import { requireTopLevelPageShell } from '~/utils/topLevelNavigation';
 import { useSessionCache } from '~/utils/cache';
 import {
   request,
   awaitElement,
   copyText,
   makeName,
-  makePagination,
   makeSearchLink,
   notification,
+  parse_api_response,
   TOOLTIP_DATE_FORMAT,
 } from '~/utils';
 import moment from 'moment';
@@ -434,6 +435,13 @@ import type { ParityItem, PaginatedResponse, ExpandableUIState } from '~/types';
 type ParityItemWithUI = ParityItem & ExpandableUIState;
 
 type APIResponse = PaginatedResponse<ParityItemWithUI>;
+
+const pageShell = requireTopLevelPageShell('parity');
+
+type SelectItem = {
+  label: string;
+  value: number;
+};
 
 const route = useRoute();
 const router = useRouter();
@@ -461,11 +469,37 @@ const selectAll = ref<boolean>(false);
 const selected_ids = ref<Array<string | number>>([]);
 const massActionInProgress = ref<boolean>(false);
 
+const cache = useSessionCache(api_user.value);
+
+const itemCardUi = {
+  header: 'p-4',
+  body: 'px-4 pb-4 pt-0',
+  footer: 'border-t border-default px-4 py-4',
+};
+
+const tipsCardUi = {
+  header: 'p-4',
+  body: 'px-4 pb-4 pt-0',
+};
+
+const minItems = computed<Array<SelectItem>>(() =>
+  !max.value ? [] : numberRange(1, max.value + 1).map((value) => ({ label: String(value), value })),
+);
+
 watch(selectAll, (v) => {
   selected_ids.value = v ? filteredRows(items.value).map((i) => i.id) : [];
 });
 
-const cache = useSessionCache(api_user.value);
+const toggleSelected = (id: string | number, value: boolean | 'indeterminate'): void => {
+  if (true === value) {
+    if (!selected_ids.value.includes(id)) {
+      selected_ids.value.push(id);
+    }
+    return;
+  }
+
+  selected_ids.value = selected_ids.value.filter((itemId) => itemId !== id);
+};
 
 const toggleFilter = (): void => {
   showFilter.value = !showFilter.value;
@@ -554,8 +588,9 @@ const loadContent = async (
     if (json.items) {
       items.value = json.items;
     }
-  } catch (e: any) {
-    notification('error', 'Error', `Request error. ${e.message}`);
+  } catch (e: unknown) {
+    const error = e as Error;
+    notification('error', 'Error', `Request error. ${error.message}`);
   } finally {
     isLoading.value = false;
     selectAll.value = false;
@@ -571,7 +606,7 @@ const massDelete = async (): Promise<void> => {
   const { status: confirmStatus } = await useDialog().confirmDialog({
     title: 'Confirm Deletion',
     message: `Delete '${selected_ids.value.length}' item/s?`,
-    confirmColor: 'is-danger',
+    confirmColor: 'error',
   });
 
   if (true !== confirmStatus) {
@@ -590,7 +625,7 @@ const massDelete = async (): Promise<void> => {
 
     const requests = await Promise.all(urls.map((url) => request(url, { method: 'DELETE' })));
 
-    if (!requests.every((response: any) => 200 === response.status)) {
+    if (!requests.every((response) => 200 === response.status)) {
       notification(
         'error',
         'Error',
@@ -604,8 +639,9 @@ const massDelete = async (): Promise<void> => {
     }
 
     notification('success', 'Success', `Deleting '${urls.length}' item/s completed.`);
-  } catch (e: any) {
-    notification('error', 'Error', `Request error. ${e.message}`);
+  } catch (e: unknown) {
+    const error = e as Error;
+    notification('error', 'Error', `Request error. ${error.message}`);
   } finally {
     massActionInProgress.value = false;
     selected_ids.value = [];
@@ -631,7 +667,7 @@ const deleteData = async (): Promise<void> => {
   const { status: confirmStatus } = await useDialog().confirmDialog({
     title: 'Confirm Deletion',
     message: `Delete all reported records?`,
-    confirmColor: 'is-danger',
+    confirmColor: 'error',
   });
 
   if (true !== confirmStatus) {
@@ -660,8 +696,9 @@ const deleteData = async (): Promise<void> => {
     page.value = 1;
 
     clearCache();
-  } catch (e: any) {
-    notification('error', 'Error', e.message);
+  } catch (e: unknown) {
+    const error = e as Error;
+    notification('error', 'Error', error.message);
   } finally {
     isDeleting.value = false;
   }
@@ -733,7 +770,7 @@ const clearCache = (): void => {
 };
 
 const stateCallBack = async (e: PopStateEvent): Promise<void> => {
-  if (!e.state && !(e as any).detail) {
+  if (!e.state && !(e as { detail?: unknown }).detail) {
     return;
   }
 

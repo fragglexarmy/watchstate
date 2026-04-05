@@ -19,8 +19,8 @@ On the export side, we compare the backend's last sync date with any local chang
 items that need updating for each backend. If there are only a few changes, we trigger a quick sync operation
 `push mode`. If the changes are more extensive, we perform a full export, which compares all remote data with the local
 data. This full export only happens when there are many changes and/or metadata is missing from the backend, which is
-why it's crucial to keep the `Import play and progress updates from this backend?` or, at a minimum, the
-`Import metadata from this backend?` option enabled.
+why it's crucial to keep the `Import play and progress updates` option or, at a minimum, the
+`Import metadata only` option enabled.
 
 # Setting Up Two-Way Sync
 
@@ -32,23 +32,23 @@ First, make sure you have completed the [one-way sync guide](/guides/one-way-syn
 
 ### Step 2: Enable Sync Sliders.
 
-Go to the <!--i:fa-server--> *Backends* page. Here, you'll see two sliders for each backend: `Import` and `Export`.
+Go to the <!--i:i-lucide-server--> *Backends* page. Here, you'll see two switches for each backend: `Import` and `Export`.
 
-- The `Import` slider brings data from the backend into WatchState.
-- The `Export` slider sends data from WatchState to the backend.
+- The `Import` switch brings data from the backend into WatchState.
+- The `Export` switch sends data from WatchState to the backend.
 
-When you're sure the data looks correct, turn on the `Export` slider for your main backend and the `Import` slider for
+When you're sure the data looks correct, turn on the `Export` switch for your main backend and the `Import` switch for
 the others. This will keep your backends synced.
 
 # Enable Scheduled Tasks
 
 If everything looks good and you want WatchState to automatically sync your backends, do the following:
 
-Go to the <!--i:fa-tasks--> **Tasks** page. Enable the two tasks by toggling the sliders next to `Import` and `Export`.
+Go to the <!--i:i-lucide-list-checks--> **Tasks** page. Enable the two tasks by toggling the switches next to `Import` and `Export`.
 
 ### Tuning The run schedule
 
-To control how often these tasks run, go to the <!--i:fa-cogs--> **Env** page, click the <!--i:fa-plus--> **Add**
+To control how often these tasks run, go to the **Configuration** > <!--i:i-lucide-sliders-horizontal--> **Environment** page, click the <!--i:i-lucide-plus--> **Add**
 button, and select the environment variables `WS_CRON_EXPORT_AT` and `WS_CRON_IMPORT_AT`. These variables use CRON timer
 expressions. For example, if you want the export task to run every 6 hours, set `WS_CRON_EXPORT_AT` to `0 */6 * * *`.
 For more help with CRON expressions, visit [crontab.guru](https://crontab.guru/).

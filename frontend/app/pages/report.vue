@@ -1,109 +1,96 @@
 <template>
-  <div>
-    <div class="columns is-multiline">
-      <div class="column is-12 is-clearfix is-unselectable">
-        <span class="title is-4">
-          <span class="icon"><i class="fas fa-flag"></i></span>
-          System Report
-        </span>
-        <div class="is-pulled-right" v-if="false === show_report_warning">
-          <div class="field is-grouped">
-            <p class="control">
-              <button
-                class="button is-info"
-                @click="scrollToTop"
-                v-tooltip.bottom="'Scroll to top'"
-              >
-                <span class="icon"><i class="fas fa-arrow-up" /></span>
-              </button>
-            </p>
-            <p class="control">
-              <button
-                class="button is-warning"
-                @click="scrollToBottom"
-                v-tooltip.bottom="'Scroll to bottom'"
-              >
-                <span class="icon"><i class="fas fa-arrow-down" /></span>
-              </button>
-            </p>
-            <p class="control">
-              <button
-                class="button is-primary"
-                @click="copyText(data.join('\n'))"
-                v-tooltip.bottom="'Copy report'"
-              >
-                <span class="icon"><i class="fas fa-copy" /></span>
-              </button>
-            </p>
-          </div>
-        </div>
-        <div class="subtitle is-hidden-mobile">
-          This page shows basic information about the various components of the system.
+  <main class="w-full min-w-0 max-w-full space-y-4">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div class="min-w-0 space-y-1">
+        <div
+          class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-toned"
+        >
+          <UIcon :name="pageShell.icon" class="size-4" />
+          <span>{{ pageShell.sectionLabel }}</span>
+          <span>/</span>
+          <span>{{ pageShell.pageLabel }}</span>
         </div>
       </div>
 
-      <div class="column is-12">
-        <template v-if="show_report_warning">
-          <Message
-            message_class="has-background-warning-80 has-text-dark"
-            title="Warning"
-            icon="fas fa-exclamation-triangle"
+      <div v-if="data.length > 0" class="flex flex-wrap items-center justify-end gap-2">
+        <UTooltip text="Scroll to top">
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="sm"
+            leading-icon="i-lucide-chevron-up"
+            aria-label="Scroll report to top"
+            @click="scrollToTop"
           >
-            While we try to make sure no sensitive information is leaked via the report, it's
-            possible that something might be missed. Please review the report before posting it. If
-            you notice any sensitive information, please report it to the developers. so we can fix
-            it.
-          </Message>
-          <div class="mt-4 has-text-centered">
-            <NuxtLink class="is-block is-fullwidth is-primary" @click="show_report_warning = false">
-              <span class="icon-text">
-                <span class="icon"><i class="fas fa-thumbs-up"></i></span>
-                <span>I understand. Show me the report.</span>
-              </span>
-            </NuxtLink>
-          </div>
-        </template>
-        <Message
-          message_class="has-background-info-90 has-text-dark"
-          v-if="!show_report_warning && data.length < 1"
-          title="Loading"
-          icon="fas fa-spinner fa-spin"
-          message="Generating the report. Please wait..."
-        />
-        <template v-if="!show_report_warning && data.length > 0">
-          <pre
-            style="min-height: 60vh; max-height: 70vh; overflow-y: scroll"
-            class="is-terminal"
-            ref="data-content"
-          ><code><span ref="topMarker"></span><span v-for="(item, index) in data" :key="index"
-                                                                           class="is-block">{{ item }}</span><span
-              ref="bottomMarker"></span></code></pre>
-        </template>
+            <span class="hidden sm:inline">Scroll Up</span>
+          </UButton>
+        </UTooltip>
+
+        <UTooltip text="Scroll to bottom">
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="sm"
+            leading-icon="i-lucide-chevron-down"
+            aria-label="Scroll report to bottom"
+            @click="scrollToBottom"
+          >
+            <span class="hidden sm:inline">Scroll Down</span>
+          </UButton>
+        </UTooltip>
+
+        <UTooltip text="Copy report">
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="sm"
+            leading-icon="i-lucide-copy"
+            aria-label="Copy report"
+            @click="copyReport"
+          >
+            <span class="hidden sm:inline">Copy Report</span>
+          </UButton>
+        </UTooltip>
       </div>
     </div>
-  </div>
+
+    <UAlert
+      v-if="data.length < 1"
+      color="info"
+      variant="soft"
+      icon="i-lucide-loader-circle"
+      title="Loading"
+      description="Generating the report. Please wait..."
+      :ui="{ icon: 'animate-spin' }"
+    />
+
+    <UCard v-else class="border border-default/70 shadow-sm" :ui="{ body: 'p-0' }">
+      <pre
+        ref="reportViewport"
+        class="max-h-[70vh] min-h-[60vh] overflow-y-auto bg-neutral-950/95 p-4 text-sm text-neutral-100 wrap-pre whitespace-pre-wrap wrap-break-word"
+      ><code><span v-for="(item, index) in data" :key="index" class="block">{{ item }}</span></code></pre>
+    </UCard>
+  </main>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { onMounted, ref } from 'vue';
 import { useHead, useRoute } from '#app';
+import { useDialog } from '~/composables/useDialog';
+import { requireTopLevelPageShell } from '~/utils/topLevelNavigation';
 import { copyText, parse_api_response, request } from '~/utils';
 
-useHead({ title: `System Report` });
+useHead({ title: 'System Report' });
+
+const pageShell = requireTopLevelPageShell('report');
 
 const route = useRoute();
+const dialog = useDialog();
 
 const data = ref<Array<string>>([]);
-const show_report_warning = ref(true);
+const reportViewport = ref<HTMLElement | null>(null);
 
-const bottomMarker = ref<HTMLElement | null>(null);
-const topMarker = ref<HTMLElement | null>(null);
-
-watch(show_report_warning, async (v) => {
-  if (false !== v) {
-    return;
-  }
-
+const loadReport = async (): Promise<void> => {
   const response = await request(`/system/report`);
   const json = await parse_api_response<Array<string>>(response);
   if ('error' in json) {
@@ -115,16 +102,39 @@ watch(show_report_warning, async (v) => {
   }
 
   data.value = json;
-});
+};
+
+const copyReport = async (): Promise<void> => {
+  if (data.value.length < 1) {
+    return;
+  }
+
+  const { status } = await dialog.confirmDialog({
+    title: 'Copy Report',
+    confirmText: 'Copy Report',
+    confirmColor: 'warning',
+    message:
+      'While we try to make sure no sensitive information is leaked via the report, it is possible that something might be missed. Please review the report before posting it. If you notice any sensitive information, please report it to the developers so we can fix it.',
+  });
+
+  if (true !== status) {
+    return;
+  }
+
+  copyText(data.value.join('\n'));
+};
 
 const scrollToTop = () => {
-  if (topMarker.value) {
-    topMarker.value.scrollIntoView({ behavior: 'smooth' });
+  if (reportViewport.value) {
+    reportViewport.value.scrollTo({ top: 0, behavior: 'smooth' });
   }
 };
+
 const scrollToBottom = () => {
-  if (bottomMarker.value) {
-    bottomMarker.value.scrollIntoView({ behavior: 'smooth' });
+  if (reportViewport.value) {
+    reportViewport.value.scrollTo({ top: reportViewport.value.scrollHeight, behavior: 'smooth' });
   }
 };
+
+onMounted(async () => await loadReport());
 </script>

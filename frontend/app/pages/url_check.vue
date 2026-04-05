@@ -1,419 +1,328 @@
 <template>
-  <div>
-    <div class="columns is-multiline">
-      <div class="column is-12 is-clearfix is-unselectable">
-        <span class="title is-4">
-          <span class="icon"><i class="fas fa-external-link" /></span>
-          URL Checker
-        </span>
-        <div class="is-pulled-right" v-if="response.response?.status">
-          <div class="field is-grouped">
-            <p class="control">
-              <button
-                class="button is-info"
-                @click="() => copyText(JSON.stringify(response, null, 2))"
-                v-tooltip.bottom="'Copy request & response.'"
-              >
-                <span class="icon"><i class="fas fa-copy" /></span>
-              </button>
-            </p>
-          </div>
+  <main class="w-full min-w-0 max-w-full space-y-4">
+    <div class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+      <div class="space-y-1">
+        <div
+          class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-toned"
+        >
+          <UIcon :name="pageShell.icon" class="size-4" />
+          <span>{{ pageShell.sectionLabel }}</span>
+          <span>/</span>
+          <span>{{ pageShell.pageLabel }}</span>
         </div>
-        <div class="is-hidden-mobile">
-          <span class="subtitle"
-            >Check if <strong>WatchState</strong> is able to communicate with the given URL.</span
+      </div>
+
+      <div v-if="hasResponse" class="flex flex-wrap items-center justify-end gap-2">
+        <UTooltip text="Copy request and response">
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="sm"
+            icon="i-lucide-copy"
+            @click="copyText(JSON.stringify(response, null, 2))"
           >
-        </div>
-      </div>
-
-      <div class="column is-12">
-        <h1 class="title is-4 is-clickable" @click="toggleForm">
-          <span class="icon" v-if="response.response.status && !invalid_form">
-            <i class="fas" :class="{ 'fa-arrow-up': toggle_form, 'fa-arrow-down': !toggle_form }" />
-          </span>
-          Request Form
-        </h1>
-        <Message
-          message_class="has-background-warning-80 has-text-dark"
-          v-if="has_template_values()"
-        >
-          <p>
-            The form contains <strong>template values</strong> <code>[...]</code>. Please make sure
-            to replace them with the actual values.
-          </p>
-        </Message>
-      </div>
-
-      <div class="column is-12" v-if="toggle_form || !item.url">
-        <form @submit.prevent="check_url">
-          <div class="box content">
-            <div class="field">
-              <label class="label is-unselectable" for="url">Pre-defined template</label>
-              <div class="control">
-                <div class="select is-fullwidth">
-                  <select v-model="use_template" :disabled="is_loading">
-                    <option value="" v-text="'Select a template'" disabled />
-                    <option v-for="template in templates" :key="template.key" :value="template.key">
-                      {{ template.id }}. {{ template.key }}
-                    </option>
-                  </select>
-                </div>
-              </div>
-              <p class="help is-bold">
-                <span class="icon"><i class="fas fa-info-circle" /></span>
-                Gives a pre-defined template for the URL to check.
-              </p>
-            </div>
-
-            <div class="field">
-              <label class="label is-unselectable" for="url">URL</label>
-              <div class="field is-grouped">
-                <div class="control">
-                  <div class="select is-fullwidth">
-                    <select v-model="item.method" :disabled="is_loading">
-                      <option
-                        v-for="method in methods"
-                        :key="method"
-                        :value="method"
-                        v-text="method"
-                      />
-                    </select>
-                  </div>
-                </div>
-                <div class="control is-expanded has-icons-left">
-                  <input
-                    class="input"
-                    type="text"
-                    id="url"
-                    v-model="item.url"
-                    autocomplete="off"
-                    placeholder="https://example.com/api/v1/"
-                    :disabled="is_loading"
-                  />
-                  <div class="icon is-left"><i class="fas fa-link" /></div>
-                </div>
-              </div>
-              <p class="help is-bold">
-                <span class="icon"><i class="fas fa-info-circle" /></span>
-                The URL to check. It must be a valid URL.
-              </p>
-            </div>
-
-            <div class="field">
-              <label class="label is-unselectable">
-                Headers -
-                <NuxtLink @click="add_header()">Add</NuxtLink>
-              </label>
-
-              <div class="control mb-2" v-for="(header, index) in item.headers" :key="index">
-                <div class="field is-grouped">
-                  <div class="control is-expanded">
-                    <input
-                      class="input"
-                      type="text"
-                      v-model="header.key"
-                      placeholder="Header Key"
-                      required
-                      :disabled="is_loading"
-                    />
-                  </div>
-                  <div class="control is-expanded">
-                    <input
-                      class="input"
-                      type="text"
-                      v-model="header.value"
-                      placeholder="Header Value"
-                      required
-                      :disabled="is_loading"
-                    />
-                  </div>
-                  <div class="control">
-                    <button
-                      class="button is-danger"
-                      type="button"
-                      @click="item.headers.splice(index, 1)"
-                      :disabled="is_loading"
-                    >
-                      <span class="icon"><i class="fas fa-times" /></span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="field is-grouped">
-              <div class="control is-expanded">
-                <button
-                  class="button is-fullwidth is-primary"
-                  type="submit"
-                  :disabled="invalid_form || is_loading"
-                  :class="{ 'is-loading': is_loading }"
-                >
-                  <span class="icon-text">
-                    <span class="icon"><i class="fas fa-paper-plane" /></span>
-                    <span>Send Request</span>
-                  </span>
-                </button>
-              </div>
-              <p class="control is-expanded">
-                <button
-                  class="button is-fullwidth is-warning"
-                  type="button"
-                  :disabled="invalid_form || is_loading"
-                  @click="generateCurl"
-                >
-                  <span class="icon-text">
-                    <span class="icon"><i class="fas fa-terminal" /></span>
-                    <span>Copy CURL</span>
-                  </span>
-                </button>
-              </p>
-              <div class="control is-expanded">
-                <button
-                  class="button is-fullwidth is-danger"
-                  type="button"
-                  @click="reset_form"
-                  :disabled="is_loading"
-                >
-                  <span class="icon-text">
-                    <span class="icon"><i class="fas fa-times" /></span>
-                    <span>Reset Form</span>
-                  </span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </form>
-      </div>
-
-      <div class="column is-6-tablet is-12-mobile" v-if="response.response.status">
-        <div class="card">
-          <div class="card-header is-clickable" @click="toggle_request = !toggle_request">
-            <div class="card-header-title is-block is-ellipsis">
-              <span class="is-underlined has-text-danger">{{ response.request.method }}</span>
-              {{ response.request.url }}
-            </div>
-            <button class="card-header-icon">
-              <span class="icon">
-                <i
-                  class="fas"
-                  :class="{ 'fa-arrow-up': toggle_request, 'fa-arrow-down': !toggle_request }"
-                />
-              </span>
-            </button>
-          </div>
-          <div class="card-content content p-0 m-0" v-if="toggle_request">
-            <div style="height: 300px" class="is-overflow-auto">
-              <div class="table-container">
-                <table
-                  class="table is-fullwidth is-hoverable is-striped"
-                  style="table-layout: fixed"
-                >
-                  <thead>
-                    <tr>
-                      <th class="has-text-centered" style="min-width: 150px">Header</th>
-                      <th>Value</th>
-                    </tr>
-                  </thead>
-                  <tbody v-if="Object.keys(response.request?.headers ?? {}).length > 0">
-                    <tr v-for="(v, k) in response.request.headers" :key="k">
-                      <td class="is-vcentered is-ellipsis">
-                        <abbr :title="uc_words(k)" v-text="uc_words(k)" class="is-pointer-help" />
-                      </td>
-                      <td class="is-vcentered">{{ v }}</td>
-                    </tr>
-                  </tbody>
-                  <tbody v-else>
-                    <tr>
-                      <td colspan="2" class="has-text-centered">No request headers found.</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="column is-6-tablet is-12-mobile" v-if="response.response.status">
-        <div class="card">
-          <div class="card-header is-clickable" @click="toggle_response = !toggle_response">
-            <div class="card-header-title is-block is-ellipsis">
-              <span class="is-underlined" :class="colorStatus(response.response.status)">{{
-                response.response.status
-              }}</span>
-              Status code response.
-            </div>
-            <button class="card-header-icon">
-              <span class="icon">
-                <i
-                  class="fas"
-                  :class="{ 'fa-arrow-up': toggle_response, 'fa-arrow-down': !toggle_response }"
-                />
-              </span>
-            </button>
-          </div>
-          <div class="card-content content p-0 m-0" v-if="toggle_response">
-            <div style="height: 300px" class="is-overflow-auto">
-              <div class="table-container">
-                <table
-                  class="table is-fullwidth is-bordered is-hoverable is-striped"
-                  style="table-layout: fixed"
-                >
-                  <thead>
-                    <tr>
-                      <th class="has-text-centered" style="width: 150px">Header</th>
-                      <th>Value</th>
-                    </tr>
-                  </thead>
-                  <tbody v-if="Object.keys(response.response?.headers ?? {}).length > 0">
-                    <tr v-for="(v, k) in response.response.headers" :key="k">
-                      <td class="is-vcentered is-ellipsis">
-                        <abbr :title="uc_words(k)" v-text="uc_words(k)" class="is-pointer-help" />
-                      </td>
-                      <td class="is-vcentered" :class="colorize(k)">{{ v }}</td>
-                    </tr>
-                  </tbody>
-                  <tbody v-else>
-                    <tr>
-                      <td colspan="2" class="has-text-centered">No response headers found.</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="column is-12" v-if="response.response.status">
-        <div class="card">
-          <div class="card-header is-clickable" @click="toggle_body = !toggle_body">
-            <div
-              class="card-header-title is-block is-ellipsis"
-              :class="colorStatus(response.response.status)"
-            >
-              ( <span class="is-underlined">{{ response.response.status }}</span> ) Response Body
-            </div>
-            <button class="card-header-icon">
-              <span class="icon">
-                <i
-                  class="fas"
-                  :class="{ 'fa-arrow-up': toggle_body, 'fa-arrow-down': !toggle_body }"
-                />
-              </span>
-            </button>
-          </div>
-          <div class="card-content content p-0 m-0" v-if="toggle_body">
-            <div style="max-height: 300px" class="is-overflow-auto">
-              <pre><code>{{
-                  response.response.body ? tryParse(response.response.body) : 'Empty body'
-                }}</code></pre>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="column is-12">
-        <Message
-          message_class="has-background-info-90 has-text-dark"
-          :toggle="show_page_tips"
-          @toggle="show_page_tips = !show_page_tips"
-          :use-toggle="true"
-          title="Tips"
-          icon="fas fa-info-circle"
-        >
-          <ul>
-            <li>
-              Values in the form with <code>[...]</code> are <strong>template values</strong>. If
-              they are part of a string, please only replace the bracket and the value inside it.
-              For example, <code>[ip:port]</code> should be replaced with
-              <code>192.168.8.1:8096</code>.
-            </li>
-            <li>
-              If you see a <span class="has-text-success">green status code (200-299)</span>, it
-              means the request was successful.
-            </li>
-            <li>
-              If you see a <span class="has-text-danger">red status code (400-499)</span>, it means
-              the request was rejected. by the target or the WatchState.
-            </li>
-            <li>
-              If you see a <span class="has-text-warning">yellow status code (300-399)</span>, it
-              means the request was redirected. This is not necessarily an error or successful
-              request, but you should check the response and follow the redirect.
-            </li>
-            <li>
-              If you see a <span class="has-text-purple">purple status code (500+)</span>, it means
-              the server encountered an error.
-            </li>
-            <li>
-              You can add this special header <code>ws-timeout</code> to control the connection
-              timeout for the http library.
-            </li>
-            <li>
-              To get the value of <code>machineIdentifier</code> for plex
-              <code>X-Plex-Client-Identifier</code> header. First run <code>Plex: Info</code>, you
-              will find a field named <code>machineIdentifier</code> This value should go in the
-              identifier header.
-            </li>
-          </ul>
-        </Message>
+            <span class="hidden sm:inline">Copy</span>
+          </UButton>
+        </UTooltip>
       </div>
     </div>
-  </div>
+
+    <UCard class="border border-default/70 bg-default/90 shadow-sm" :ui="formCardUi">
+      <template #header>
+        <div class="inline-flex items-center gap-2 text-base font-semibold text-highlighted">
+          <UIcon name="i-lucide-send" class="size-4 shrink-0 text-toned" />
+          <span>Request</span>
+        </div>
+      </template>
+
+      <form class="space-y-4" @submit.prevent="check_url">
+        <UAlert
+          v-if="has_template_values()"
+          color="warning"
+          variant="soft"
+          icon="i-lucide-triangle-alert"
+          title="Template values found"
+          description="Replace values in [...] before testing when needed."
+        />
+
+        <UFormField label="Template" name="use-template">
+          <USelect
+            id="use-template"
+            v-model="use_template"
+            :items="templateItems"
+            value-key="value"
+            placeholder="Select a template"
+            icon="i-lucide-file-text"
+            class="w-full"
+            :disabled="is_loading"
+          />
+        </UFormField>
+
+        <UFormField label="URL" name="url" required>
+          <div class="flex flex-col gap-2 sm:flex-row">
+            <USelect
+              v-model="item.method"
+              :items="methods"
+              class="sm:w-40"
+              :disabled="is_loading"
+            />
+
+            <UInput
+              id="url"
+              v-model="item.url"
+              type="text"
+              autocomplete="off"
+              placeholder="https://example.com/api/v1/"
+              icon="i-lucide-link"
+              class="flex-1"
+              :disabled="is_loading"
+            />
+          </div>
+        </UFormField>
+
+        <div class="space-y-3">
+          <div class="flex items-center justify-between gap-3">
+            <div class="text-sm font-medium text-highlighted">Headers</div>
+
+            <UButton
+              type="button"
+              color="neutral"
+              variant="outline"
+              size="sm"
+              icon="i-lucide-plus"
+              :disabled="is_loading"
+              @click="add_header()"
+            >
+              Add
+            </UButton>
+          </div>
+
+          <div v-if="item.headers.length > 0" class="space-y-2">
+            <div
+              v-for="(header, index) in item.headers"
+              :key="index"
+              class="flex flex-col gap-2 rounded-md border border-default bg-elevated/40 px-3 py-3 sm:flex-row"
+            >
+              <UInput
+                v-model="header.key"
+                type="text"
+                placeholder="Header Key"
+                class="flex-1"
+                :disabled="is_loading"
+              />
+              <UInput
+                v-model="header.value"
+                type="text"
+                placeholder="Header Value"
+                class="flex-1"
+                :disabled="is_loading"
+              />
+              <UButton
+                type="button"
+                color="neutral"
+                variant="outline"
+                icon="i-lucide-x"
+                class="shrink-0 whitespace-nowrap"
+                :disabled="is_loading"
+                @click="item.headers.splice(index, 1)"
+              >
+                Remove
+              </UButton>
+            </div>
+          </div>
+
+          <UAlert
+            v-else
+            color="neutral"
+            variant="soft"
+            icon="i-lucide-info"
+            title="No custom headers"
+            description="Add headers only when the target endpoint requires them."
+          />
+        </div>
+      </form>
+
+      <template #footer>
+        <div class="flex flex-wrap items-center justify-end gap-2">
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="sm"
+            icon="i-lucide-terminal"
+            :disabled="invalid_form || is_loading"
+            @click="generateCurl"
+          >
+            Copy CURL
+          </UButton>
+
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="sm"
+            icon="i-lucide-rotate-ccw"
+            :disabled="is_loading"
+            @click="reset_form"
+          >
+            Reset
+          </UButton>
+
+          <UButton
+            color="primary"
+            variant="solid"
+            size="sm"
+            icon="i-lucide-send"
+            :loading="is_loading"
+            :disabled="invalid_form || is_loading"
+            @click="check_url"
+          >
+            Send Request
+          </UButton>
+        </div>
+      </template>
+    </UCard>
+
+    <div v-if="hasResponse" class="grid gap-4 xl:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
+      <UCard class="border border-default/70 bg-default/90 shadow-sm" :ui="summaryCardUi">
+        <template #header>
+          <div class="inline-flex items-center gap-2 text-sm font-semibold text-highlighted">
+            <UIcon name="i-lucide-activity" class="size-4 text-toned" />
+            <span>Summary</span>
+          </div>
+        </template>
+
+        <div class="space-y-3">
+          <div
+            class="rounded-md border border-default bg-elevated/40 px-3 py-3 text-sm text-default"
+          >
+            <div class="mb-1 text-xs font-medium uppercase tracking-[0.16em] text-toned">
+              Method
+            </div>
+            <div class="font-mono text-highlighted">{{ response.request.method }}</div>
+          </div>
+
+          <div
+            class="rounded-md border border-default bg-elevated/40 px-3 py-3 text-sm text-default"
+          >
+            <div class="mb-1 text-xs font-medium uppercase tracking-[0.16em] text-toned">URL</div>
+            <div class="ws-wrap-anywhere font-mono text-xs text-highlighted">
+              {{ response.request.url }}
+            </div>
+          </div>
+
+          <div
+            class="rounded-md border border-default bg-elevated/40 px-3 py-3 text-sm text-default"
+          >
+            <div class="mb-1 text-xs font-medium uppercase tracking-[0.16em] text-toned">
+              Status
+            </div>
+            <div :class="statusToneClass(response.response.status)" class="font-mono font-semibold">
+              {{ response.response.status }}
+            </div>
+          </div>
+        </div>
+      </UCard>
+
+      <UCard class="border border-default/70 bg-default/90 shadow-sm" :ui="resultCardUi">
+        <template #header>
+          <div class="inline-flex items-center gap-2 text-sm font-semibold text-highlighted">
+            <UIcon name="i-lucide-panels-top-left" class="size-4 text-toned" />
+            <span>Details</span>
+          </div>
+        </template>
+
+        <UTabs v-model="activeResultTab" :items="resultTabs" variant="pill" color="neutral">
+          <template #request>
+            <UTable
+              :data="requestHeaderRows"
+              :columns="headerColumns"
+              sticky="header"
+              :ui="tableUi"
+            >
+              <template #empty>
+                <div class="py-6 text-center text-sm text-toned">No request headers found.</div>
+              </template>
+
+              <template #key-cell="{ row }">
+                <span class="font-medium text-highlighted">{{ uc_words(row.original.key) }}</span>
+              </template>
+
+              <template #value-cell="{ row }">
+                <span class="ws-wrap-anywhere text-default">{{ row.original.value }}</span>
+              </template>
+            </UTable>
+          </template>
+
+          <template #response>
+            <UTable
+              :data="responseHeaderRows"
+              :columns="headerColumns"
+              sticky="header"
+              :ui="tableUi"
+            >
+              <template #empty>
+                <div class="py-6 text-center text-sm text-toned">No response headers found.</div>
+              </template>
+
+              <template #key-cell="{ row }">
+                <span class="font-medium text-highlighted">{{ uc_words(row.original.key) }}</span>
+              </template>
+
+              <template #value-cell="{ row }">
+                <span :class="headerToneClass(row.original.key)">{{ row.original.value }}</span>
+              </template>
+            </UTable>
+          </template>
+
+          <template #body>
+            <pre
+              class="ws-terminal-panel ws-terminal-panel-lg rounded-md bg-neutral-950/95 text-sm text-neutral-100"
+            ><code>{{ response.response.body ? tryParse(response.response.body) : 'Empty body' }}</code></pre>
+          </template>
+        </UTabs>
+      </UCard>
+    </div>
+  </main>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { useStorage } from '@vueuse/core';
+import { computed, nextTick, ref, watch } from 'vue';
+import { useHead } from '#app';
+import type { TableColumn } from '@nuxt/ui';
+import { requireTopLevelPageShell } from '~/utils/topLevelNavigation';
 import { copyText, notification, parse_api_response, request } from '~/utils';
-import Message from '~/components/Message.vue';
+import { useDialog } from '~/composables/useDialog';
+
+type HeaderItem = {
+  key: string;
+  value: string;
+};
 
 type Item = {
-  /** The URL to check */
   url: string;
-  /** HTTP method (GET, POST, etc.) */
   method: string;
-  /** List of headers to send with the request */
-  headers: Array<{
-    /** Header key (e.g., 'Authorization') */
-    key: string;
-    /** Header value (e.g., 'Bearer ...') */
-    value: string;
-  }>;
+  headers: Array<HeaderItem>;
 };
 
 type URLCheckResponse = {
-  /** The request that was sent */
   request: {
-    /** The URL being checked */
     url: string;
-    /** HTTP method */
     method: string;
-    /** Headers as a key-value map */
     headers: Record<string, string>;
   };
-  /** The response that was received */
   response: {
-    /** HTTP status code (e.g., 200, 404) */
     status: number | null;
-    /** Response headers as a key-value map */
     headers: Record<string, string>;
-    /** Response body as a string */
     body: string;
   };
 };
 
 useHead({ title: 'URL Checker' });
 
-const show_page_tips = useStorage<boolean>('show_page_tips', true);
+const pageShell = requireTopLevelPageShell('url-check');
+const dialog = useDialog();
 
-const toggle_form = ref<boolean>(true);
-const toggle_request = ref<boolean>(true);
-const toggle_response = ref<boolean>(true);
-const toggle_body = ref<boolean>(true);
 const use_template = ref<string>('');
+const activeResultTab = ref<string>('request');
 const templates = ref<Array<{ id: number; key: string; override: Item }>>([
   {
     id: 1,
@@ -475,49 +384,142 @@ const templates = ref<Array<{ id: number; key: string; override: Item }>>([
 ]);
 const methods = ref<Array<string>>(['GET', 'POST', 'PUT', 'PATCH', 'HEAD', 'DELETE']);
 
-const defaultData = () => ({ url: '', method: 'GET', headers: [] }) as Item;
+const templateItems = computed<Array<{ label: string; value: string }>>(() =>
+  templates.value.map((template) => ({
+    label: `${template.id}. ${template.key}`,
+    value: template.key,
+  })),
+);
+
+const resultTabs = [
+  { label: 'Request Headers', value: 'request', slot: 'request', icon: 'i-lucide-arrow-up-right' },
+  {
+    label: 'Response Headers',
+    value: 'response',
+    slot: 'response',
+    icon: 'i-lucide-arrow-down-left',
+  },
+  { label: 'Body', value: 'body', slot: 'body', icon: 'i-lucide-file-text' },
+];
+
+const formCardUi = {
+  header: 'p-4',
+  body: 'px-4 pb-4 pt-0',
+  footer: 'px-4 pb-4 pt-0',
+};
+
+const summaryCardUi = {
+  header: 'p-4',
+  body: 'px-4 pb-4 pt-0',
+};
+
+const resultCardUi = {
+  header: 'p-4',
+  body: 'px-4 pb-4 pt-0',
+};
+
+const tableUi = {
+  root: 'max-h-[28rem] overflow-auto rounded-md border border-default bg-elevated/20',
+  th: 'px-3 py-2 text-sm text-left font-medium text-toned',
+  td: 'px-3 py-2 text-sm text-default align-top whitespace-normal break-all',
+};
+
+const headerColumns: Array<TableColumn<HeaderItem>> = [
+  {
+    accessorKey: 'key',
+    header: 'Header',
+    meta: {
+      class: {
+        th: 'w-56',
+      },
+    },
+  },
+  {
+    accessorKey: 'value',
+    header: 'Value',
+  },
+];
+
+const defaultData = (): Item => ({ url: '', method: 'GET', headers: [] });
+const defaultResponse = (): URLCheckResponse => ({
+  request: { url: '', method: 'GET', headers: {} },
+  response: { status: null, headers: {}, body: '' },
+});
+
+const cloneItem = (value: Item): Item => JSON.parse(JSON.stringify(value)) as Item;
 
 const item = ref<Item>(defaultData());
 const is_loading = ref<boolean>(false);
-
-const defaultResponse = () =>
-  ({
-    request: { url: '', method: 'GET', headers: {} },
-    response: { status: null, headers: {}, body: '' },
-  }) as URLCheckResponse;
-
 const response = ref<URLCheckResponse>(defaultResponse());
+
+const hasResponse = computed<boolean>(() => null !== response.value.response.status);
+const requestHeaderRows = computed<Array<HeaderItem>>(() =>
+  Object.entries(response.value.request.headers ?? {}).map(([key, value]) => ({ key, value })),
+);
+const responseHeaderRows = computed<Array<HeaderItem>>(() =>
+  Object.entries(response.value.response.headers ?? {}).map(([key, value]) => ({ key, value })),
+);
+
+const mergeTemplateHeaders = (
+  currentHeaders: Array<HeaderItem>,
+  templateHeaders: Array<HeaderItem>,
+): Array<HeaderItem> => {
+  const currentValues = new Map<string, string>();
+
+  for (const header of currentHeaders) {
+    if (!header.key) {
+      continue;
+    }
+
+    currentValues.set(header.key.toLowerCase(), header.value);
+  }
+
+  return templateHeaders.map((header) => {
+    const preservedValue = currentValues.get(header.key.toLowerCase());
+
+    if (undefined === preservedValue) {
+      return { ...header };
+    }
+
+    return { key: header.key, value: preservedValue };
+  });
+};
 
 watch(use_template, async (newValue: string) => {
   if ('' === newValue) {
     return;
   }
+
   const template = templates.value.find((t) => t.key === newValue);
   if (!template) {
     notification('error', 'Error', 'Template not found');
     return;
   }
-  item.value = JSON.parse(JSON.stringify(template.override));
+
+  const nextItem = cloneItem(template.override);
+  nextItem.headers = mergeTemplateHeaders(item.value.headers, nextItem.headers);
+  item.value = nextItem;
   await nextTick();
   use_template.value = '';
 });
 
-const reset_form = async (): Promise<void> => {
+const reset_form = (): void => {
   item.value = defaultData();
+  response.value = defaultResponse();
+  activeResultTab.value = 'request';
 };
 
 const invalid_form = computed<boolean>(() => {
-  if (!item.value.url) {
+  if (!item.value.url || !item.value.method) {
     return true;
   }
-  if (!item.value.method) {
-    return true;
-  }
+
   try {
     new URL(item.value.url);
   } catch {
     return true;
   }
+
   return false;
 });
 
@@ -525,11 +527,13 @@ const has_template_values = (): boolean => {
   if (/\[.+?]/.test(item.value.url)) {
     return true;
   }
+
   for (const header of item.value.headers) {
     if (/\[.+?]/.test(header.key) || /\[.+?]/.test(header.value)) {
       return true;
     }
   }
+
   return false;
 };
 
@@ -544,17 +548,19 @@ const check_url = async (): Promise<void> => {
   }
 
   if (has_template_values()) {
-    const { status: confirmStatus } = await useDialog().confirmDialog({
+    const { status } = await dialog.confirmDialog({
       title: 'Template values found',
       message: 'The form contains template values. Do you want to continue?',
-      confirmColor: 'is-warning',
+      confirmColor: 'warning',
     });
-    if (true !== confirmStatus) {
+
+    if (true !== status) {
       return;
     }
   }
 
   is_loading.value = true;
+
   try {
     response.value = defaultResponse();
     await nextTick();
@@ -576,10 +582,10 @@ const check_url = async (): Promise<void> => {
     }
 
     response.value = json;
-    toggle_form.value = false;
-    toggle_request.value = false;
-  } catch (e) {
-    notification('error', 'Error', `failed to send request. ${e}`);
+    activeResultTab.value = 'response';
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unexpected error';
+    notification('error', 'Error', `failed to send request. ${message}`);
   } finally {
     is_loading.value = false;
   }
@@ -595,6 +601,7 @@ const tryParse = (body: string): string => {
     return body;
   }
 };
+
 const _escape = (str: string): string => str.replace(/'/g, "'\\''");
 
 const buildCurlCommand = (req: {
@@ -611,23 +618,22 @@ const buildCurlCommand = (req: {
     parts.push(method);
   }
 
-  const _headers: Array<{ key: string; value: string }> = [];
+  const headers: Array<{ key: string; value: string }> = [];
   if (req.headers) {
     if (Array.isArray(req.headers)) {
-      for (const h of req.headers) {
-        _headers.push({ key: h.key, value: h.value });
+      for (const header of req.headers) {
+        headers.push({ key: header.key, value: header.value });
       }
     } else {
-      for (const k of Object.keys(req.headers)) {
-        _headers.push({ key: k, value: (req.headers as Record<string, string>)[k] ?? '' });
+      for (const key of Object.keys(req.headers)) {
+        headers.push({ key, value: req.headers[key] ?? '' });
       }
     }
   }
 
-  for (const h of _headers) {
-    const hLine = `${h.key}: ${h.value}`;
+  for (const header of headers) {
     parts.push('-H');
-    parts.push(`'${_escape(hLine)}'`);
+    parts.push(`'${_escape(`${header.key}: ${header.value}`)}'`);
   }
 
   if (req.body) {
@@ -637,49 +643,46 @@ const buildCurlCommand = (req: {
 
   parts.push(`'${_escape(req.url)}'`);
 
-  return parts.map((p) => p.toString()).join(' ');
+  return parts.map((part) => part.toString()).join(' ');
 };
 
-const generateCurl = async (): Promise<void> => {
+const generateCurl = (): void => {
   try {
     copyText(
       buildCurlCommand({
         url: item.value.url,
         method: item.value.method,
-        headers: item.value.headers.map((h) => ({ key: h.key, value: h.value })),
+        headers: item.value.headers.map((header) => ({ key: header.key, value: header.value })),
       }),
     );
-  } catch (e) {
-    notification('error', 'Error', `Failed to generate cURL command. ${e}`);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unexpected error';
+    notification('error', 'Error', `Failed to generate cURL command. ${message}`);
   }
 };
 
-const colorStatus = (status: number | null): string | undefined => {
+const statusToneClass = (status: number | null): string | undefined => {
   if (status === null) {
     return undefined;
   }
+
   if (status >= 200 && status < 300) {
-    return 'has-text-success';
-  } else if (status >= 300 && status < 400) {
-    return 'has-text-warning';
-  } else if (status >= 400 && status < 500) {
-    return 'has-text-danger';
-  } else if (status >= 500) {
-    return 'has-text-purple';
+    return 'text-emerald-500';
+  }
+
+  if (status >= 300 && status < 400) {
+    return 'text-amber-500';
+  }
+
+  if (status >= 400 && status < 500) {
+    return 'text-red-500';
+  }
+
+  if (status >= 500) {
+    return 'text-violet-500';
   }
 };
 
-const toggleForm = (): void => {
-  if (!item.value.url) {
-    toggle_form.value = true;
-    return;
-  }
-  toggle_form.value = !toggle_form.value;
-};
-
-const colorize = (k: string): string =>
-  k.toLowerCase().startsWith('ws-') ? 'has-text-danger' : '';
-
-onMounted(() => disableOpacity());
-onBeforeUnmount(() => enableOpacity());
+const headerToneClass = (key: string): string =>
+  key.toLowerCase().startsWith('ws-') ? 'font-medium text-red-500' : 'text-default';
 </script>

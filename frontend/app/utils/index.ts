@@ -1,5 +1,4 @@
 import { useStorage } from '@vueuse/core';
-import { useToast } from 'vue-toastification';
 import { toRaw } from 'vue';
 import { navigateTo } from '#app';
 import { useDialog } from '~/composables/useDialog';
@@ -11,10 +10,9 @@ type ToastOptionValue = JsonValue | ((...args: Array<unknown>) => void);
 
 type ToastOptions = {
   timeout?: number;
+  onClose?: () => void;
   [key: string]: ToastOptionValue | undefined;
 };
-
-const toast = useToast();
 
 const AG_SEPARATOR = '.';
 
@@ -193,6 +191,7 @@ const notification = (
     case 'warning':
       method = 'warning';
       break;
+    case 'crit':
     case 'error':
       method = 'error';
       if (duration === 3000) {
@@ -200,7 +199,29 @@ const notification = (
       }
       break;
   }
-  toast[method](text || title, options);
+
+  const onClose = options.onClose;
+  const description = text || title;
+  const toast = useToast();
+
+  toast.add({
+    title,
+    description,
+    color: method,
+    icon: {
+      info: 'i-lucide-info',
+      success: 'i-lucide-circle-check',
+      warning: 'i-lucide-triangle-alert',
+      error: 'i-lucide-circle-alert',
+    }[method],
+    duration: options.timeout,
+    close: true,
+    'onUpdate:open': (open: boolean) => {
+      if (false === open && onClose) {
+        onClose();
+      }
+    },
+  });
 };
 
 /**
@@ -503,19 +524,69 @@ const queue_event = async (
     .status;
 };
 
-const enableOpacity = (): void => {
-  const bg_enable = useStorage('bg_enable', true);
-  const bg_opacity = useStorage('bg_opacity', 0.95);
-  if (bg_enable.value && bg_opacity.value) {
-    document.querySelector('body')?.setAttribute('style', `opacity: ${bg_opacity.value}`);
+let opacityLockCount = 0;
+
+const getStorageValue = <T>(key: string, defaultValue: T, missingValue: T = defaultValue): T => {
+  const stored = useStorage<T>(key, defaultValue);
+
+  if (!stored || 'object' !== typeof stored || !('value' in stored)) {
+    return missingValue;
   }
+
+  return (undefined === stored.value ? defaultValue : stored.value) as T;
 };
 
-const disableOpacity = (): void => {
-  const bg_enable = useStorage('bg_enable', true);
-  if (bg_enable.value) {
-    document.querySelector('body')?.setAttribute('style', 'opacity: 1');
+const setBodyOpacity = (value: string): boolean => {
+  const body = document.querySelector('body');
+  if (!body) {
+    return false;
   }
+
+  body.style.opacity = value;
+  return true;
+};
+
+const clearBodyOpacity = (): boolean => {
+  const body = document.querySelector('body');
+  if (!body) {
+    return false;
+  }
+
+  body.style.removeProperty('opacity');
+  return true;
+};
+
+const syncOpacity = (): boolean => {
+  if (!getStorageValue<boolean>('bg_enable', true, false)) {
+    opacityLockCount = 0;
+    return clearBodyOpacity();
+  }
+
+  if (opacityLockCount > 0) {
+    return setBodyOpacity('1.0');
+  }
+
+  return setBodyOpacity(String(getStorageValue<number>('bg_opacity', 0.95)));
+};
+
+const enableOpacity = (): boolean => {
+  if (!getStorageValue<boolean>('bg_enable', true, false)) {
+    opacityLockCount = 0;
+    return false;
+  }
+
+  opacityLockCount = Math.max(0, opacityLockCount - 1);
+  return syncOpacity();
+};
+
+const disableOpacity = (): boolean => {
+  if (!getStorageValue<boolean>('bg_enable', true, false)) {
+    opacityLockCount = 0;
+    return false;
+  }
+
+  opacityLockCount += 1;
+  return setBodyOpacity('1.0');
 };
 
 /**
@@ -601,6 +672,7 @@ export {
   parse_api_response,
   goto_history_item,
   queue_event,
+  syncOpacity,
   enableOpacity,
   disableOpacity,
   awaiter,
