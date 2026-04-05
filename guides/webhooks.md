@@ -17,8 +17,8 @@ to create a separate webhook for each user and backend.
 ## Webhook URL
 
 The webhook URL is `/v1/api/webhook`, of course, if you have enabled secure all endpoints you need to
-add `?apikey=your_ws_apikey` to the URL. which you can obtain by going to <!--i:fa-ellipsis-vertical-->
-*More* > <!--i:fa-terminal--> *Terminal* and then write `system:apikey` in the box. You should get the apikey which is
+add `?apikey=your_ws_apikey` to the URL. which you can obtain by going to <!--i:i-lucide-ellipsis-vertical-->
+*More* > <!--i:i-lucide-terminal--> *Terminal* and then write `system:apikey` in the box. You should get the apikey which is
 hexadecimal string.
 
 If you don't have `WS_SECURE_API_ENDPOINTS` enabled:

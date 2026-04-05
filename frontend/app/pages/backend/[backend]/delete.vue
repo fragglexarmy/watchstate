@@ -1,100 +1,126 @@
 <template>
-  <div>
-    <div class="columns is-multiline">
-      <div class="column is-12 is-clearfix is-unselectable">
-        <span class="title is-4">
-          <span class="icon"><i class="fas fa-server" />&nbsp;</span>
-          <NuxtLink to="/backends">Backends</NuxtLink>
-          -
-          <NuxtLink :to="`/backend/${id}`">{{ id }}</NuxtLink> : Delete
-        </span>
-
-        <div class="is-pulled-right">
-          <div class="field is-grouped"></div>
+  <div class="space-y-6">
+    <section class="space-y-4">
+      <div class="space-y-1">
+        <div
+          class="flex flex-wrap items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-toned"
+        >
+          <UIcon :name="pageShell.icon" class="size-4" />
+          <span>{{ pageShell.sectionLabel }}</span>
+          <span>/</span>
+          <NuxtLink to="/backends" class="hover:text-primary">{{ pageShell.pageLabel }}</NuxtLink>
+          <span>/</span>
+          <NuxtLink :to="`/backend/${id}`" class="hover:text-primary normal-case tracking-normal">{{
+            id
+          }}</NuxtLink>
+          <span>/</span>
+          <span class="text-highlighted normal-case tracking-normal">Delete</span>
         </div>
 
-        <div class="is-hidden-mobile">
-          <span class="subtitle">Delete backend configuration and data.</span>
+        <div>
+          <h1 class="text-2xl font-semibold text-highlighted">Delete Backend</h1>
+          <p class="mt-1 text-sm text-toned">Delete backend configuration and data.</p>
         </div>
       </div>
 
-      <template v-if="isDeleting">
-        <div class="column is-12">
-          <Message
-            message_class="has-background-warning-90 has-text-dark"
-            title="Deleting..."
-            icon="fas fa-spin fa-exclamation-triangle"
-            message="Delete operation is in progress. Please wait..."
-          />
-        </div>
-      </template>
-      <template v-else-if="isLoading">
-        <div class="column is-12">
-          <Message
-            message_class="has-background-info-90 has-text-dark"
-            title="Loading"
-            icon="fas fa-spinner fa-spin"
-            message="Loading data. Please wait..."
-          />
-        </div>
-      </template>
+      <UAlert
+        v-if="isDeleting"
+        color="warning"
+        variant="soft"
+        icon="i-lucide-loader-circle"
+        title="Deleting..."
+        description="Delete operation is in progress. Please wait..."
+        :ui="{ icon: 'animate-spin' }"
+      />
+
+      <UAlert
+        v-else-if="isLoading"
+        color="info"
+        variant="soft"
+        icon="i-lucide-loader-circle"
+        title="Loading"
+        description="Loading data. Please wait..."
+        :ui="{ icon: 'animate-spin' }"
+      />
+
+      <UAlert
+        v-else-if="error"
+        color="warning"
+        variant="soft"
+        icon="i-lucide-triangle-alert"
+        title="Error"
+        :description="`${error.error.code}: ${error.error.message}`"
+        close
+        @update:open="(open) => (false === open ? navigateTo('/backends') : null)"
+      />
+
       <template v-else>
-        <div class="column is-12" v-if="error">
-          <Message
-            message_class="is-background-warning-80 has-text-dark"
-            title="Error"
-            icon="fas fa-exclamation-circle"
-            :use-close="true"
-            @close="navigateTo('/backends')"
-            :message="`${error.error.code}: ${error.error.message}`"
-          />
-        </div>
-        <div class="column is-12" v-else>
-          <Message
-            message_class="is-background-warning-80 has-text-dark"
-            title="Confirmation is required"
-            icon="fas fa-exclamation-triangle"
+        <UAlert
+          color="warning"
+          variant="soft"
+          icon="i-lucide-triangle-alert"
+          title="Confirmation is required"
+        >
+          <template #description>
+            <div class="space-y-4 text-sm text-default">
+              <p>
+                Are you sure you want to delete the backend <code>{{ type }}: {{ id }}</code>
+                configuration and all its records?
+              </p>
+
+              <div>
+                <p class="mb-2 font-semibold text-highlighted">
+                  This operation will do the following
+                </p>
+                <ul class="list-disc space-y-1 pl-5">
+                  <li>Remove records metadata that references the given backend.</li>
+                  <li>Run data integrity check to remove no longer used records.</li>
+                  <li>Update <code>servers.yaml</code> file and remove backend configuration.</li>
+                </ul>
+              </div>
+
+              <p>There is no undo operation. This action is irreversible.</p>
+            </div>
+          </template>
+        </UAlert>
+
+        <div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
+          <UButton
+            color="neutral"
+            variant="soft"
+            size="sm"
+            icon="i-lucide-arrow-left"
+            @click="navigateTo('/backends')"
           >
-            <p>
-              Are you sure you want to delete the backend
-              <code>{{ type }}: {{ id }}</code> configuration and all its records?
-            </p>
+            Back
+          </UButton>
 
-            <h5 class="has-text-dark">This operation will do the following</h5>
-
-            <ul>
-              <li>Remove records metadata that references the given backend.</li>
-              <li>Run data integrity check to remove no longer used records.</li>
-              <li>Update <code>servers.yaml</code> file and remove backend configuration.</li>
-            </ul>
-
-            <p>There is no undo operation. This action is irreversible.</p>
-          </Message>
-
-          <Confirm
-            @confirmed="deleteBackend()"
-            title="Delete backend"
-            title-icon="fa-trash"
-            warning="Depending on your hardware speed, the delete operation might take long time. do not interrupt the
-                  process, or close the browser tab. You will be redirected to the backends page automatically once the
-                  process is complete. Otherwise, you might end up with a corrupted database."
-          />
+          <UButton
+            color="error"
+            variant="solid"
+            size="sm"
+            icon="i-lucide-trash-2"
+            :loading="isDeleting"
+            :disabled="isDeleting"
+            @click="deleteBackend()"
+          >
+            Delete backend
+          </UButton>
         </div>
       </template>
-    </div>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { useRoute, navigateTo } from '#app';
-import '~/assets/css/bulma-switch.css';
-import Message from '~/components/Message.vue';
-import Confirm from '~/components/Confirm.vue';
-import { request, notification, parse_api_response } from '~/utils';
+import { onMounted, ref } from 'vue';
+import { navigateTo, useRoute } from '#app';
+import { requireTopLevelPageShell } from '~/utils/topLevelNavigation';
+import { notification, parse_api_response, request } from '~/utils';
 import type { Backend, GenericError } from '~/types';
 
 const id = useRoute().params.backend as string;
+const pageShell = requireTopLevelPageShell('backends');
 const error = ref<GenericError | null>(null);
 const type = ref<string>('');
 const isLoading = ref<boolean>(false);
@@ -125,7 +151,7 @@ const deleteBackend = async (): Promise<void> => {
   const { status: confirmStatus } = await useDialog().confirmDialog({
     title: 'Last Chance!',
     message: `This action is irreversible. Are you sure you want to delete the backend '${id}'?`,
-    confirmColor: 'is-danger',
+    confirmColor: 'error',
   });
 
   if (true !== confirmStatus) {

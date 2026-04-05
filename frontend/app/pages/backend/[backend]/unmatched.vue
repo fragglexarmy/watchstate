@@ -1,196 +1,271 @@
 <template>
-  <div>
-    <div class="columns is-multiline">
-      <div class="column is-12 is-clearfix is-unselectable">
-        <span class="title is-4">
-          <NuxtLink to="/backends">Backends</NuxtLink>
-          -
-          <NuxtLink :to="'/backend/' + backend">{{ backend }}</NuxtLink>
-          : Unmatched
-        </span>
-        <div class="is-pulled-right" v-if="hasLooked">
-          <div class="field is-grouped">
-            <p class="control">
-              <button
-                class="button is-info"
-                @click.prevent="loadContent(false)"
-                :disabled="isLoading"
-                :class="{ 'is-loading': isLoading }"
-              >
-                <span class="icon"><i class="fas fa-sync"></i></span>
-              </button>
-            </p>
-          </div>
-        </div>
-        <div class="subtitle is-hidden-mobile">
-          In this page you will find items <code>WatchState</code> knows that are un-matched in your
-          backend.
+  <main class="w-full min-w-0 max-w-full space-y-4">
+    <div class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+      <div class="min-w-0 space-y-1">
+        <div
+          class="flex flex-wrap items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-toned"
+        >
+          <UIcon :name="pageShell.icon" class="size-4" />
+          <span>{{ pageShell.sectionLabel }}</span>
+          <span>/</span>
+          <NuxtLink to="/backends" class="hover:text-primary">{{ pageShell.pageLabel }}</NuxtLink>
+          <span>/</span>
+          <NuxtLink
+            :to="`/backend/${backend}`"
+            class="hover:text-primary normal-case tracking-normal"
+            >{{ backend }}</NuxtLink
+          >
+          <span>/</span>
+          <span class="text-highlighted normal-case tracking-normal">Unmatched</span>
         </div>
       </div>
 
-      <div class="column is-12" v-if="false === hasLooked">
-        <div class="card">
-          <header class="card-header">
-            <p class="card-header-title is-justify-center">Request Analyze</p>
-          </header>
-          <div class="card-content">
-            <div class="content">
-              <ul>
-                <li>
-                  Checking the items will take time, you will see the spinner while
-                  <code>WatchState</code> is analyzing the entire backend libraries content. Do not
-                  reload the page.
-                </li>
-              </ul>
-            </div>
-          </div>
-          <div class="control">
-            <button
-              class="button is-fullwidth is-primary"
-              @click="() => loadContent()"
-              :disabled="isLoading"
-            >
-              <span class="icon"><i class="fas fa-check"></i></span>
-              <span>Initiate The process</span>
-            </button>
-          </div>
+      <div v-if="hasLooked" class="flex flex-wrap items-center justify-end gap-2">
+        <UButton
+          color="neutral"
+          variant="outline"
+          size="sm"
+          icon="i-lucide-refresh-cw"
+          :loading="isLoading"
+          :disabled="isLoading"
+          @click="() => void loadContent(false)"
+        >
+          <span class="hidden sm:inline">Reload</span>
+        </UButton>
+      </div>
+    </div>
+
+    <UCard v-if="false === hasLooked" class="border border-default/70 shadow-sm" :ui="panelCardUi">
+      <template #header>
+        <div class="flex items-center gap-2 text-sm font-semibold text-highlighted">
+          <UIcon name="i-lucide-circle-check" class="size-4 text-toned" />
+          <span>Request Analyze</span>
         </div>
-      </div>
+      </template>
 
-      <div class="column is-12" v-if="1 > items.length">
-        <Message
-          v-if="isLoading"
-          message_class="has-background-info-90 has-text-dark"
-          title="Analyzing"
-          icon="fas fa-spinner fa-spin"
-          message="Analyzing the backend content. Please wait. It will take a while..."
-        />
-        <Message
-          v-if="!isLoading && hasLooked"
-          message_class="has-background-success-90 has-text-dark"
-          title="Success!"
-          icon="fas fa-check"
-          message="WatchState did not find any unmatched content in the libraries we looked at."
-        />
-      </div>
+      <div class="space-y-4 text-sm leading-6 text-default">
+        <p>
+          Checking the items will take time. WatchState will analyze the entire backend library
+          content, so avoid reloading the page during the scan.
+        </p>
 
-      <div class="column is-12" v-if="1 < items.length">
-        <h1 class="title is-4">
-          <span class="icon-text">
-            <span class="icon has-text-danger"><i class="fas fa-exclamation-triangle"></i></span>
-            <span>Unmatched Content</span>
-          </span>
-        </h1>
+        <UButton
+          color="primary"
+          icon="i-lucide-circle-check"
+          :disabled="isLoading"
+          @click="() => void loadContent()"
+        >
+          Initiate the process
+        </UButton>
       </div>
+    </UCard>
 
-      <div class="column is-6" v-for="item in items" :key="item.id ?? item.title">
-        <div class="card">
-          <header class="card-header">
-            <p class="card-header-title is-text-overflow">
-              <NuxtLink target="_blank" :to="item.webUrl ?? item.url">{{ item.title }}</NuxtLink>
-            </p>
-            <div class="card-header-icon" @click="item.showItem = !item.showItem">
-              <span class="icon has-tooltip" v-tooltip="'Toggle raw data'">
-                <i
-                  class="fas fa-film"
-                  :class="{ 'fa-film': 'Movie' === item.type, 'fa-tv': 'Movie' !== item.type }"
-                ></i>
-              </span>
-            </div>
-          </header>
-          <div class="card-content">
-            <div class="columns is-mobile is-multiline">
-              <div class="column is-6">
-                <strong class="is-unselectable">Library:</strong> {{ item.library ?? 'Unknown' }}
-              </div>
-              <div class="column is-6 has-text-right">
-                <strong class="is-unselectable">Type:</strong>
-                <span class="is-capitalized">{{ item.type ?? 'Unknown' }}</span>
-              </div>
-              <div class="column is-6" v-if="0 !== item.year && item.year">
-                <strong class="is-unselectable">Year:</strong> {{ item.year ?? 'Unknown' }}
-              </div>
-              <div
-                class="column is-12 is-clickable has-text-left"
-                v-if="item?.path"
-                @click="
-                  (e: Event) =>
-                    (e.target as HTMLElement)?.firstElementChild?.classList?.toggle(
-                      'is-text-overflow',
-                    )
-                "
-              >
-                <div class="is-text-overflow">
-                  <strong class="is-unselectable">Path:&nbsp;</strong>
-                  <NuxtLink :to="makeSearchLink('path', item.path)">{{ item.path }}</NuxtLink>
+    <UAlert
+      v-if="isLoading && items.length < 1"
+      color="info"
+      variant="soft"
+      icon="i-lucide-loader-circle"
+      title="Analyzing"
+      description="Analyzing the backend content. Please wait. It will take a while..."
+      :ui="{ icon: 'animate-spin' }"
+    />
+
+    <UAlert
+      v-else-if="!isLoading && hasLooked && items.length < 1"
+      color="success"
+      variant="soft"
+      icon="i-lucide-circle-check"
+      title="Success"
+      description="WatchState did not find any unmatched content in the libraries we looked at."
+    />
+
+    <div v-if="items.length > 0" class="space-y-4">
+      <UAlert
+        color="warning"
+        variant="soft"
+        icon="i-lucide-triangle-alert"
+        title="Unmatched Content"
+        description="Review the items below and use the external lookups to confirm the correct match."
+      />
+
+      <div class="grid gap-4 xl:grid-cols-2">
+        <UCard
+          v-for="item in items"
+          :key="item.id ?? item.title"
+          class="h-full border border-default/70 shadow-sm"
+          :ui="resultCardUi"
+        >
+          <template #header>
+            <div class="flex items-start gap-3">
+              <div class="min-w-0 flex-1">
+                <div
+                  class="flex min-w-0 items-start gap-2 text-base font-semibold leading-6 text-highlighted"
+                >
+                  <UIcon
+                    :name="'Movie' === item.type ? 'i-lucide-film' : 'i-lucide-tv'"
+                    class="mt-0.5 size-4 shrink-0 text-toned"
+                  />
+
+                  <div class="min-w-0 flex-1">
+                    <NuxtLink
+                      target="_blank"
+                      :to="item.webUrl ?? item.url"
+                      class="block truncate text-highlighted hover:text-primary"
+                    >
+                      {{ item.title }}
+                    </NuxtLink>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-          <div class="card-content p-0 m-0" v-if="item?.showItem">
-            <div class="mt-2" style="position: relative; max-height: 343px; overflow-y: auto">
-              <code
-                class="is-terminal is-block is-pre-wrap"
-                v-text="JSON.stringify(item, null, 2)"
-              />
-              <button
-                class="button m-4"
-                v-tooltip="'Copy text'"
-                style="position: absolute; top: 0; right: 0"
-                @click="() => copyText(JSON.stringify(item, null, 2))"
+          </template>
+
+          <div class="space-y-3">
+            <div class="grid gap-2.5 sm:grid-cols-2">
+              <div
+                class="rounded-md border border-default bg-elevated/40 px-3 py-2.5 text-sm text-default"
               >
-                <span class="icon"><i class="fas fa-copy" /></span>
-              </button>
+                <div
+                  class="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
+                >
+                  <UIcon name="i-lucide-library-big" class="size-3.5" />
+                  <span>Library</span>
+                </div>
+                <div class="mt-1 font-medium text-highlighted">{{ item.library ?? 'Unknown' }}</div>
+              </div>
+
+              <div
+                class="rounded-md border border-default bg-elevated/40 px-3 py-2.5 text-sm text-default"
+              >
+                <div
+                  class="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
+                >
+                  <UIcon name="i-lucide-calendar" class="size-3.5" />
+                  <span>Year</span>
+                </div>
+                <div class="mt-1 font-medium text-highlighted">
+                  {{ 0 !== item.year && item.year ? item.year : 'Unknown' }}
+                </div>
+              </div>
+            </div>
+
+            <div
+              v-if="item.path"
+              class="cursor-pointer rounded-md border border-default bg-elevated/40 px-3 py-2.5"
+              @click="toggleFirstChildOverflow"
+            >
+              <div
+                class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium text-default"
+              >
+                <span class="inline-flex items-center gap-2">
+                  <UIcon name="i-lucide-file-text" class="size-4 shrink-0 text-toned" />
+                  <NuxtLink :to="makeSearchLink('path', item.path)" class="hover:text-primary">
+                    {{ item.path }}
+                  </NuxtLink>
+                </span>
+              </div>
+            </div>
+
+            <div
+              v-if="item.showItem"
+              class="relative overflow-hidden rounded-md border border-default bg-elevated/60"
+            >
+              <code class="ws-terminal ws-terminal-panel ws-terminal-panel-md whitespace-pre-wrap">
+                {{ JSON.stringify(item, null, 2) }}
+              </code>
+
+              <UTooltip text="Copy text">
+                <UButton
+                  color="neutral"
+                  variant="soft"
+                  size="sm"
+                  icon="i-lucide-copy"
+                  class="absolute right-3 top-3"
+                  @click="() => void copyText(JSON.stringify(item, null, 2))"
+                />
+              </UTooltip>
             </div>
           </div>
-          <div class="card-footer">
-            <div class="card-footer-item">
-              <NuxtLink
-                target="_blank"
+
+          <template #footer>
+            <div class="flex flex-wrap items-center justify-end gap-2">
+              <UTooltip :text="item.showItem ? 'Hide raw data' : 'Show raw data'">
+                <UButton
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  square
+                  :icon="item.showItem ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+                  :aria-label="item.showItem ? 'Hide raw data' : 'Show raw data'"
+                  @click="item.showItem = !item.showItem"
+                />
+              </UTooltip>
+
+              <UButton
+                color="neutral"
+                variant="outline"
+                size="sm"
+                icon="i-lucide-search"
                 :to="`https://www.imdb.com/find/?q=${fixTitle(item.title)}`"
-              >
-                <span class="icon"><i class="fas fa-search"></i></span>
-                <span>IMDb</span>
-              </NuxtLink>
-            </div>
-            <div class="card-footer-item">
-              <NuxtLink
                 target="_blank"
+              >
+                IMDb
+              </UButton>
+
+              <UButton
+                color="neutral"
+                variant="outline"
+                size="sm"
+                icon="i-lucide-search"
                 :to="`https://www.themoviedb.org/search?query=${fixTitle(item.title)}`"
-              >
-                <span class="icon"><i class="fas fa-search"></i></span>
-                <span>TMDB</span>
-              </NuxtLink>
-            </div>
-            <div class="card-footer-item">
-              <NuxtLink
                 target="_blank"
-                :to="`https://thetvdb.com/search?query=${fixTitle(item.title)}`"
               >
-                <span class="icon"><i class="fas fa-search"></i></span>
-                <span>TVDB</span>
-              </NuxtLink>
+                TMDB
+              </UButton>
+
+              <UButton
+                color="neutral"
+                variant="outline"
+                size="sm"
+                icon="i-lucide-search"
+                :to="`https://thetvdb.com/search?query=${fixTitle(item.title)}`"
+                target="_blank"
+              >
+                TVDB
+              </UButton>
             </div>
-          </div>
-        </div>
+          </template>
+        </UCard>
       </div>
     </div>
-  </div>
+  </main>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRoute, useHead } from '#app';
+import { requireTopLevelPageShell } from '~/utils/topLevelNavigation';
 import { makeSearchLink, notification, copyText, request, parse_api_response } from '~/utils';
 import { useSessionCache } from '~/utils/cache';
 import type { UnmatchedItem } from '~/types';
 
 type UnmatchedItemWithUI = UnmatchedItem & {
-  /** UI: Whether to show raw item data */
   showItem?: boolean;
 };
 
+const panelCardUi = {
+  header: 'p-4',
+  body: 'px-4 pb-4 pt-0',
+};
+
+const resultCardUi = {
+  header: 'p-4',
+  body: 'px-4 pb-4 pt-0',
+  footer: 'border-t border-default/70 px-4 py-4',
+};
+
 const backend = useRoute().params.backend as string;
+const pageShell = requireTopLevelPageShell('backends');
 const items = ref<Array<UnmatchedItemWithUI>>([]);
 const isLoading = ref<boolean>(false);
 const hasLooked = ref<boolean>(false);
@@ -198,6 +273,14 @@ const cache = useSessionCache();
 const cacheKey = `backend-${backend}-unmatched`;
 
 useHead({ title: `Backends: ${backend} - Unmatched items.` });
+
+const toggleFirstChildOverflow = (event: Event): void => {
+  const target = event.target as HTMLElement | null;
+
+  target?.firstElementChild?.classList?.toggle('overflow-hidden');
+  target?.firstElementChild?.classList?.toggle('text-ellipsis');
+  target?.firstElementChild?.classList?.toggle('whitespace-nowrap');
+};
 
 const loadContent = async (useCache: boolean = true): Promise<void> => {
   hasLooked.value = true;

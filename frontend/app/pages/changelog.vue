@@ -1,90 +1,153 @@
-<style scoped>
-.logs-container {
-  padding: 1rem;
-  min-width: 100%;
-  max-height: 73vh;
-  overflow-y: auto;
-  overflow-x: auto;
-}
-
-hr {
-  background-color: unset;
-  border-bottom: 1px solid var(--bulma-grey-light) !important;
-}
-</style>
-
 <template>
-  <main>
-    <div class="mt-1 columns is-multiline">
-      <div class="column is-12 is-clearfix is-unselectable">
-        <span class="title is-4">
-          <span class="icon"><i class="fas fa-cogs" /></span>
-          CHANGELOG
-        </span>
-
-        <div class="is-hidden-mobile">
-          <span class="subtitle"
-            >This page display the latest changes and updates from the project.</span
-          >
+  <main class="w-full min-w-0 max-w-full space-y-4">
+    <div class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+      <div class="space-y-1">
+        <div
+          class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-toned"
+        >
+          <UIcon :name="pageShell.icon" class="size-4" />
+          <span>{{ pageShell.sectionLabel }}</span>
+          <span>/</span>
+          <span>{{ pageShell.pageLabel }}</span>
         </div>
       </div>
-    </div>
 
-    <div class="columns is-multiline" v-if="isLoading">
-      <div class="column is-12">
-        <Message
-          message_class="has-background-info-90 has-text-dark"
-          title="Loading"
-          icon="fas fa-spinner fa-spin"
-          message="Loading data. Please wait..."
+      <div v-if="logs.length > 0" class="flex flex-wrap items-center justify-end gap-2">
+        <UInput
+          v-if="showFilter || query"
+          id="filter"
+          v-model="query"
+          type="search"
+          placeholder="Filter changelog entries"
+          icon="i-lucide-filter"
+          size="sm"
+          class="w-full sm:w-72"
         />
+
+        <UTooltip text="Filter changelog entries.">
+          <UButton
+            color="neutral"
+            :variant="showFilter ? 'soft' : 'outline'"
+            size="sm"
+            icon="i-lucide-filter"
+            @click="toggleFilter"
+          >
+            <span class="hidden sm:inline">Filter</span>
+          </UButton>
+        </UTooltip>
       </div>
     </div>
 
-    <template v-if="!isLoading">
-      <div class="logs-container">
-        <div class="columns is-multiline">
-          <div class="column p-0 m-0 is-12" v-for="(log, index) in logs" :key="log.tag">
-            <div class="content p-0 m-0">
-              <h1 class="is-4">
-                <span class="icon"><i class="fas fa-code-branch" /></span>
-                {{ log.tag }}
-                <span class="tag has-text-success" v-if="isInstalled(log)">Installed</span>
-              </h1>
-              <hr />
-              <ul>
-                <li v-for="commit in log.commits" :key="commit.sha">
-                  <strong>{{ ucFirst(commit.message).replace(/\.$/, '') }}.</strong> -
-                  <small>
-                    <NuxtLink :to="`${REPO}/commit/${commit.full_sha}`" target="_blank">
-                      <span
-                        class="has-tooltip"
-                        v-tooltip="`SHA: ${commit.full_sha} - Date: ${commit.date}`"
-                      >
-                        {{ moment(commit.date).fromNow() }}
-                      </span>
-                    </NuxtLink>
-                  </small>
-                </li>
-              </ul>
-              <hr v-if="index < logs.length - 1" />
+    <UAlert
+      v-if="isLoading"
+      color="info"
+      variant="soft"
+      icon="i-lucide-loader-circle"
+      title="Loading"
+      description="Loading data. Please wait..."
+      :ui="{ icon: 'animate-spin' }"
+    />
+
+    <UAlert
+      v-else-if="filteredLogs.length < 1"
+      color="warning"
+      variant="soft"
+      icon="i-lucide-triangle-alert"
+      :title="query ? 'Search results' : 'No changelog entries'"
+    >
+      <template #description>
+        <div class="space-y-2 text-sm text-default">
+          <p v-if="query">
+            No changelog entries match <strong>{{ query }}</strong
+            >.
+          </p>
+          <p v-else>No changelog entries are available right now.</p>
+        </div>
+      </template>
+    </UAlert>
+
+    <div v-else class="space-y-4">
+      <UCard
+        v-for="log in filteredLogs"
+        :key="log.tag"
+        class="border border-default/70 bg-default/90 shadow-sm"
+        :ui="cardUi"
+      >
+        <template #header>
+          <div class="flex items-center justify-between gap-3">
+            <div
+              class="inline-flex min-w-0 items-center gap-2 text-base font-semibold text-highlighted"
+            >
+              <UIcon name="i-lucide-git-branch" class="size-4 shrink-0 text-toned" />
+              <span class="truncate">{{ log.tag }}</span>
+            </div>
+
+            <UBadge v-if="isInstalled(log)" color="success" variant="soft" label="Installed" />
+          </div>
+        </template>
+
+        <div class="space-y-3">
+          <div
+            v-for="commit in log.commits"
+            :key="commit.sha"
+            class="rounded-md border border-default bg-elevated/40 px-3 py-3 text-sm text-default"
+          >
+            <div class="flex items-start gap-2">
+              <UIcon
+                name="i-lucide-git-commit-horizontal"
+                class="mt-0.5 size-4 shrink-0 text-toned"
+              />
+
+              <div class="min-w-0 flex-1">
+                <div class="leading-6">
+                  <NuxtLink
+                    :to="`${REPO}/commit/${commit.full_sha}`"
+                    target="_blank"
+                    class="font-medium text-highlighted hover:text-primary hover:underline"
+                  >
+                    {{ ucFirst(commit.message).replace(/\.$/, '') }}.
+                  </NuxtLink>
+                </div>
+
+                <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-toned">
+                  <UBadge color="neutral" variant="outline" size="sm">
+                    {{ commit.author }}
+                  </UBadge>
+
+                  <UTooltip :text="`${commit.full_sha}`" class="cursor-pointer">
+                    <UBadge color="neutral" variant="outline" size="sm">
+                      {{ commit.sha }}
+                    </UBadge>
+                  </UTooltip>
+
+                  <UTooltip :text="`${commit.date}`" class="cursor-pointer">
+                    <UBadge color="neutral" variant="outline" size="sm">
+                      {{ moment(commit.date).fromNow() }}
+                    </UBadge>
+                  </UTooltip>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </template>
+      </UCard>
+    </div>
   </main>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue';
+import { computed, nextTick, onMounted, ref } from 'vue';
 import { useHead } from '#app';
-import { request, disableOpacity, enableOpacity, ucFirst } from '~/utils';
+import { requireTopLevelPageShell } from '~/utils/topLevelNavigation';
+import { awaitElement, parse_api_response, request, ucFirst } from '~/utils';
 import moment from 'moment';
-import Message from '~/components/Message.vue';
 import type { ChangeSet, VersionResponse } from '~/types';
 
+type FilteredChangeSet = ChangeSet;
+
 useHead({ title: 'CHANGELOG' });
+
+const pageShell = requireTopLevelPageShell('changelog');
 
 const PROJECT = 'watchstate';
 const REPO = `https://github.com/arabcoders/${PROJECT}`;
@@ -96,6 +159,39 @@ const api_version_sha = ref<string>('unknown');
 const api_version_build = ref<string>('unknown');
 const api_version_branch = ref<string>('unknown');
 const isLoading = ref<boolean>(false);
+const query = ref<string>('');
+const showFilter = ref<boolean>(false);
+
+const cardUi = {
+  header: 'p-4',
+  body: 'px-4 pb-4 pt-0',
+};
+
+const filteredLogs = computed<Array<FilteredChangeSet>>(() => {
+  const search = query.value.trim().toLowerCase();
+
+  if (!search) {
+    return logs.value;
+  }
+
+  return logs.value.flatMap((log) => {
+    if (log.tag.toLowerCase().includes(search)) {
+      return [log];
+    }
+
+    const commits = log.commits.filter((commit) => {
+      return [commit.message, commit.author, commit.sha, commit.full_sha, commit.date].some(
+        (value) => value.toLowerCase().includes(search),
+      );
+    });
+
+    if (commits.length < 1) {
+      return [];
+    }
+
+    return [{ ...log, commits }];
+  });
+});
 
 const isInstalled = (log: ChangeSet): boolean => {
   const installed = String(api_version_sha.value);
@@ -111,6 +207,17 @@ const isInstalled = (log: ChangeSet): boolean => {
   }
 
   return false;
+};
+
+const toggleFilter = (): void => {
+  showFilter.value = !showFilter.value;
+
+  if (!showFilter.value) {
+    query.value = '';
+    return;
+  }
+
+  awaitElement('#filter', (_, elm) => (elm as HTMLInputElement).focus());
 };
 
 const loadContent = async (): Promise<void> => {
@@ -137,11 +244,11 @@ const loadContent = async (): Promise<void> => {
           api_version.value,
         ),
       );
-      const json = await parse_api_response<Array<ChangeSet>>(changes);
-      if ('error' in json) {
-        throw new Error(json.error.message || 'Failed to fetch changelog information');
+      const changelog = await parse_api_response<Array<ChangeSet>>(changes);
+      if ('error' in changelog) {
+        throw new Error(changelog.error.message || 'Failed to fetch changelog information');
       }
-      logs.value = json;
+      logs.value = changelog;
     } catch (e: unknown) {
       logs.value = (await (
         await request('/system/static/CHANGELOG.json', { method: 'GET' })
@@ -158,9 +265,6 @@ const loadContent = async (): Promise<void> => {
 };
 
 onMounted(async () => {
-  disableOpacity();
   await loadContent();
 });
-
-onUnmounted(() => enableOpacity());
 </script>

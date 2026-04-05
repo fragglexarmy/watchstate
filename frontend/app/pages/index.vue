@@ -1,271 +1,298 @@
 <template>
-  <div>
-    <div class="columns is-multiline">
-      <div class="column is-12 is-clearfix">
-        <span class="title is-4">
-          <span class="icon"><i class="fas fa-history"></i>&nbsp;</span>
-          <NuxtLink to="/history">Latest History</NuxtLink>
-        </span>
+  <div class="space-y-6">
+    <section class="space-y-4">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="space-y-1">
+          <div
+            class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-toned"
+          >
+            <UIcon name="i-lucide-history" class="size-4" />
+            <span>Recent History</span>
+          </div>
+        </div>
       </div>
 
-      <div class="column is-12">
-        <div class="columns is-multiline" v-if="lastHistory.length > 1">
-          <div class="column is-6-tablet" v-for="item in lastHistory" :key="item.id">
-            <div class="card" :class="{ 'is-success': item.watched }">
-              <header class="card-header">
-                <p class="card-header-title is-text-overflow">
-                  <FloatingImage
-                    :image="`/history/${item.id}/images/poster`"
-                    :item_class="'scaled-image'"
-                    v-if="poster_enable"
-                  >
-                    <NuxtLink :to="'/history/' + item.id">
-                      {{ item?.full_title || makeName(item as unknown as JsonObject) }}
-                    </NuxtLink>
-                  </FloatingImage>
-                  <NuxtLink :to="'/history/' + item.id" v-else>
-                    {{ item?.full_title || makeName(item as unknown as JsonObject) }}
-                  </NuxtLink>
-                </p>
-                <span class="card-header-icon">
-                  <Popover
-                    v-if="(item?.duplicate_reference_ids?.length || 0) > 0"
-                    placement="top"
-                    trigger="hover"
-                    :show-delay="200"
-                    :hide-delay="200"
-                    :offset="8"
-                    content-class="p-0"
-                  >
-                    <template #trigger>
-                      <span class="tag is-warning is-bold is-clickable is-size-7">
-                        <span class="icon is-small mr-1"><i class="fas fa-layer-group" /></span>
+      <UAlert
+        v-if="historyLoading"
+        color="info"
+        variant="soft"
+        icon="i-lucide-loader-circle"
+        title="Loading history"
+        description="Loading history. Please wait..."
+        :ui="{ icon: 'animate-spin' }"
+      />
+
+      <UAlert
+        v-else-if="0 === lastHistory.length"
+        color="warning"
+        variant="soft"
+        icon="i-lucide-triangle-alert"
+        title="No history records"
+        description="The database has no recent history records yet."
+      />
+
+      <div v-else class="grid gap-4 xl:grid-cols-2">
+        <UCard
+          v-for="item in lastHistory"
+          :key="item.id"
+          class="h-full border border-default/70 shadow-sm"
+          :class="item.watched ? 'bg-success/5 ring-1 ring-success/20' : 'bg-default/90'"
+          :ui="historyCardUi"
+        >
+          <template #header>
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0 flex-1">
+                <div
+                  class="flex min-w-0 items-start gap-2 text-base font-semibold leading-6 text-highlighted"
+                >
+                  <UIcon
+                    :name="'episode' === item.type ? 'i-lucide-tv' : 'i-lucide-film'"
+                    class="mt-0.5 size-4 shrink-0 text-toned"
+                  />
+
+                  <div class="min-w-0 flex-1">
+                    <FloatingImage
+                      v-if="poster_enable"
+                      :image="`/history/${item.id}/images/poster`"
+                    >
+                      <ULink
+                        :to="`/history/${item.id}`"
+                        class="text-highlighted hover:text-primary"
+                      >
+                        {{ item.full_title || makeName(item as unknown as JsonObject) }}
+                      </ULink>
+                    </FloatingImage>
+
+                    <ULink
+                      v-else
+                      :to="`/history/${item.id}`"
+                      class="text-highlighted hover:text-primary"
+                    >
+                      {{ item.full_title || makeName(item as unknown as JsonObject) }}
+                    </ULink>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex shrink-0 items-center gap-2">
+                <Popover
+                  v-if="(item.duplicate_reference_ids?.length ?? 0) > 0"
+                  placement="top"
+                  trigger="hover"
+                  :show-delay="200"
+                  :hide-delay="200"
+                  :offset="8"
+                  content-class="p-0"
+                >
+                  <template #trigger>
+                    <UBadge color="warning" variant="soft" class="cursor-pointer font-medium">
+                      <span class="inline-flex items-center gap-1">
+                        <UIcon name="i-lucide-layers-3" class="size-3.5" />
                         <span>{{ item.duplicate_reference_ids?.length }}</span>
                       </span>
-                    </template>
-                    <template #content>
-                      <DuplicateRecordList :ids="item.duplicate_reference_ids ?? []" />
-                    </template>
-                  </Popover>
+                    </UBadge>
+                  </template>
 
-                  <span class="icon" v-if="'episode' === item.type"><i class="fas fa-tv"></i></span>
-                  <span class="icon" v-else><i class="fas fa-film"></i></span>
-                </span>
-              </header>
-              <div class="card-content">
-                <div class="columns is-multiline is-mobile has-text-centered">
-                  <div class="column is-4-tablet is-6-mobile has-text-left-mobile">
-                    <div class="is-text-overflow" v-if="item?.updated_at">
-                      <span class="icon"><i class="fas fa-calendar" />&nbsp;</span>
-                      <span
-                        class="has-tooltip"
-                        v-tooltip="
-                          `Record updated at: ${moment.unix(item.updated_at).format(TOOLTIP_DATE_FORMAT)}`
-                        "
-                      >
-                        {{ moment.unix(item.updated_at).fromNow() }}
-                      </span>
-                    </div>
-                  </div>
-                  <div class="column is-4-tablet is-6-mobile has-text-right-mobile">
-                    <div class="is-text-overflow">
-                      <span class="icon"><i class="fas fa-server"></i>&nbsp;</span>
-                      <NuxtLink :to="'/backend/' + item.via"> {{ item.via }}</NuxtLink>
-                      <span
-                        v-if="item?.metadata && Object.keys(item?.metadata).length > 1"
-                        v-tooltip="
-                          `Also reported by: ${Object.keys(item.metadata)
-                            .filter((i) => i !== item.via)
-                            .join(', ')}.`
-                        "
-                      >
-                        (<span class="has-tooltip"
-                          >+{{ Object.keys(item.metadata).length - 1 }}</span
-                        >)
-                      </span>
-                    </div>
-                  </div>
-                  <div class="column is-4-tablet is-12-mobile has-text-left-mobile">
-                    <div class="is-text-overflow">
-                      <span class="icon"><i class="fas fa-envelope"></i>&nbsp;</span>
-                      {{ item.event }}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="card-footer" v-if="item.progress">
-                <div class="card-footer-item">
-                  <span class="has-text-success" v-if="item.watched">Played</span>
-                  <span class="has-text-danger" v-else>Unplayed</span>
-                </div>
-                <div class="card-footer-item">{{ formatDuration(item.progress as number) }}</div>
+                  <template #content>
+                    <DuplicateRecordList :ids="item.duplicate_reference_ids ?? []" />
+                  </template>
+                </Popover>
               </div>
             </div>
-          </div>
-        </div>
-        <div class="column is-12" v-else>
-          <Message
-            v-if="historyLoading"
-            message_class="has-background-info-90 has-text-dark"
-            title="Loading"
-            icon="fas fa-spinner fa-spin"
-            message="Loading history. Please wait..."
-          />
-          <Message
-            title="Warning"
-            message_class="has-background-warning-90 has-text-dark"
-            icon="fas fa-exclamation-triangle"
-            message="DB has no history records."
-            v-if="!historyLoading"
-          >
-          </Message>
-        </div>
-      </div>
+          </template>
 
-      <div class="column is-12" v-for="log in logs" :key="log.filename">
-        <h1 class="title is-4">
-          <span class="icon">
-            <i
-              class="fas"
-              :class="{
-                'fa-key': 'access' === log.type,
-                'fa-tasks': 'task' === log.type,
-                'fa-bugs': 'app' === log.type,
-                'fa-book': 'webhook' === log.type,
-                'fa-spin': reloadingLogs,
-              }"
-          /></span>
-          <NuxtLink :to="`/logs/${log.filename}`"> {{ ucFirst(log.type) }} Logs </NuxtLink>
-          <div class="is-pulled-right">
-            <div class="field is-grouped">
-              <p class="control">
-                <button
-                  class="button"
-                  @click="toggleLogsAutoReload()"
-                  :class="autoReloadLogs ? 'is-success' : 'is-warning'"
-                  v-tooltip.bottom="autoReloadLogs ? 'Disable auto reload' : 'Enable auto reload'"
-                >
-                  <span class="icon">
-                    <i class="fas" :class="autoReloadLogs ? 'fa-pause' : 'fa-play'" />
-                  </span>
-                </button>
-              </p>
-              <p class="control">
-                <button
-                  class="button is-purple"
-                  @click="wrapLines = !wrapLines"
-                  v-tooltip.bottom="'Toggle wrap line'"
-                >
-                  <span class="icon"><i class="fas fa-text-width" /></span>
-                </button>
-              </p>
-
-              <p class="control">
-                <button
-                  class="button is-info"
-                  @click="reloadLogs()"
-                  :disabled="reloadingLogs"
-                  :class="{ 'is-loading': reloadingLogs }"
-                  v-tooltip.bottom="'Fetch latest log entries.'"
-                >
-                  <span class="icon"><i class="fas fa-sync" /></span>
-                </button>
-              </p>
-            </div>
-          </div>
-        </h1>
-        <code
-          class="box logs-container is-terminal"
-          style="border-radius: 0 !important"
-          :class="{ 'is-pre-wrap': wrapLines, 'is-pre': !wrapLines }"
-        >
-          <span
-            class="is-block"
-            v-for="(item, index) in log.lines"
-            :key="log.filename + '-' + index"
-          >
-            <template v-if="item?.date"
-              >[<span
-                class="has-tooltip"
-                v-tooltip="`${moment(item.date).format(TOOLTIP_DATE_FORMAT)}`"
+          <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div
+              v-if="item.updated_at"
+              class="flex items-center justify-center gap-2 rounded-md border border-default bg-elevated/40 px-3 py-2 text-center text-sm font-medium text-default"
+            >
+              <UIcon name="i-lucide-calendar" class="size-4 shrink-0 text-toned" />
+              <UTooltip
+                :text="`Record updated at: ${moment.unix(item.updated_at).format(TOOLTIP_DATE_FORMAT)}`"
               >
-                {{ moment(item.date).format('HH:mm:ss') }}</span
-              >]
-            </template>
-            <template v-if="item?.item_id">
-              <span @click="goto_history_item(item)" class="is-clickable has-tooltip">
-                <span class="icon"><i class="fas fa-history" /></span>
-                <span>View</span> </span
-              >&nbsp;
-            </template>
-            <span>{{ item.text }}</span>
-          </span></code
-        >
-      </div>
+                <span class="cursor-help">{{ moment.unix(item.updated_at).fromNow() }}</span>
+              </UTooltip>
+            </div>
 
-      <div class="column is-12">
-        <div class="content">
-          <Message
-            title="Welcome"
-            message_class="has-background-info-90 has-text-dark"
-            icon="fas fa-heart"
-          >
-            <p>
-              If you have question, or want clarification on something, or just want to chat with
-              other users, you are welcome to join our
-              <span class="icon-text is-underlined">
-                <span class="icon"><i class="fas fa-brands fa-discord"></i></span>
-                <span>
-                  <NuxtLink to="https://discord.gg/haUXHJyj6Y" target="_blank">
-                    Discord server
-                  </NuxtLink>
-                </span> </span
-              >. For bug reports, feature requests, or contributions, please visit the
-              <span class="icon-text is-underlined">
-                <span class="icon"><i class="fas fa-brands fa-github"></i></span>
-                <span>
-                  <NuxtLink
-                    to="https://github.com/arabcoders/watchstate/issues/new/choose"
-                    target="_blank"
-                  >
-                    GitHub repository
-                  </NuxtLink>
-                </span> </span
-              >.
-            </p>
-            <p>
-              We have recently added a guides page to help you get started with WatchState. You can
-              find it
-              <span class="icon-text is-underlined">
-                <span class="icon"><i class="fas fa-question-circle" /></span>
-                <span>
-                  <NuxtLink to="/help">here</NuxtLink>
-                </span> </span
-              >, it still very early version and only contains a few guides, but we are working on
-              it.
-            </p>
-          </Message>
+            <div
+              class="flex items-center justify-center gap-2 rounded-md border border-default bg-elevated/40 px-3 py-2 text-center text-sm font-medium text-default"
+            >
+              <UIcon name="i-lucide-server" class="size-4 shrink-0 text-toned" />
+              <div>
+                <NuxtLink :to="`/backend/${item.via}`" class="hover:text-primary">{{
+                  item.via
+                }}</NuxtLink>
+                <UTooltip
+                  v-if="item.metadata && Object.keys(item.metadata).length > 1"
+                  :text="`Also reported by: ${Object.keys(item.metadata)
+                    .filter((backend) => backend !== item.via)
+                    .join(', ')}.`"
+                >
+                  <span class="ml-1 cursor-help text-toned">
+                    (+{{ Object.keys(item.metadata).length - 1 }})
+                  </span>
+                </UTooltip>
+              </div>
+            </div>
+
+            <div
+              class="flex items-center justify-center gap-2 rounded-md border border-default bg-elevated/40 px-3 py-2 text-center text-sm font-medium text-default sm:col-span-2 xl:col-span-1"
+            >
+              <UIcon name="i-lucide-mail" class="size-4 shrink-0 text-toned" />
+              <span>{{ item.event }}</span>
+            </div>
+          </div>
+
+          <template v-if="item.progress" #footer>
+            <div class="flex items-center justify-center gap-6 border-t border-default pt-4">
+              <UBadge :color="item.watched ? 'success' : 'warning'" variant="soft">
+                {{ item.watched ? 'Played' : 'Unplayed' }}
+              </UBadge>
+
+              <span class="text-sm font-medium text-default">
+                {{ formatDuration(item.progress as number) }}
+              </span>
+            </div>
+          </template>
+        </UCard>
+      </div>
+    </section>
+
+    <section v-if="logs.length > 0" class="space-y-4">
+      <div class="space-y-1">
+        <div
+          class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-toned"
+        >
+          <UIcon name="i-lucide-scroll-text" class="size-4" />
+          <span>Recent Logs</span>
         </div>
       </div>
-    </div>
+
+      <div class="space-y-4">
+        <UCard
+          v-for="log in logs"
+          :key="log.filename"
+          class="border border-default/70 shadow-sm"
+          :ui="logCardUi"
+        >
+          <template #header>
+            <div class="flex flex-wrap items-start gap-3">
+              <div class="min-w-0 flex-1">
+                <div class="flex min-w-0 items-center gap-3">
+                  <span
+                    class="inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-default bg-elevated/60 text-toned"
+                  >
+                    <UIcon
+                      :name="logTypeIcon(log.type)"
+                      :class="reloadingLogs ? 'animate-spin' : ''"
+                    />
+                  </span>
+
+                  <div class="min-w-0">
+                    <NuxtLink
+                      :to="`/logs/${log.filename}`"
+                      class="block truncate text-base font-semibold text-highlighted hover:text-primary"
+                    >
+                      {{ ucFirst(log.type) }} Logs
+                    </NuxtLink>
+                    <p class="text-sm text-toned">Recent log stream from {{ log.filename }}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex shrink-0 items-center gap-2">
+                <UTooltip :text="autoReloadLogs ? 'Disable auto reload' : 'Enable auto reload'">
+                  <UButton
+                    color="neutral"
+                    :variant="autoReloadLogs ? 'soft' : 'outline'"
+                    size="sm"
+                    :icon="autoReloadLogs ? 'i-lucide-pause' : 'i-lucide-play'"
+                    :aria-label="autoReloadLogs ? 'Disable auto reload' : 'Enable auto reload'"
+                    @click="toggleLogsAutoReload()"
+                  >
+                    <span class="hidden sm:inline">Auto Reload</span>
+                  </UButton>
+                </UTooltip>
+
+                <UTooltip text="Toggle wrap line">
+                  <UButton
+                    color="neutral"
+                    :variant="wrapLines ? 'soft' : 'outline'"
+                    size="sm"
+                    icon="i-lucide-wrap-text"
+                    aria-label="Toggle wrap lines"
+                    @click="wrapLines = !wrapLines"
+                  >
+                    <span class="hidden sm:inline">Wrap</span>
+                  </UButton>
+                </UTooltip>
+
+                <UTooltip text="Fetch latest log entries.">
+                  <UButton
+                    color="neutral"
+                    variant="outline"
+                    size="sm"
+                    icon="i-lucide-refresh-cw"
+                    :loading="reloadingLogs"
+                    aria-label="Fetch latest log entries"
+                    @click="void reloadLogs()"
+                  >
+                    <span class="hidden sm:inline">Reload</span>
+                  </UButton>
+                </UTooltip>
+              </div>
+            </div>
+          </template>
+
+          <div class="space-y-3">
+            <div class="overflow-hidden border border-default bg-default/60">
+              <code
+                class="ws-terminal ws-terminal-panel ws-terminal-panel-dashboard"
+                :class="wrapLines ? 'ws-wrap-anywhere whitespace-pre-wrap' : 'whitespace-pre'"
+              >
+                <span
+                  v-for="(item, index) in log.lines"
+                  :key="`${log.filename}-${index}`"
+                  class="block"
+                  ><template v-if="item?.date"
+                    >[<UTooltip :text="`${moment(item.date).format(TOOLTIP_DATE_FORMAT)}`">
+                      <span class="cursor-help">{{
+                        moment(item.date).format('HH:mm:ss')
+                      }}</span> </UTooltip
+                    >]
+                  </template>
+
+                  <template v-if="item?.item_id">
+                    <button
+                      type="button"
+                      class="inline-flex cursor-pointer items-center gap-1 text-inherit"
+                      @click="goto_history_item(item)"
+                    >
+                      <UIcon name="i-lucide-history" class="size-4" />
+                      <span>View</span></button
+                    >&nbsp;
+                  </template>
+
+                  <span>{{ String(item.text).trim() }}</span>
+                </span>
+              </code>
+            </div>
+          </div>
+        </UCard>
+      </div>
+    </section>
   </div>
 </template>
 
-<style scoped>
-.logs-container {
-  max-height: 20vh;
-  overflow-y: auto;
-}
-</style>
-
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, onUpdated, ref, watch } from 'vue';
+import { nextTick, onBeforeUnmount, onMounted, onUpdated, ref, watch } from 'vue';
 import { useHead, useRoute } from '#app';
 import { useStorage } from '@vueuse/core';
 import { NuxtLink } from '#components';
 import moment from 'moment';
-import Message from '~/components/Message.vue';
 import FloatingImage from '~/components/FloatingImage.vue';
+import Popover from '~/components/Popover.vue';
+import DuplicateRecordList from '~/components/DuplicateRecordList.vue';
 import {
   formatDuration,
   goto_history_item,
@@ -276,39 +303,26 @@ import {
   TOOLTIP_DATE_FORMAT,
 } from '~/utils';
 import type { HistoryItem, JsonObject } from '~/types';
-import Popover from '~/components/Popover.vue';
-import DuplicateRecordList from '~/components/DuplicateRecordList.vue';
 
 type IndexLogFile = {
-  /** Type of log file (e.g., 'access', 'task', 'app', 'webhook') */
   type: string;
-  /** Filename of the log */
   filename: string;
-  /** Last modified date as a Unix timestamp */
   date: number;
-  /** Size of the log file in bytes */
   size: number;
-  /** Last modified date as a formatted string */
   modified: string;
-  /** Array of log lines */
   lines: Array<{
-    /** Unique log entry ID */
     id?: string;
-    /** Associated history item ID, if any */
     item_id?: number;
-    /** User associated with the log entry, if any */
     user?: string;
-    /** Backend associated with the log entry, if any */
     backend?: string;
-    /** Timestamp of the log entry */
     date?: string;
-    /** Log entry text */
     text: string;
   }>;
 };
 
 useHead({ title: 'Index' });
 
+const route = useRoute();
 const poster_enable = useStorage('poster_enable', true);
 const autoReloadLogs = useStorage<boolean>('auto_reload_logs', true);
 const wrapLines = useStorage('logs_wrap_lines', false);
@@ -319,50 +333,108 @@ const reloadingLogs = ref<boolean>(false);
 const historyLoading = ref<boolean>(true);
 const logReloadInterval = ref<ReturnType<typeof setInterval> | null>(null);
 const logReloadFrequency = 10000;
+let historyLoadToken = 0;
 
-const loadContent = async (): Promise<void> => {
-  try {
-    const response = await request(`/history?perpage=6`);
-    if (response.ok) {
-      const historyResponse = await parse_api_response<{
-        history: Array<HistoryItem>;
-        total: number;
-        page: number;
-        perpage: number;
-      }>(response);
+const historyCardUi = {
+  header: 'p-4 sm:p-5',
+  body: 'px-4 pb-4 pt-0 sm:px-5 sm:pb-5',
+  footer: 'px-4 pb-4 pt-0 sm:px-5 sm:pb-5',
+};
 
-      if ('error' in historyResponse || 'index' !== useRoute().name) {
+const logCardUi = {
+  header: 'p-4 sm:p-5',
+  body: 'px-4 pb-4 pt-0 sm:px-5 sm:pb-5',
+};
+
+const logTypeIcon = (type: string): string => {
+  switch (type) {
+    case 'access':
+      return 'i-lucide-key-round';
+    case 'task':
+      return 'i-lucide-list-checks';
+    case 'app':
+      return 'i-lucide-bug';
+    default:
+      return 'i-lucide-book-open';
+  }
+};
+
+const checkDuplicates = async (
+  historyItems: Array<HistoryItem>,
+  loadToken: number,
+): Promise<void> => {
+  await Promise.allSettled(
+    historyItems.map(async (item) => {
+      if ((item.duplicate_reference_ids?.length ?? 0) > 0) {
         return;
       }
 
-      lastHistory.value = historyResponse.history;
+      const duplicatesResponse = await request(`/history/${item.id}/duplicates`);
+      if (!duplicatesResponse.ok) {
+        return;
+      }
+
+      const duplicatePayload = await parse_api_response<{
+        duplicate_reference_ids: Array<number>;
+      }>(duplicatesResponse);
+
+      if ('error' in duplicatePayload || 'index' !== route.name || loadToken !== historyLoadToken) {
+        return;
+      }
+
+      for (const entry of lastHistory.value) {
+        if (entry.id !== item.id) {
+          continue;
+        }
+
+        entry.duplicate_reference_ids = duplicatePayload.duplicate_reference_ids;
+        break;
+      }
+    }),
+  );
+};
+
+const loadContent = async (): Promise<void> => {
+  const loadToken = ++historyLoadToken;
+
+  try {
+    const response = await request('/history?perpage=6');
+    if (!response.ok) {
+      return;
     }
+
+    const historyResponse = await parse_api_response<{
+      history: Array<HistoryItem>;
+      total: number;
+      page: number;
+      perpage: number;
+    }>(response);
+
+    if ('error' in historyResponse || 'index' !== route.name) {
+      return;
+    }
+
+    const historyItems = historyResponse.history;
+
+    for (const item of historyItems) {
+      item.duplicate_reference_ids = item.duplicate_reference_ids ?? [];
+    }
+
+    lastHistory.value = historyItems;
+
+    historyLoading.value = false;
+    await nextTick();
+
+    window.setTimeout(() => {
+      if ('index' !== route.name || loadToken !== historyLoadToken) {
+        return;
+      }
+
+      void checkDuplicates(historyItems, loadToken);
+    }, 0);
   } catch {
   } finally {
     historyLoading.value = false;
-  }
-
-  if (lastHistory.value.length > 0) {
-    for (const item of lastHistory.value) {
-      if (item.duplicate_reference_ids && item.duplicate_reference_ids.length > 0) {
-        continue;
-      }
-
-      try {
-        const response = await request(`/history/${item.id}/duplicates`);
-        if (response.ok) {
-          const historyResponse = await parse_api_response<{
-            duplicate_reference_ids: Array<number>;
-          }>(response);
-
-          if ('error' in historyResponse || 'index' !== useRoute().name) {
-            continue;
-          }
-
-          item.duplicate_reference_ids = historyResponse.duplicate_reference_ids;
-        }
-      } catch {}
-    }
   }
 };
 
@@ -373,15 +445,14 @@ const reloadLogs = async (): Promise<void> => {
 
   try {
     reloadingLogs.value = true;
-    const response = await request(`/logs/recent`);
+
+    const response = await request('/logs/recent');
     if (!response.ok) {
       return;
     }
+
     const logsResponse = await parse_api_response<Array<IndexLogFile>>(response);
-    if ('error' in logsResponse) {
-      return;
-    }
-    if ('index' !== useRoute().name) {
+    if ('error' in logsResponse || 'index' !== route.name) {
       return;
     }
 
@@ -392,7 +463,7 @@ const reloadLogs = async (): Promise<void> => {
   }
 };
 
-const stopLogsAutoReload = () => {
+const stopLogsAutoReload = (): void => {
   if (null === logReloadInterval.value) {
     return;
   }
@@ -401,16 +472,19 @@ const stopLogsAutoReload = () => {
   logReloadInterval.value = null;
 };
 
-const startLogsAutoReload = () => {
+const startLogsAutoReload = (): void => {
   if (false === autoReloadLogs.value || null !== logReloadInterval.value) {
     return;
   }
 
-  logReloadInterval.value = setInterval(() => reloadLogs(), logReloadFrequency);
+  logReloadInterval.value = setInterval(() => {
+    void reloadLogs();
+  }, logReloadFrequency);
 };
 
-const toggleLogsAutoReload = () => {
+const toggleLogsAutoReload = (): void => {
   autoReloadLogs.value = !autoReloadLogs.value;
+
   if (true === autoReloadLogs.value) {
     void reloadLogs();
     startLogsAutoReload();
@@ -421,14 +495,15 @@ const toggleLogsAutoReload = () => {
 };
 
 onMounted(async () => {
-  const tasks = [loadContent(), reloadLogs()];
-  await Promise.all(tasks);
+  await Promise.all([loadContent(), reloadLogs()]);
   startLogsAutoReload();
 });
 
-onUpdated(() =>
-  document.querySelectorAll('.logs-container').forEach((el) => (el.scrollTop = el.scrollHeight)),
-);
+onUpdated(() => {
+  document.querySelectorAll('.ws-terminal-panel-dashboard').forEach((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+});
 
 watch(autoReloadLogs, (value: boolean) => {
   if (true === value) {

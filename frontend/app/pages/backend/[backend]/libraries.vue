@@ -1,158 +1,233 @@
 <template>
-  <div>
-    <div class="columns is-multiline">
-      <div class="column is-12 is-clearfix is-unselectable">
-        <span class="title is-4">
-          <span class="icon"><i class="fas fa-server"></i>&nbsp;</span>
-          <NuxtLink to="/backends">Backends</NuxtLink>
-          -
-          <NuxtLink :to="`/backend/${backend}`">{{ backend }}</NuxtLink>
-          : Libraries
-        </span>
-
-        <div class="is-pulled-right">
-          <div class="field is-grouped">
-            <p class="control">
-              <button
-                class="button is-info"
-                @click="loadContent"
-                :disabled="isLoading"
-                :class="{ 'is-loading': isLoading }"
-              >
-                <span class="icon"><i class="fas fa-sync"></i></span>
-              </button>
-            </p>
+  <div class="space-y-6">
+    <section class="space-y-4">
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div class="space-y-1">
+          <div
+            class="flex flex-wrap items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-toned"
+          >
+            <UIcon :name="pageShell.icon" class="size-4" />
+            <span>{{ pageShell.sectionLabel }}</span>
+            <span>/</span>
+            <NuxtLink to="/backends" class="hover:text-primary">{{ pageShell.pageLabel }}</NuxtLink>
+            <span>/</span>
+            <NuxtLink
+              :to="`/backend/${backend}`"
+              class="hover:text-primary normal-case tracking-normal"
+              >{{ backend }}</NuxtLink
+            >
+            <span>/</span>
+            <span class="text-highlighted normal-case tracking-normal">Libraries</span>
           </div>
         </div>
 
-        <div class="subtitle is-hidden-mobile">
-          This page will show all the libraries that are available in the backend.
-        </div>
+        <UTooltip text="Reload libraries">
+          <UButton
+            color="neutral"
+            variant="outline"
+            icon="i-lucide-refresh-cw"
+            :loading="isLoading"
+            :disabled="isLoading"
+            aria-label="Reload libraries"
+            @click="loadContent"
+          >
+            <span class="hidden sm:inline">Reload</span>
+          </UButton>
+        </UTooltip>
       </div>
 
-      <div class="column is-12" v-if="items.length < 1">
-        <Message
-          message_class="has-background-info-90 has-text-dark"
-          title="Loading"
-          icon="fas fa-spinner fa-spin"
-          message="Loading libraries list. Please wait..."
-          v-if="isLoading"
-        />
-        <Message
-          v-else
-          message_class="has-background-warning-80 has-text-dark"
-          title="Warning"
-          icon="fas fa-exclamation-circle"
-          message="WatchState was unable to get any libraries from the backend."
-        />
-      </div>
+      <UAlert
+        v-if="0 === items.length && isLoading"
+        color="info"
+        variant="soft"
+        icon="i-lucide-loader-circle"
+        title="Loading"
+        description="Loading libraries list. Please wait..."
+        :ui="{ icon: 'animate-spin' }"
+      />
 
-      <div class="column is-6" v-for="item in items" :key="`library-${item.id}`">
-        <div class="card">
-          <header class="card-header">
-            <p class="card-header-title is-text-overflow">
-              <NuxtLink target="_blank" :to="item.webUrl" v-if="item?.webUrl">{{
-                item.title
-              }}</NuxtLink>
-              <span v-else>{{ item.title }}</span>
-            </p>
-            <div class="card-header-icon">
-              <span class="icon">
-                <i
-                  class="fas fa-film"
-                  :class="{ 'fa-film': 'Movie' === item.type, 'fa-tv': 'Movie' !== item.type }"
-                ></i>
-              </span>
-            </div>
-          </header>
-          <div class="card-content">
-            <div class="columns is-mobile is-multiline">
-              <div class="column is-6"><strong>Type:</strong> {{ item.type }}</div>
-              <div class="column is-6 has-text-right">
-                <strong>Supported:</strong> {{ item.supported ? 'Yes' : 'No' }}
-              </div>
-              <div class="column is-6" v-if="item?.agent">
-                <div class="is-text-overflow"><strong>Agent:</strong> {{ item.agent }}</div>
-              </div>
-              <div class="column is-6 has-text-right" v-if="item?.scanner">
-                <div class="is-text-overflow"><strong>Scanner:</strong> {{ item.scanner }}</div>
-              </div>
-            </div>
-          </div>
-          <div class="card-footer">
-            <div class="card-footer-item is-justify-content-start">
-              <input
-                :id="`ignore-${item.id}`"
-                type="checkbox"
-                class="switch is-success"
-                :checked="item.ignored"
-                @change="toggleIgnore(item)"
-              />
-              <label :for="`ignore-${item.id}`"></label>
-              <span>Ignore library content.</span>
-            </div>
-            <div class="card-footer-item">
-              <div
-                class="control is-fullwidth has-icons-left"
-                v-if="item.supported && !item.ignored"
-              >
-                <div class="select is-fullwidth">
-                  <select v-model="selectedCommand" @change="forwardCommand(item)">
-                    <option value="" disabled>Quick operations</option>
-                    <option
-                      v-for="(command, index) in usefulCommands"
-                      :key="`ql-${item.id}-${index}`"
-                      :value="index"
-                    >
-                      {{ command.id }}. {{ command.title }}
-                    </option>
-                  </select>
-                </div>
-                <div class="icon is-left">
-                  <i class="fas fa-terminal" />
-                </div>
-              </div>
-              <span v-else>-</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      <UAlert
+        v-else-if="0 === items.length"
+        color="warning"
+        variant="soft"
+        icon="i-lucide-triangle-alert"
+        title="Warning"
+        description="WatchState was unable to get any libraries from the backend."
+      />
 
-      <div class="column is-12">
-        <Message
-          message_class="has-background-info-90 has-text-dark"
-          title="Tips"
-          icon="fas fa-info-circle"
-          :toggle="show_page_tips"
-          @toggle="show_page_tips = !show_page_tips"
-          :use-toggle="true"
+      <div v-else class="grid gap-4 xl:grid-cols-2">
+        <UCard
+          v-for="item in items"
+          :key="`library-${item.id}`"
+          class="h-full border border-default/70 shadow-sm"
+          :ui="cardUi"
         >
-          <ul>
-            <li>
-              Ignoring library will prevent any content from being added to the local database from
-              the library during import process, and webhook events handling.
-            </li>
-            <li>
-              Libraries that shows <code>Supported: No</code> will not be processed by
-              <code>WatchState</code>.
-            </li>
-          </ul>
-        </Message>
+          <template #header>
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div class="min-w-0 flex-1">
+                <div
+                  class="flex min-w-0 items-start gap-2 text-base font-semibold leading-6 text-highlighted"
+                >
+                  <UIcon
+                    :name="'Movie' === item.type ? 'i-lucide-film' : 'i-lucide-tv'"
+                    class="mt-0.5 size-4 shrink-0 text-toned"
+                  />
+
+                  <div class="min-w-0 flex-1">
+                    <NuxtLink
+                      v-if="item?.webUrl"
+                      target="_blank"
+                      :to="item.webUrl"
+                      class="block truncate text-highlighted hover:text-primary"
+                    >
+                      {{ item.title }}
+                    </NuxtLink>
+                    <span v-else class="block truncate text-highlighted">
+                      {{ item.title }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex shrink-0 items-center justify-end">
+                <USwitch
+                  :model-value="item.ignored"
+                  :color="item.ignored ? 'success' : 'neutral'"
+                  :label="item.ignored ? 'Ignored' : 'Ignore'"
+                  @update:model-value="() => void toggleIgnore(item)"
+                />
+              </div>
+            </div>
+          </template>
+
+          <div class="grid gap-3 sm:grid-cols-2">
+            <div
+              class="rounded-md border border-default bg-elevated/40 px-3 py-2.5 text-sm text-default"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div
+                  class="inline-flex min-w-0 items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
+                >
+                  <UIcon name="i-lucide-tag" class="size-3.5 shrink-0" />
+                  <span>Type</span>
+                </div>
+
+                <div class="min-w-0 text-right font-medium text-highlighted">{{ item.type }}</div>
+              </div>
+            </div>
+
+            <div
+              class="rounded-md border border-default bg-elevated/40 px-3 py-2.5 text-sm text-default"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div
+                  class="inline-flex min-w-0 items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
+                >
+                  <UIcon name="i-lucide-badge-check" class="size-3.5 shrink-0" />
+                  <span>Supported</span>
+                </div>
+
+                <div class="min-w-0 text-right">
+                  <UBadge :color="item.supported ? 'success' : 'warning'" variant="soft">
+                    {{ item.supported ? 'Yes' : 'No' }}
+                  </UBadge>
+                </div>
+              </div>
+            </div>
+
+            <div
+              v-if="item?.agent"
+              class="rounded-md border border-default bg-elevated/40 px-3 py-2.5 text-sm text-default"
+            >
+              <div
+                class="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
+              >
+                <UIcon name="i-lucide-clapperboard" class="size-3.5" />
+                <span>Agent</span>
+              </div>
+              <div class="mt-1 wrap-break-word font-medium text-highlighted">{{ item.agent }}</div>
+            </div>
+
+            <div
+              v-if="item?.scanner"
+              class="rounded-md border border-default bg-elevated/40 px-3 py-2.5 text-sm text-default"
+            >
+              <div
+                class="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
+              >
+                <UIcon name="i-lucide-cpu" class="size-3.5" />
+                <span>Scanner</span>
+              </div>
+              <div class="mt-1 wrap-break-word font-medium text-highlighted">
+                {{ item.scanner }}
+              </div>
+            </div>
+          </div>
+
+          <template v-if="item.supported && !item.ignored" #footer>
+            <div class="flex flex-wrap items-center justify-end gap-2">
+              <USelect
+                v-model="selectedCommand"
+                :items="commandItems"
+                value-key="value"
+                placeholder="Quick operations"
+                icon="i-lucide-terminal"
+                class="w-full"
+                @update:model-value="() => void forwardCommand(item)"
+              />
+            </div>
+          </template>
+        </UCard>
       </div>
-    </div>
+    </section>
+
+    <UCard class="border border-default/70 shadow-sm" :ui="tipsCardUi">
+      <template #header>
+        <button
+          type="button"
+          class="flex w-full items-center justify-between gap-3 text-left"
+          @click="show_page_tips = !show_page_tips"
+        >
+          <span class="inline-flex items-center gap-2 text-sm font-semibold text-highlighted">
+            <UIcon name="i-lucide-info" class="size-4 text-toned" />
+            <span>Tips</span>
+          </span>
+
+          <span class="inline-flex items-center gap-1 text-xs font-medium text-toned">
+            <UIcon
+              :name="show_page_tips ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+              class="size-4"
+            />
+            <span>{{ show_page_tips ? 'Hide' : 'Show' }}</span>
+          </span>
+        </button>
+      </template>
+
+      <ul v-if="show_page_tips" class="list-disc space-y-2 pl-5 text-sm leading-6 text-default">
+        <li>
+          Ignoring library will prevent any content from being added to the local database from the
+          library during import process, and webhook events handling.
+        </li>
+        <li>
+          Libraries that show <code>Supported: No</code> will not be processed by
+          <code>WatchState</code>.
+        </li>
+      </ul>
+    </UCard>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { useRoute, useHead, navigateTo } from '#app';
+import { computed, onMounted, ref } from 'vue';
+import { navigateTo, useHead, useRoute } from '#app';
 import { useStorage } from '@vueuse/core';
-import { request, notification, parse_api_response, makeConsoleCommand, r } from '~/utils';
-import Message from '~/components/Message.vue';
-import type { LibraryItem, JsonObject, JsonValue, UtilityCommand } from '~/types';
+import { requireTopLevelPageShell } from '~/utils/topLevelNavigation';
+import { makeConsoleCommand, notification, parse_api_response, r, request } from '~/utils';
+import type { JsonObject, JsonValue, LibraryItem, UtilityCommand } from '~/types';
 
 const route = useRoute();
 const backend = route.params.backend as string;
+const pageShell = requireTopLevelPageShell('backends');
 const items = ref<Array<LibraryItem>>([]);
 const isLoading = ref<boolean>(false);
 const show_page_tips = useStorage('show_page_tips', true);
@@ -170,18 +245,62 @@ type CommandUtility = {
   [key: string]: JsonValue | undefined;
 };
 
+type UiCommand = {
+  id: number;
+  title: string;
+  path: string;
+};
+
+type SelectItem = {
+  label: string;
+  value: string;
+};
+
+const cardUi = {
+  header: 'p-5',
+  body: 'p-5',
+  footer: 'p-5 border-t border-default',
+};
+
+const tipsCardUi = {
+  header: 'p-4',
+  body: 'p-5 pt-0',
+};
+
+const uiCommands = computed<Record<string, UiCommand>>(() => ({
+  stale_library: {
+    id: 1,
+    title: 'Check this library for stale items.',
+    path: `/backend/${backend}/stale/{library_id}`,
+  },
+}));
+
 const usefulCommands: UsefulCommands = {
   import_library: {
-    id: 1,
+    id: 2,
     title: 'Import data from this library.',
     command: 'state:import -v -u {user} -s {backend} -S {library_id}',
   },
   force_import_library: {
-    id: 2,
+    id: 3,
     title: 'Force import from this library.',
     command: 'state:import -f -v -u {user} -s {backend} -S {library_id}',
   },
 };
+
+const commandItems = computed<Array<SelectItem>>(() => {
+  const uiItems = Object.entries(uiCommands.value).map(([key, command]) => ({
+    label: `${command.id}. ${command.title}`,
+    value: key,
+  }));
+
+  const utilityItems = Object.entries(usefulCommands).map(([key, command]) => ({
+    label: `${command.id}. ${command.title}`,
+    value: key,
+  }));
+
+  return [...uiItems, ...utilityItems];
+});
 
 useHead({ title: `Backends: ${backend} - Libraries` });
 
@@ -215,16 +334,22 @@ const forwardCommand = async (library: LibraryItem): Promise<void> => {
   const index = selectedCommand.value as keyof UsefulCommands;
   selectedCommand.value = '';
 
-  const command = usefulCommands[index];
-  if (!command) {
-    return;
-  }
-
   const util: CommandUtility = {
     user: api_user.value,
     backend,
     library_id: String(library.id),
   };
+
+  const uiCommand = uiCommands.value[index];
+  if (uiCommand) {
+    await navigateTo(r(uiCommand.path, util as unknown as JsonObject));
+    return;
+  }
+
+  const command = usefulCommands[index];
+  if (!command) {
+    return;
+  }
 
   await navigateTo(makeConsoleCommand(r(command.command, util as unknown as JsonObject)));
 };

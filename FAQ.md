@@ -12,8 +12,8 @@ By default, the tasks are scheduled:
 - **Import** task runs every **1 hour**
 - **Export** task runs every **1 hour and 30 minutes**
 
-If you want to customize the schedule, go to <!--i:fa-tasks--> **Tasks** page underneath the task click on the timer,
-and it will take you to the <!--i:fa-cogs--> **Env** page, where you can set the cron expression directly.
+If you want to customize the schedule, go to <!--i:i-lucide-list-checks--> **Tasks** page and click the timer row underneath the task,
+and it will take you to the <!--i:i-lucide-settings-2--> **Env** page, where you can set the cron expression directly.
 
 > [!NOTE]
 > A great tool to validate your cron expression is [crontab.guru](https://crontab.guru/)
@@ -385,7 +385,7 @@ If you're having problem adding a backend to `WatchState`, it most likely networ
 isn't able to communicate with the media backend. Thus, you will get errors. To make sure the container is able to
 communicate with the media backend,
 
-Run the following tests via: <!--i:fa-tools--> **Tools** <!--i:fa-external-link--> **URL Checker**.
+Run the following tests via: **Diagnostics** > <!--i:i-lucide-link--> **URL Checker**.
 
 From the `Pre-defined` templates select the media server you want to test against and replace the following with your
 info
@@ -405,11 +405,11 @@ check your backend settings and make sure the token is correct and the ip:port i
 
 ## INFO: Ignoring [xxx] Episode range, and treating it as single episode. Backend says it covers [00-00]?
 
-To increase the limit per backend, go to <!--i:fa-server--> **Backends** > <!--i:fa-cog--> **Edit** > Expand
+To increase the limit per backend, go to <!--i:i-lucide-server--> **Backends** > <!--i:i-lucide-settings--> **Edit** > Expand
 **Additional options...** section > Under **Add new option** select
-`MAX_EPISODE_RANGE` from the dropdown list > Click the green **<!--i:fa-plus--> add** button > Once the
+`MAX_EPISODE_RANGE` from the dropdown list > Click the green **<!--i:i-lucide-plus--> add** button > Once the
 option appears, set its value to the number of episodes you want to allow per episode range then,
-Click **<!--i:fa-save--> Save Settings**.
+Click **<!--i:i-lucide-save--> Save Settings**.
 
 ## I Keep receiving 'jellyfin' item 'id: name' is marked as 'played' vs local state 'unplayed'
 
@@ -428,7 +428,7 @@ the issue. Please enable webhooks for your jellyfin backend to avoid this issue.
 
 ### (1) by special handling
 
-We have added an experimental workaround for this issue in the `state:import` command, to enable it, add the env `WS_CLIENTS_JELLYFIN_FIX_PLAYED` via the `Env` page. It's turned off by default as it may cause some issues as it's untested in production, so please use it with caution and report any issues you find.
+We have added an experimental workaround for this issue in the `state:import` command. To enable it, add the env `WS_CLIENTS_JELLYFIN_FIX_PLAYED` via the `Configuration > Environment` page. It's turned off by default as it may cause some issues as it's untested in production, so please use it with caution and report any issues you find.
 
 ## CODE: DM001 - Marking the item as tainted and re-processing.
 
@@ -514,7 +514,7 @@ Note: the tip about adding the group_add came from the user `binarypancakes` in 
 
 # Advanced: How to extend the GUID parser to support more GUIDs or custom ones?
 
-Visit `More > Custom GUIDs` page, you can add custom GUIDs to the parser using the add form.
+Visit the `Configuration > Custom GUIDs` page, where you can add custom GUIDs to the parser using the add form.
 
 If you added or removed a guid from the `guid.yaml` file, you should run `system:index --force-reindex` command to
 update the database indexes with the new guids.
@@ -524,11 +524,11 @@ update the database indexes with the new guids.
 # Sync watch progress.
 
 For best experience, first Enable the [webhook](/guides/webhooks.md) feature for the media backends you want to sync the
-watch progress, however, if you are unable to do so, the `Tasks > import` task will also generate progress watch events.
+watch progress. However, if you are unable to do so, the `Tasks > Import` task will also generate progress watch events.
 However, it's not as reliable as the `Webhooks` or as fast it will only sync the progress when the import task is run.
 
-To check if there is any watch progress events being registered, You can go to `More > Events` and check `on_progress`
-events, if you are seeing those, this means the progress is being synced. Check the `Tasks logs` to see the event log.
+To check if there is any watch progress events being registered, You can go to `Activity > Events` and check `on_progress`
+events. If you are seeing those, this means the progress is being synced. Check the `Operations > Logs` page to see the event log.
 
 If this is set up and working you may be ok with changing the `WS_CRON_IMPORT_AT/WS_CRON_EXPORT_AT` schedule to
 something less frequent as the sync progress working will update the progress near realtime. For example, you could
@@ -546,9 +546,9 @@ load on your media backend. You have to manually edit the tasks `args` to includ
 
 For example, to change the `Import` task to use synchronous requests:
 
-1. Go to the `Tasks`.
-2. Find the `Import` task and click on the `Args: -v` button.
-3. This will redirect you to the `Env` page to edit the relevant environment variable.
+1. Go to the `Tasks` page.
+2. Find the `Import` task and click on the `Args` row value.
+3. This will redirect you to the `Configuration > Environment` page to edit the relevant environment variable.
 4. In the `WS_CRON_IMPORT_ARGS` value field, change the value from `-v` to `-v --sync-requests`.
 5. Click `Save Settings`.
 
@@ -568,7 +568,7 @@ operations.
 
 To enable MEMORY mode, follow these steps:
 
-1. Go to the `Env` page.
+1. Go to the `Configuration > Environment` page.
 2. Add a new environment variable.
 3. Select `WS_DB_MODE` from the dropdown list.
 4. select the `MEMORY` option.
@@ -620,6 +620,6 @@ Those values need to be unique per instance.
 
 # Some Plex users are not showing up in the user list?
 
-Sometimes, the plex user list may not fully load all users, Please <!--i:fa-cogs--> **Env** page and add the following environment variable:
+Sometimes, the plex user list may not fully load all users, Please <!--i:i-lucide-settings-2--> **Env** page and add the following environment variable:
 `WS_CLIENTS_PLEX_DISABLE_DEDUP` and turn it on. This will disable the deduplication logic for plex users. Once you enable this option please restart watchstate 
 and try again. If the user still doesn't show up, please open a bug report with the relevant logs and we will investigate the issue.

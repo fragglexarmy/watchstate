@@ -1,173 +1,199 @@
 <template>
-  <div>
-    <div class="columns is-multiline" v-if="isLoading || isError">
-      <div class="column is-12">
-        <Message
-          message_class="is-background-info-90 has-text-dark"
-          title="Loading"
-          v-if="isLoading"
-          icon="fas fa-spinner fa-spin"
-          message="Loading backend settings. Please wait..."
-        />
+  <div class="space-y-6">
+    <UAlert
+      v-if="isLoading"
+      color="info"
+      variant="soft"
+      icon="i-lucide-loader-circle"
+      title="Loading"
+      description="Loading backend settings. Please wait..."
+      :ui="{ icon: 'animate-spin' }"
+    />
 
-        <Message
-          message_class="has-background-warning-80 has-text-dark"
-          icon="fas fa-exclamation-triangle"
-          title="Warning"
-          v-if="!isLoading && isError"
-        >
-          <p>
-            <span class="icon"><i class="fas fa-exclamation"></i></span>
-            There was error loading your backend data. Please try again later.
-          </p>
-          <div v-if="error">
-            <pre><code>{{ error }}</code></pre>
-          </div>
-        </Message>
-      </div>
-    </div>
+    <UAlert
+      v-else-if="isError"
+      color="warning"
+      variant="soft"
+      icon="i-lucide-triangle-alert"
+      title="Warning"
+    >
+      <template #description>
+        <div class="space-y-3 text-sm text-default">
+          <p>There was error loading your backend data. Please try again later.</p>
+          <pre
+            v-if="error"
+            class="overflow-x-auto rounded-md border border-default bg-elevated/60 p-3"
+          ><code>{{ error }}</code></pre>
+        </div>
+      </template>
+    </UAlert>
 
-    <template v-if="!isLoading && !isError">
-      <div class="columns is-multiline">
-        <div class="column is-12 is-clearfix is-unselectable">
-          <span class="title is-4">
-            <span class="icon"><i class="fas fa-server"></i>&nbsp;</span>
-            <NuxtLink to="/backends">Backends</NuxtLink>
-            : {{ backend }}
-          </span>
-          <div class="is-pulled-right">
-            <div class="field is-grouped">
-              <p class="control">
-                <NuxtLink
-                  class="button is-danger"
-                  v-tooltip.bottom="'Delete Backend'"
-                  :to="`/backend/${backend}/delete`"
-                >
-                  <span class="icon"><i class="fas fa-trash"></i></span>
-                </NuxtLink>
-              </p>
-              <p class="control">
-                <NuxtLink
-                  class="button is-primary"
-                  v-tooltip.bottom="'Edit Backend'"
-                  :to="`/backend/${backend}/edit`"
-                >
-                  <span class="icon"><i class="fas fa-edit"></i></span>
-                </NuxtLink>
-              </p>
+    <template v-else>
+      <UModal
+        :open="editBackendOpen"
+        title="Edit Backend"
+        :ui="backendEditModalUi"
+        @update:open="handleBackendEditOpenChange"
+      >
+        <template #body>
+          <BackendEditForm
+            v-if="editBackendOpen"
+            :backend-name="backend"
+            @close="() => void requestCloseBackendEdit()"
+            @saved="() => void handleBackendEdited()"
+            @dirty-change="(dirty) => (backendEditDirty = dirty)"
+          />
+        </template>
+      </UModal>
+
+      <section class="space-y-4">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div class="space-y-1">
+            <div
+              class="flex flex-wrap items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-toned"
+            >
+              <UIcon :name="pageShell.icon" class="size-4" />
+              <span>{{ pageShell.sectionLabel }}</span>
+              <span>/</span>
+              <NuxtLink to="/backends" class="hover:text-primary">{{
+                pageShell.pageLabel
+              }}</NuxtLink>
+              <span>/</span>
+              <span class="text-highlighted normal-case tracking-normal">{{ backend }}</span>
             </div>
           </div>
-          <div class="is-hidden-mobile">
-            <span class="subtitle">Basic information about backend activity.</span>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <UTooltip text="Delete Backend">
+              <UButton
+                :to="`/backend/${backend}/delete`"
+                color="neutral"
+                variant="outline"
+                icon="i-lucide-trash-2"
+                aria-label="Delete backend"
+              >
+                <span class="hidden sm:inline">Delete</span>
+              </UButton>
+            </UTooltip>
+
+            <UTooltip text="Edit Backend">
+              <UButton
+                color="neutral"
+                variant="outline"
+                icon="i-lucide-pencil"
+                aria-label="Edit backend"
+                @click="editBackendOpen = true"
+              >
+                <span class="hidden sm:inline">Edit</span>
+              </UButton>
+            </UTooltip>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div class="columns is-multiline">
-        <div class="column is-12">
-          <div class="content">
-            <h1 class="title is-4">Useful Tools</h1>
-            <ul>
-              <li>
-                <NuxtLink :to="`/backend/${backend}/mismatched`"
-                  >Find possible mis-identified content.</NuxtLink
-                >
-              </li>
-              <li>
-                <NuxtLink :to="`/backend/${backend}/unmatched`">Find unmatched content.</NuxtLink>
-              </li>
-              <li>
-                <NuxtLink :to="`/backend/${backend}/libraries`">View backend libraries.</NuxtLink>
-              </li>
-              <li>
-                <NuxtLink :to="`/backend/${backend}/users`">View backend users.</NuxtLink>
-              </li>
-              <li>
-                <NuxtLink :to="`/backend/${backend}/sessions`">View active sessions.</NuxtLink>
-              </li>
-              <li>
-                <NuxtLink :to="`/backend/${backend}/search`">Search backend content.</NuxtLink>
-              </li>
-            </ul>
+      <section v-if="0 === bHistory.length">
+        <UAlert
+          color="warning"
+          variant="soft"
+          icon="i-lucide-triangle-alert"
+          title="No items were found"
+          description="There are probably no items in the local database yet or the backend data not imported yet."
+        />
+      </section>
+
+      <section v-else class="space-y-4">
+        <div class="space-y-1">
+          <div
+            class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-toned"
+          >
+            <UIcon name="i-lucide-history" class="size-4" />
+            <span>Recent Activity</span>
           </div>
         </div>
-      </div>
 
-      <div class="columns" v-if="bHistory.length < 1">
-        <div class="column is-12">
-          <Message
-            message_class="is-background-warning-80 has-text-dark"
-            title="Warning"
-            icon="fas fa-exclamation-circle"
-            message="No items were found. There are probably no items in the local database yet or the backend data not imported yet."
-          />
-        </div>
-      </div>
-
-      <div class="columns is-multiline" v-else>
-        <div class="column is-12">
-          <h1 class="title is-4">Recent History</h1>
-        </div>
-        <div class="column is-6-tablet" v-for="item in bHistory" :key="item.id">
-          <div class="card" :class="{ 'is-success': item.watched }">
-            <div class="card-content p-0 m-0">
-              <header class="card-header">
-                <p class="card-header-title is-text-overflow pr-1">
-                  <FloatingImage
-                    :image="`/history/${item.id}/images/poster`"
-                    :item_class="'scaled-image'"
-                    v-if="poster_enable"
+        <div class="grid gap-4 xl:grid-cols-2">
+          <UCard
+            v-for="item in bHistory"
+            :key="item.id"
+            class="h-full border border-default/70 shadow-sm"
+            :class="item.watched ? 'bg-success/5 ring-1 ring-success/20' : 'bg-default/90'"
+            :ui="historyCardUi"
+          >
+            <template #header>
+              <div class="flex items-start gap-3">
+                <div class="min-w-0 flex-1">
+                  <div
+                    class="flex min-w-0 items-start gap-2 text-base font-semibold leading-6 text-highlighted"
                   >
-                    <NuxtLink :to="`/history/${item.id}`">{{
-                      item?.full_title || makeName(item as unknown as JsonObject)
-                    }}</NuxtLink>
-                  </FloatingImage>
-                  <NuxtLink :to="`/history/${item.id}`" v-else>{{
-                    item?.full_title || makeName(item as unknown as JsonObject)
-                  }}</NuxtLink>
-                </p>
-                <span class="card-header-icon">
-                  <span class="icon" v-if="'episode' === item.type"><i class="fas fa-tv"></i></span>
-                  <span class="icon" v-else><i class="fas fa-film"></i></span>
-                </span>
-              </header>
-              <div class="card-content">
-                <div class="columns is-multiline is-mobile has-text-centered">
-                  <div class="column is-4-tablet is-6-mobile has-text-left-mobile">
-                    <span class="icon-text">
-                      <span class="icon"><i class="fas fa-calendar"></i>&nbsp;</span>
-                      <span
-                        class="has-tooltip"
-                        v-tooltip="
-                          `Updated at: ${moment.unix(item.updated || item.updated_at).format(TOOLTIP_DATE_FORMAT)}`
-                        "
+                    <UIcon
+                      :name="'episode' === item.type ? 'i-lucide-tv' : 'i-lucide-film'"
+                      class="mt-0.5 size-4 shrink-0 text-toned"
+                    />
+
+                    <div class="min-w-0 flex-1">
+                      <FloatingImage
+                        v-if="poster_enable"
+                        :image="`/history/${item.id}/images/poster`"
                       >
-                        {{ moment.unix(item.updated || item.updated_at).fromNow() }}
-                      </span>
-                    </span>
-                  </div>
-                  <div class="column is-4-tablet is-6-mobile has-text-right-mobile">
-                    <span class="icon-text">
-                      <span class="icon"><i class="fas fa-server"></i></span>
-                      <span>
-                        <NuxtLink :to="'/backend/' + item.via">{{ item.via }}</NuxtLink>
-                      </span>
-                    </span>
-                  </div>
-                  <div class="column is-4-tablet is-12-mobile has-text-left-mobile">
-                    <span class="icon-text">
-                      <span class="icon"><i class="fas fa-envelope"></i></span>
-                      <span>{{ item.event }}</span>
-                    </span>
+                        <NuxtLink
+                          :to="`/history/${item.id}`"
+                          class="text-highlighted hover:text-primary"
+                        >
+                          {{ item?.full_title || makeName(item as unknown as JsonObject) }}
+                        </NuxtLink>
+                      </FloatingImage>
+
+                      <NuxtLink
+                        v-else
+                        :to="`/history/${item.id}`"
+                        class="text-highlighted hover:text-primary"
+                      >
+                        {{ item?.full_title || makeName(item as unknown as JsonObject) }}
+                      </NuxtLink>
+                    </div>
                   </div>
                 </div>
               </div>
-              <div class="card-footer" v-if="item.progress">
-                <div class="card-footer-item">
-                  <span class="has-text-success" v-if="item.watched">Played</span>
-                  <span class="has-text-danger" v-else>Unplayed</span>
-                </div>
-                <div class="card-footer-item">
+            </template>
+
+            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <div
+                class="flex items-center justify-center gap-2 rounded-md border border-default bg-elevated/40 px-3 py-2 text-center text-sm font-medium text-default"
+              >
+                <UIcon name="i-lucide-calendar" class="size-4 shrink-0 text-toned" />
+                <UTooltip
+                  :text="`Updated at: ${moment.unix(item.updated || item.updated_at).format(TOOLTIP_DATE_FORMAT)}`"
+                >
+                  <span class="cursor-help">{{
+                    moment.unix(item.updated || item.updated_at).fromNow()
+                  }}</span>
+                </UTooltip>
+              </div>
+
+              <div
+                class="flex items-center justify-center gap-2 rounded-md border border-default bg-elevated/40 px-3 py-2 text-center text-sm font-medium text-default"
+              >
+                <UIcon name="i-lucide-server" class="size-4 shrink-0 text-toned" />
+                <NuxtLink :to="'/backend/' + item.via" class="hover:text-primary">{{
+                  item.via
+                }}</NuxtLink>
+              </div>
+
+              <div
+                class="flex items-center justify-center gap-2 rounded-md border border-default bg-elevated/40 px-3 py-2 text-center text-sm font-medium text-default sm:col-span-2 xl:col-span-1"
+              >
+                <UIcon name="i-lucide-mail" class="size-4 shrink-0 text-toned" />
+                <span>{{ item.event }}</span>
+              </div>
+            </div>
+
+            <template v-if="item.progress" #footer>
+              <div class="flex items-center justify-center gap-6 border-t border-default pt-4">
+                <UBadge :color="item.watched ? 'success' : 'error'" variant="soft">
+                  {{ item.watched ? 'Played' : 'Unplayed' }}
+                </UBadge>
+
+                <span class="text-sm font-medium text-default">
                   {{
                     formatDuration(
                       typeof item.progress === 'number'
@@ -175,39 +201,131 @@
                         : parseInt(String(item.progress), 10) || 0,
                     )
                   }}
-                </div>
+                </span>
               </div>
-            </div>
-          </div>
+            </template>
+          </UCard>
         </div>
-        <div class="column is-12">
-          <NuxtLink :to="`/history/?perpage=50&page=1&q=${backend}.via://${backend}&key=metadata`">
-            <span class="icon-text">
-              <span class="icon"><i class="fas fa-history"></i></span>
-              <span>View all history related to this backend</span>
-            </span>
+
+        <div>
+          <NuxtLink
+            :to="`/history/?perpage=50&page=1&q=${backend}.via://${backend}&key=metadata`"
+            class="inline-flex items-center gap-2 text-sm font-medium text-primary"
+          >
+            <UIcon name="i-lucide-history" class="size-4" />
+            <span>View all history related to this backend</span>
           </NuxtLink>
         </div>
-      </div>
+      </section>
 
-      <div class="columns is-multiline" v-if="info">
-        <div class="column is-12">
-          <h1 class="title is-4">Basic info</h1>
-        </div>
-        <div class="column is-12">
-          <div class="mt-2" style="position: relative">
-            <code class="is-terminal is-block is-pre-wrap" v-text="info" />
-            <button
-              class="button m-4"
-              v-tooltip="'Copy text'"
-              style="position: absolute; top: 0; right: 0"
-              @click="() => copyText(JSON.stringify(info, null, 2))"
+      <section v-if="info">
+        <UCard class="border border-default/70 shadow-sm" :ui="infoCardUi">
+          <template #header>
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div class="space-y-1">
+                <div class="flex items-center gap-2">
+                  <UIcon name="i-lucide-file-code-2" class="size-5 text-toned" />
+                  <span class="font-semibold text-highlighted">Basic Info</span>
+                </div>
+                <p class="text-sm text-toned">
+                  Connection identity and runtime details reported by the backend.
+                </p>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-2">
+                <UButton
+                  color="neutral"
+                  :variant="showRawInfo ? 'soft' : 'outline'"
+                  size="sm"
+                  :icon="showRawInfo ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+                  @click="showRawInfo = !showRawInfo"
+                >
+                  <span class="hidden sm:inline">{{ showRawInfo ? 'Hide Raw' : 'Show Raw' }}</span>
+                </UButton>
+
+                <UTooltip text="Copy raw backend info">
+                  <UButton
+                    color="neutral"
+                    variant="outline"
+                    size="sm"
+                    icon="i-lucide-copy"
+                    @click="() => copyText(JSON.stringify(info, null, 2))"
+                  >
+                    <span class="hidden sm:inline">Copy Raw</span>
+                  </UButton>
+                </UTooltip>
+              </div>
+            </div>
+          </template>
+
+          <div class="space-y-4">
+            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div
+                v-for="detail in backendInfoDetails"
+                :key="detail.label"
+                class="rounded-md border border-default bg-elevated/20 px-4 py-3"
+              >
+                <div
+                  class="mb-1 inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
+                >
+                  <UIcon :name="detail.icon" class="size-4" />
+                  <span>{{ detail.label }}</span>
+                </div>
+                <p class="break-all text-sm font-medium text-highlighted">{{ detail.value }}</p>
+              </div>
+            </div>
+
+            <div
+              v-if="showRawInfo"
+              class="overflow-hidden rounded-md border border-default bg-elevated/60"
             >
-              <span class="icon"><i class="fas fa-copy" /></span>
-            </button>
+              <code class="ws-terminal ws-terminal-panel whitespace-pre-wrap" v-text="info" />
+            </div>
           </div>
-        </div>
-      </div>
+        </UCard>
+      </section>
+
+      <section>
+        <UCard class="border border-default/70 shadow-sm" :ui="toolsCardUi">
+          <template #header>
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <UIcon name="i-lucide-wrench" class="size-5 text-toned" />
+                <span class="font-semibold text-highlighted">Useful Tools</span>
+              </div>
+              <p class="text-sm text-toned">
+                Inspect content quality, browse backend data, and run targeted lookups.
+              </p>
+            </div>
+          </template>
+
+          <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <NuxtLink
+              v-for="tool in backendTools"
+              :key="tool.to"
+              :to="tool.to"
+              class="group rounded-md border border-default bg-elevated/20 p-4 transition hover:border-primary/40 hover:bg-elevated/40"
+            >
+              <div class="flex items-start gap-3">
+                <span
+                  class="inline-flex size-10 shrink-0 items-center justify-center rounded-md border border-default bg-default/70 text-toned transition group-hover:border-primary/30 group-hover:text-primary"
+                >
+                  <UIcon :name="tool.icon" class="size-4.5" />
+                </span>
+
+                <div class="min-w-0 space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-semibold text-highlighted group-hover:text-primary">{{
+                      tool.label
+                    }}</span>
+                  </div>
+                  <p class="text-sm leading-5 text-toned">{{ tool.description }}</p>
+                </div>
+              </div>
+            </NuxtLink>
+          </div>
+        </UCard>
+      </section>
     </template>
   </div>
 </template>
@@ -217,9 +335,10 @@ import moment from 'moment';
 import { onMounted, ref } from 'vue';
 import { useHead, useRoute } from '#app';
 import { useStorage } from '@vueuse/core';
-import Message from '~/components/Message.vue';
-import { NuxtLink } from '#components';
+import BackendEditForm from '~/components/BackendEditForm.vue';
 import FloatingImage from '~/components/FloatingImage.vue';
+import { useDirtyCloseGuard } from '~/composables/useDirtyCloseGuard';
+import { requireTopLevelPageShell } from '~/utils/topLevelNavigation';
 import {
   copyText,
   formatDuration,
@@ -227,17 +346,126 @@ import {
   parse_api_response,
   request,
   TOOLTIP_DATE_FORMAT,
+  ucFirst,
 } from '~/utils';
 import type { GenericError, HistoryItem, JsonObject } from '~/types';
 
 const poster_enable = useStorage('poster_enable', true);
 
 const backend = ref<string>(useRoute().params.backend as string);
+const pageShell = requireTopLevelPageShell('backends');
 const bHistory = ref<Array<HistoryItem>>([]);
 const info = ref<JsonObject | null>(null);
 const isLoading = ref<boolean>(true);
 const isError = ref<boolean>(false);
 const error = ref<string | null>(null);
+const editBackendOpen = ref<boolean>(false);
+const backendEditDirty = ref<boolean>(false);
+const showRawInfo = ref<boolean>(false);
+
+const historyCardUi = {
+  header: 'p-5',
+  body: 'px-5 pb-5 pt-0',
+  footer: 'px-5 pb-5 pt-0',
+};
+
+const infoCardUi = {
+  header: 'p-5',
+  body: 'p-5 pt-0',
+};
+
+const toolsCardUi = {
+  header: 'p-5',
+  body: 'px-5 pb-5 pt-0',
+};
+
+const backendEditModalUi = {
+  content: 'max-w-6xl',
+  body: 'p-4 sm:p-5',
+};
+
+const backendTools = computed<
+  Array<{ to: string; label: string; description: string; icon: string }>
+>(() => [
+  {
+    to: `/backend/${backend.value}/search`,
+    label: 'Search Content',
+    description: 'Find specific movies, episodes, and metadata directly on this backend.',
+    icon: 'i-lucide-search',
+  },
+  {
+    to: `/backend/${backend.value}/libraries`,
+    label: 'Libraries',
+    description: 'Browse the libraries exposed by this backend and inspect their identifiers.',
+    icon: 'i-lucide-library-big',
+  },
+  {
+    to: `/backend/${backend.value}/users`,
+    label: 'Users',
+    description: 'Inspect users known to this backend and their available account metadata.',
+    icon: 'i-lucide-users',
+  },
+  {
+    to: `/backend/${backend.value}/sessions`,
+    label: 'Sessions',
+    description: 'Review active playback sessions currently reported by the backend.',
+    icon: 'i-lucide-monitor-play',
+  },
+  {
+    to: `/backend/${backend.value}/unmatched`,
+    label: 'Unmatched',
+    description: 'Review backend items that still cannot be matched to local history records.',
+    icon: 'i-lucide-unlink',
+  },
+  {
+    to: `/backend/${backend.value}/mismatched`,
+    label: 'Mismatched',
+    description: 'Audit possible mis-identified items where local and backend metadata disagree.',
+    icon: 'i-lucide-scan-search',
+  },
+]);
+
+const backendInfoDetails = computed<Array<{ label: string; value: string; icon: string }>>(() => {
+  if (!info.value) {
+    return [];
+  }
+
+  return [
+    {
+      label: 'Type',
+      value: ucFirst(String(info.value.type || 'Unknown')),
+      icon: 'i-lucide-server',
+    },
+    {
+      label: 'Server Name',
+      value: String(info.value.name || 'Unknown'),
+      icon: 'i-lucide-badge-info',
+    },
+    {
+      label: 'Version',
+      value: String(info.value.version || 'Unknown'),
+      icon: 'i-lucide-box',
+    },
+    {
+      label: 'Platform',
+      value: String(info.value.platform || 'Unknown'),
+      icon: 'i-lucide-monitor-smartphone',
+    },
+    {
+      label: 'Identifier',
+      value: String(info.value.identifier || 'Unknown'),
+      icon: 'i-lucide-fingerprint',
+    },
+  ];
+});
+
+const { handleOpenChange: handleBackendEditOpenChange, requestClose: requestCloseBackendEdit } =
+  useDirtyCloseGuard(editBackendOpen, {
+    dirty: backendEditDirty,
+    onDiscard: async () => {
+      backendEditDirty.value = false;
+    },
+  });
 
 const loadRecentHistory = async (): Promise<void> => {
   if (!backend.value) {
@@ -312,6 +540,12 @@ const loadInfo = async (): Promise<void> => {
   } finally {
     isLoading.value = false;
   }
+};
+
+const handleBackendEdited = async (): Promise<void> => {
+  backendEditDirty.value = false;
+  editBackendOpen.value = false;
+  await loadInfo();
 };
 
 onMounted(async () => await loadInfo());

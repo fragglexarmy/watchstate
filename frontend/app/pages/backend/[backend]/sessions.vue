@@ -1,93 +1,113 @@
 <template>
-  <div>
-    <div class="columns is-multiline">
-      <div class="column is-12 is-clearfix is-unselectable">
-        <span class="title is-4">
-          <NuxtLink to="/backends">Backends</NuxtLink>
-          -
-          <NuxtLink :to="'/backend/' + backend">{{ backend }}</NuxtLink>
-          : Sessions
-        </span>
-
-        <div class="is-pulled-right">
-          <div class="field is-grouped">
-            <p class="control">
-              <button
-                class="button is-info"
-                @click="loadContent"
-                :disabled="isLoading"
-                :class="{ 'is-loading': isLoading }"
-              >
-                <span class="icon"><i class="fas fa-sync"></i></span>
-              </button>
-            </p>
+  <div class="space-y-6">
+    <section class="space-y-4">
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div class="space-y-1">
+          <div
+            class="flex flex-wrap items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-toned"
+          >
+            <UIcon :name="pageShell.icon" class="size-4" />
+            <span>{{ pageShell.sectionLabel }}</span>
+            <span>/</span>
+            <NuxtLink to="/backends" class="hover:text-primary">{{ pageShell.pageLabel }}</NuxtLink>
+            <span>/</span>
+            <NuxtLink
+              :to="`/backend/${backend}`"
+              class="hover:text-primary normal-case tracking-normal"
+              >{{ backend }}</NuxtLink
+            >
+            <span>/</span>
+            <span class="text-highlighted normal-case tracking-normal">Sessions</span>
           </div>
         </div>
 
-        <div class="subtitle is-hidden-mobile">
-          Show backend's sessions that are currently active.
-        </div>
+        <UTooltip text="Reload sessions">
+          <UButton
+            color="neutral"
+            variant="outline"
+            icon="i-lucide-refresh-cw"
+            :loading="isLoading"
+            :disabled="isLoading"
+            aria-label="Reload sessions"
+            @click="loadContent"
+          >
+            <span class="hidden sm:inline">Reload</span>
+          </UButton>
+        </UTooltip>
       </div>
 
-      <div class="column is-12" v-if="1 > items.length">
-        <Message
-          message_class="is-background-info-90 has-text-dark"
-          title="Loading"
-          icon="fas fa-spinner fa-spin"
-          v-if="isLoading"
-          message="Requesting active play sessions. Please wait..."
-        />
-        <Message
-          v-else
-          message_class="has-background-success-90 has-text-dark"
-          title="Information"
-          icon="fa fa-info-circle"
-          message="There are no active play sessions currently running."
-        />
-      </div>
-      <template v-else>
-        <div class="column is-12">
-          <div class="content">
-            <h1 class="title is-4">Active Sessions</h1>
+      <UAlert
+        v-if="1 > items.length && isLoading"
+        color="info"
+        variant="soft"
+        icon="i-lucide-loader-circle"
+        title="Loading"
+        description="Requesting active play sessions. Please wait..."
+        :ui="{ icon: 'animate-spin' }"
+      />
+
+      <UAlert
+        v-else-if="1 > items.length"
+        color="success"
+        variant="soft"
+        icon="i-lucide-info"
+        title="Information"
+        description="There are no active play sessions currently running."
+      />
+
+      <UCard v-else class="border border-default/70 shadow-sm" :ui="cardUi">
+        <template #header>
+          <div class="flex items-center gap-2">
+            <UIcon name="i-lucide-play-circle" class="size-5 text-toned" />
+            <span class="font-semibold text-highlighted">Active Sessions</span>
           </div>
-        </div>
-        <div class="column is-12">
-          <table class="table is-fullwidth is-hoverable is-striped">
+        </template>
+
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-default text-sm text-default">
             <thead>
-              <tr>
-                <th>User</th>
-                <th>Title</th>
-                <th>State</th>
-                <th>Progress at</th>
+              <tr class="text-left text-xs font-semibold uppercase tracking-[0.16em] text-toned">
+                <th class="px-4 py-3">User</th>
+                <th class="px-4 py-3">Title</th>
+                <th class="px-4 py-3">State</th>
+                <th class="px-4 py-3">Progress at</th>
               </tr>
             </thead>
-            <tbody>
-              <tr v-for="item in items" :key="item.id">
-                <td>{{ item.user_name }}</td>
-                <td>
-                  <NuxtLink :to="makeItemLink(item)">{{ item.item_title }}</NuxtLink>
+            <tbody class="divide-y divide-default">
+              <tr v-for="item in items" :key="item.id" class="bg-default/60">
+                <td class="px-4 py-3">{{ item.user_name }}</td>
+                <td class="px-4 py-3">
+                  <NuxtLink :to="makeItemLink(item)" class="text-primary hover:underline">
+                    {{ item.item_title }}
+                  </NuxtLink>
                 </td>
-                <td>{{ item.session_state }}</td>
-                <td>{{ formatDuration(item.item_offset_at) }}</td>
+                <td class="px-4 py-3">{{ item.session_state }}</td>
+                <td class="px-4 py-3">{{ formatDuration(item.item_offset_at) }}</td>
               </tr>
             </tbody>
           </table>
         </div>
-      </template>
-    </div>
+      </UCard>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { onMounted, ref } from 'vue';
 import { useRoute } from '#app';
-import { formatDuration, notification, request, parse_api_response } from '~/utils';
-import Message from '~/components/Message.vue';
+import { requireTopLevelPageShell } from '~/utils/topLevelNavigation';
+import { formatDuration, notification, parse_api_response, request } from '~/utils';
 import type { SessionItem } from '~/types';
 
 const backend = useRoute().params.backend as string;
+const pageShell = requireTopLevelPageShell('backends');
 const items = ref<Array<SessionItem>>([]);
 const isLoading = ref<boolean>(false);
+
+const cardUi = {
+  header: 'p-5',
+  body: 'p-0',
+};
 
 const loadContent = async (): Promise<void> => {
   try {

@@ -1,276 +1,297 @@
 <template>
-  <div>
-    <div class="columns is-multiline">
-      <div class="column is-12 is-clearfix is-unselectable">
-        <span class="title is-4">
-          <span class="icon"><i class="fas fa-server" /></span>
-          <span v-if="api_user">&nbsp;{{ ucFirst(api_user) }} @</span>
-          Backends
-        </span>
-        <div class="is-pulled-right">
-          <div class="field is-grouped">
-            <p class="control">
-              <button
-                class="button is-primary"
-                @click="toggleForm = !toggleForm"
-                :disabled="isLoading"
-              >
-                <span class="icon"><i class="fas fa-add" /></span>
-                <span>Add Backend</span>
-              </button>
-            </p>
-            <p class="control">
-              <button
-                class="button is-info"
-                @click="loadContent"
-                :disabled="isLoading"
-                :class="{ 'is-loading': isLoading }"
-              >
-                <span class="icon"><i class="fas fa-sync" /></span>
-              </button>
-            </p>
+  <div class="space-y-6">
+    <section class="space-y-4">
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div class="space-y-1">
+          <div
+            class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-toned"
+          >
+            <UIcon :name="pageShell.icon" class="size-4" />
+            <span>{{ pageShell.pageLabel }}</span>
+            <span v-if="api_user">/</span>
+            <span v-if="api_user">{{ ucFirst(api_user) }}</span>
           </div>
         </div>
-        <div class="is-hidden-mobile">
-          <span class="subtitle">Backends that are configured for the specific user.</span>
-        </div>
-      </div>
 
-      <div class="column is-12" v-if="toggleForm">
-        <BackendAdd
-          @backupData="(e) => handleEvents('backupData', e)"
-          :backends="backends"
-          @forceExport="(e) => handleEvents('forceExport', e)"
-          @addBackend="(e) => handleEvents('addBackend', e)"
-          @forceImport="(e) => handleEvents('forceImport', e)"
-        />
-      </div>
-      <template v-else>
-        <div class="column is-12" v-if="backends.length < 1">
-          <Message
-            v-if="isLoading"
-            message_class="has-background-info-90 has-text-dark"
-            title="Loading"
-            icon="fas fa-spinner fa-spin"
-            message="Requesting active play sessions. Please wait..."
-          />
-          <Message
-            v-else
-            message_class="is-background-warning-80 has-text-dark"
-            title="Warning"
-            icon="fas fa-exclamation-circle"
+        <div class="flex flex-wrap items-center gap-2">
+          <UButton
+            color="neutral"
+            variant="outline"
+            icon="i-lucide-plus"
+            :disabled="isLoading"
+            @click="toggleForm = !toggleForm"
           >
-            No backends found. Please add new backends to start using the tool. You can add new
-            backend by
-            <NuxtLink @click="toggleForm = true">clicking here</NuxtLink>
-            or by clicking the
-            <span class="icon is-clickable" @click="toggleForm = true"
-              ><i class="fas fa-add"
-            /></span>
-            button above.
-          </Message>
-        </div>
+            Add Backend
+          </UButton>
 
-        <div
+          <UTooltip text="Reload backends">
+            <UButton
+              color="neutral"
+              variant="outline"
+              icon="i-lucide-refresh-cw"
+              :loading="isLoading"
+              :disabled="isLoading"
+              aria-label="Reload backends"
+              @click="loadContent"
+            />
+          </UTooltip>
+        </div>
+      </div>
+
+      <UModal
+        :open="toggleForm"
+        title="Add Backend"
+        :ui="backendAddModalUi"
+        @update:open="handleBackendAddOpenChange"
+      >
+        <template #body>
+          <BackendAdd
+            v-if="toggleForm"
+            :backends="backends"
+            @backupData="(e) => handleEvents('backupData', e)"
+            @forceExport="(e) => handleEvents('forceExport', e)"
+            @addBackend="(e) => handleEvents('addBackend', e)"
+            @forceImport="(e) => handleEvents('forceImport', e)"
+            @close="() => void requestCloseBackendAdd()"
+            @dirty-change="(dirty) => (backendAddDirty = dirty)"
+          />
+        </template>
+      </UModal>
+
+      <UModal
+        :open="editBackendOpen"
+        title="Edit Backend"
+        :ui="backendEditModalUi"
+        @update:open="handleBackendEditOpenChange"
+      >
+        <template #body>
+          <BackendEditForm
+            v-if="editBackendOpen && editBackendName"
+            :backend-name="editBackendName"
+            @close="() => void requestCloseBackendEdit()"
+            @saved="(backend) => void handleBackendEdited(backend)"
+            @dirty-change="(dirty) => (backendEditDirty = dirty)"
+          />
+        </template>
+      </UModal>
+
+      <UAlert
+        v-if="0 === backends.length && isLoading"
+        color="info"
+        variant="soft"
+        icon="i-lucide-loader-circle"
+        title="Loading"
+        description="Requesting active play sessions. Please wait..."
+        :ui="{ icon: 'animate-spin' }"
+      />
+
+      <UAlert
+        v-else-if="0 === backends.length"
+        color="warning"
+        variant="soft"
+        icon="i-lucide-triangle-alert"
+        title="No backends found"
+      >
+        <template #description>
+          <div class="space-y-2 text-sm text-default">
+            <p>
+              No backends found. Please add new backends to start using the tool. You can add a new
+              backend by
+              <button type="button" class="font-medium text-primary" @click="toggleForm = true">
+                clicking here
+              </button>
+              or by using the add button above.
+            </p>
+          </div>
+        </template>
+      </UAlert>
+
+      <div v-else class="grid gap-4 xl:grid-cols-2">
+        <UCard
           v-for="backend in backends"
           :key="backend.name"
-          class="column is-6-tablet is-12-mobile"
+          class="h-full border border-default/70 shadow-sm"
+          :ui="backendCardUi"
         >
-          <div class="card">
-            <header class="card-header">
-              <p class="card-header-title">
-                <NuxtLink :to="`/backend/${backend.name}`">
+          <template #header>
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div class="min-w-0 flex-1">
+                <NuxtLink
+                  :to="`/backend/${backend.name}`"
+                  class="block truncate text-base font-semibold text-highlighted hover:text-primary"
+                >
                   {{ backend.name }}
                 </NuxtLink>
-              </p>
-              <div class="card-header-icon">
-                <div class="field is-grouped">
-                  <div class="control">
-                    <NuxtLink
-                      :to="`/backend/${backend.name}/edit?redirect=/backends`"
-                      v-tooltip="'Edit backend settings'"
-                    >
-                      <span class="icon has-text-warning"><i class="fas fa-cog" /></span>
-                      <span class="is-hidden-mobile">Edit</span>
-                    </NuxtLink>
-                  </div>
-                  <div class="control">
-                    <NuxtLink
-                      :to="`/backend/${backend.name}/delete?redirect=/backends`"
-                      v-tooltip="'Delete backend'"
-                    >
-                      <span class="icon has-text-danger"><i class="fas fa-trash" /></span>
-                      <span class="is-hidden-mobile">Delete</span>
-                    </NuxtLink>
-                  </div>
-                </div>
               </div>
-            </header>
-            <div class="card-content">
-              <div class="columns is-multiline has-text-centered">
-                <div class="column is-6 has-text-left-mobile">
-                  <strong>Last Export:&nbsp;</strong>
-                  <template v-if="backend.export.enabled">
-                    <span
-                      v-if="backend.export.lastSync"
-                      class="has-tooltip"
-                      v-tooltip="moment(backend.export.lastSync).format(TOOLTIP_DATE_FORMAT)"
-                    >
-                      {{ moment(backend.export.lastSync).fromNow() }}
-                    </span>
-                    <template v-else>Never</template>
-                  </template>
-                  <template v-else>
-                    <span
-                      class="tag is-danger is-light is-pointer-help"
-                      v-tooltip="'Local database is not being sync to this backend.'"
-                      >Disabled</span
-                    >
-                  </template>
-                </div>
-                <div class="column is-6 has-text-left-mobile">
-                  <strong>Last Import:&nbsp;</strong>
-                  <template v-if="backend.import.enabled || backend.options?.IMPORT_METADATA_ONLY">
-                    <template v-if="backend.import.lastSync">
-                      <span
-                        class="has-tooltip"
-                        v-tooltip="moment(backend.import.lastSync).format(TOOLTIP_DATE_FORMAT)"
-                      >
-                        {{ moment(backend.import.lastSync).fromNow() }}
-                      </span>
-                      <template
-                        v-if="!backend.import.enabled && backend.options?.IMPORT_METADATA_ONLY"
-                      >
-                        &nbsp;
-                        <span
-                          class="tag is-warning is-light is-pointer-help"
-                          v-tooltip="'Only metadata being imported from this backend'"
-                        >
-                          Metadata</span
-                        >
-                      </template>
-                    </template>
-                    <template v-else>Never</template>
-                  </template>
-                  <template v-else>
-                    <span
-                      class="tag is-danger is-light is-pointer-help"
-                      v-tooltip="'All data import from this backend is disabled.'"
-                      >Disabled</span
-                    >
-                  </template>
-                </div>
-              </div>
-            </div>
-            <div class="card-footer">
-              <div class="card-footer-item">
-                <div class="field">
-                  <input
-                    :id="backend.name + '_export'"
-                    type="checkbox"
-                    class="switch is-success"
-                    :checked="backend.export.enabled"
-                    @change="updateValue(backend, 'export.enabled', !backend.export.enabled)"
-                  />
-                  <label
-                    class="has-tooltip"
-                    :for="backend.name + '_export'"
-                    v-tooltip="'Send data from watchstate to this backend.'"
-                    >Export</label
-                  >
-                </div>
-              </div>
-              <div class="card-footer-item">
-                <div class="field">
-                  <input
-                    :id="backend.name + '_import'"
-                    type="checkbox"
-                    class="switch is-success"
-                    :checked="backend.import.enabled"
-                    @change="updateValue(backend, 'import.enabled', !backend.import.enabled)"
-                  />
-                  <label
-                    class="has-tooltip"
-                    :for="backend.name + '_import'"
-                    v-tooltip="'Get data from this backend into watchstate.'"
-                  >
-                    Import</label
-                  >
-                </div>
-              </div>
-              <div class="card-footer-item">
-                <a
-                  :href="backend.urls?.webhook || '#'"
-                  class="is-info is-light"
-                  @click.prevent="copyUrl(backend)"
-                  v-if="backend.urls?.webhook"
-                >
-                  <span class="icon"><i class="fas fa-copy" /></span>
-                  <span class="is-hidden-mobile">Copy Webhook URL</span>
-                  <span class="is-hidden-tablet">Webhook</span>
-                </a>
-                <span v-else class="has-text-grey">No webhook URL</span>
-              </div>
-            </div>
-            <footer class="card-footer">
-              <div class="card-footer-item is-block">
-                <div class="control is-fullwidth has-icons-left">
-                  <div class="select is-fullwidth">
-                    <select v-model="selectedCommand" @change="forwardCommand(backend)">
-                      <option value="" disabled>Quick operations</option>
-                      <option
-                        v-for="(command, index) in usefulCommands"
-                        :key="`qc-${index}`"
-                        :value="index"
-                        :disabled="!check_state(backend, command)"
-                      >
-                        {{ command.id }}. {{ command.title }}
-                      </option>
-                    </select>
-                  </div>
-                  <div class="icon is-left">
-                    <i class="fas fa-terminal" />
-                  </div>
-                </div>
-              </div>
-            </footer>
-          </div>
-        </div>
 
-        <div class="column is-12">
-          <Message
-            message_class="has-background-info-90 has-text-dark"
-            :toggle="show_page_tips"
-            @toggle="show_page_tips = !show_page_tips"
-            :use-toggle="true"
-            title="Tips"
-            icon="fas fa-info-circle"
-          >
-            <ul>
-              <li>
-                Think of the WatchState as a <strong>Central Hub</strong> your backends aren't aware
-                of each other. <strong>WatchState</strong> is the facilitator of the data flow. If
-                you think like that, then
-                <strong>import</strong>
-                and <strong>export</strong> would make sense.
-              </li>
-              <li><strong>Import</strong>: Means getting data from the backend into watchstate.</li>
-              <li><strong>Export</strong>: Means sending data from watchstate to the backend.</li>
-            </ul>
-          </Message>
-        </div>
-      </template>
-    </div>
+              <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                <UTooltip v-if="backend.urls?.webhook" text="Copy webhook URL">
+                  <UButton
+                    color="neutral"
+                    variant="outline"
+                    size="sm"
+                    square
+                    icon="i-lucide-copy"
+                    aria-label="Copy webhook URL"
+                    @click.prevent="copyUrl(backend)"
+                  >
+                    <span class="hidden sm:inline">Copy Webhook URL</span>
+                  </UButton>
+                </UTooltip>
+
+                <UTooltip text="Edit backend settings">
+                  <UButton
+                    color="neutral"
+                    variant="outline"
+                    size="sm"
+                    icon="i-lucide-settings"
+                    @click="openBackendEdit(backend.name)"
+                  >
+                    <span class="hidden sm:inline">Edit</span>
+                  </UButton>
+                </UTooltip>
+
+                <UTooltip text="Delete backend">
+                  <UButton
+                    :to="`/backend/${backend.name}/delete?redirect=/backends`"
+                    color="neutral"
+                    variant="outline"
+                    size="sm"
+                    icon="i-lucide-trash-2"
+                  >
+                    <span class="hidden sm:inline">Delete</span>
+                  </UButton>
+                </UTooltip>
+              </div>
+            </div>
+          </template>
+
+          <div class="space-y-4">
+            <div class="grid gap-3 lg:grid-cols-2">
+              <div class="rounded-md border border-default bg-elevated/30 p-4">
+                <div class="flex items-start justify-between gap-4">
+                  <div class="min-w-0">
+                    <p class="text-sm font-medium text-highlighted">Enable Export</p>
+                    <p class="mt-1 text-sm text-toned">Send data to this backend.</p>
+                  </div>
+
+                  <USwitch
+                    :model-value="backend.export.enabled"
+                    :color="backend.export.enabled ? 'success' : 'neutral'"
+                    @update:model-value="
+                      (value) => updateValue(backend, 'export.enabled', Boolean(value))
+                    "
+                  />
+                </div>
+              </div>
+
+              <div class="rounded-md border border-default bg-elevated/30 p-4">
+                <div class="flex items-start justify-between gap-4">
+                  <div class="min-w-0">
+                    <p class="text-sm font-medium text-highlighted">Enable Import</p>
+                    <p class="mt-1 text-sm text-toned">Retrieve data from this backend.</p>
+                  </div>
+
+                  <USwitch
+                    :model-value="backend.import.enabled"
+                    :color="backend.import.enabled ? 'success' : 'neutral'"
+                    @update:model-value="
+                      (value) => updateValue(backend, 'import.enabled', Boolean(value))
+                    "
+                  />
+                </div>
+              </div>
+            </div>
+            <div class="grid gap-3 sm:grid-cols-2">
+              <div class="rounded-md border border-default bg-elevated/40 p-4 text-sm text-default">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="font-semibold text-highlighted">Last Export</div>
+
+                  <div class="min-w-0 text-right">
+                    <template v-if="backend.export.enabled">
+                      <UTooltip
+                        v-if="backend.export.lastSync"
+                        :text="moment(backend.export.lastSync).format(TOOLTIP_DATE_FORMAT)"
+                      >
+                        <span class="cursor-help">{{
+                          moment(backend.export.lastSync).fromNow()
+                        }}</span>
+                      </UTooltip>
+                      <span v-else>Never</span>
+                    </template>
+
+                    <UTooltip v-else text="Local database is not being sync to this backend.">
+                      <UBadge color="error" variant="soft">Disabled</UBadge>
+                    </UTooltip>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rounded-md border border-default bg-elevated/40 p-4 text-sm text-default">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="font-semibold text-highlighted">Last Import</div>
+
+                  <div class="min-w-0 text-right">
+                    <template
+                      v-if="backend.import.enabled || backend.options?.IMPORT_METADATA_ONLY"
+                    >
+                      <div class="flex flex-wrap items-center justify-end gap-2">
+                        <UTooltip
+                          v-if="backend.import.lastSync"
+                          :text="moment(backend.import.lastSync).format(TOOLTIP_DATE_FORMAT)"
+                        >
+                          <span class="cursor-help">{{
+                            moment(backend.import.lastSync).fromNow()
+                          }}</span>
+                        </UTooltip>
+                        <span v-else>Never</span>
+
+                        <UTooltip
+                          v-if="!backend.import.enabled && backend.options?.IMPORT_METADATA_ONLY"
+                          text="Only metadata being imported from this backend"
+                        >
+                          <UBadge color="warning" variant="soft">Metadata</UBadge>
+                        </UTooltip>
+                      </div>
+                    </template>
+
+                    <UTooltip v-else text="All data import from this backend is disabled.">
+                      <UBadge color="error" variant="soft">Disabled</UBadge>
+                    </UTooltip>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <template #footer>
+            <div>
+              <USelect
+                v-model="selectedCommand"
+                :items="getUsefulCommandItems(backend)"
+                value-key="value"
+                placeholder="Quick operations"
+                icon="i-lucide-terminal"
+                class="w-full"
+                @update:model-value="() => void forwardCommand(backend)"
+              />
+            </div>
+          </template>
+        </UCard>
+      </div>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { useHead, useRoute, navigateTo } from '#app';
+import { onMounted, ref } from 'vue';
+import { navigateTo, useHead, useRoute } from '#app';
 import { useStorage } from '@vueuse/core';
 import moment from 'moment';
 import BackendAdd from '~/components/BackendAdd.vue';
-import Message from '~/components/Message.vue';
+import BackendEditForm from '~/components/BackendEditForm.vue';
+import { useDirtyCloseGuard } from '~/composables/useDirtyCloseGuard';
+import { requireTopLevelPageShell } from '~/utils/topLevelNavigation';
 import {
   request,
   ag,
@@ -283,9 +304,10 @@ import {
   ucFirst,
 } from '~/utils';
 import type { Backend, JsonObject, JsonValue, UtilityCommand } from '~/types';
-import '~/assets/css/bulma-switch.css';
 
 type UsefulCommand = UtilityCommand;
+
+const pageShell = requireTopLevelPageShell('backends');
 
 type UsefulCommands = Record<string, UsefulCommand>;
 
@@ -299,14 +321,56 @@ type CommandUtility = {
   [key: string]: JsonValue | undefined;
 };
 
+type SelectItem = {
+  label: string;
+  value: string;
+  disabled?: boolean;
+};
+
 useHead({ title: 'Backends' });
 
 const backends = ref<Array<Backend>>([]);
 const toggleForm = ref<boolean>(false);
+const backendAddDirty = ref<boolean>(false);
+const editBackendOpen = ref<boolean>(false);
+const backendEditDirty = ref<boolean>(false);
+const editBackendName = ref<string>('');
 const api_user = useStorage('api_user', 'main');
-const show_page_tips = useStorage('show_page_tips', true);
 const isLoading = ref<boolean>(false);
 const selectedCommand = ref<string>('');
+
+const backendCardUi = {
+  header: 'p-5',
+  body: 'p-5',
+  footer: 'p-5 border-t border-default',
+};
+
+const backendAddModalUi = {
+  content: 'max-w-5xl',
+  body: 'p-4 sm:p-5',
+};
+
+const backendEditModalUi = {
+  content: 'max-w-6xl',
+  body: 'p-4 sm:p-5',
+};
+
+const { handleOpenChange: handleBackendAddOpenChange, requestClose: requestCloseBackendAdd } =
+  useDirtyCloseGuard(toggleForm, {
+    dirty: backendAddDirty,
+    onDiscard: async () => {
+      backendAddDirty.value = false;
+    },
+  });
+
+const { handleOpenChange: handleBackendEditOpenChange, requestClose: requestCloseBackendEdit } =
+  useDirtyCloseGuard(editBackendOpen, {
+    dirty: backendEditDirty,
+    onDiscard: async () => {
+      backendEditDirty.value = false;
+      editBackendName.value = '';
+    },
+  });
 
 const usefulCommands: UsefulCommands = {
   export_now: {
@@ -358,6 +422,13 @@ const usefulCommands: UsefulCommands = {
   },
 };
 
+const getUsefulCommandItems = (backend: Backend): Array<SelectItem> =>
+  Object.entries(usefulCommands).map(([key, command]) => ({
+    label: `${command.id}. ${command.title}`,
+    value: key,
+    disabled: !check_state(backend, command),
+  }));
+
 const forwardCommand = async (backend: Backend): Promise<void> => {
   if ('' === selectedCommand.value) {
     return;
@@ -408,6 +479,26 @@ const copyUrl = (b: Backend): void => {
   if (b.urls?.webhook) {
     copyText(window.origin + b.urls.webhook);
   }
+};
+
+const openBackendEdit = (backendName: string): void => {
+  editBackendName.value = backendName;
+  backendEditDirty.value = false;
+  editBackendOpen.value = true;
+};
+
+const handleBackendEdited = async (backend: Backend): Promise<void> => {
+  backendEditDirty.value = false;
+  editBackendOpen.value = false;
+  editBackendName.value = '';
+
+  const index = backends.value.findIndex((current) => current.name === backend.name);
+  if (-1 !== index) {
+    await loadContent();
+    return;
+  }
+
+  await loadContent();
 };
 
 const updateValue = async (backend: Backend, key: string, newValue: boolean): Promise<void> => {
@@ -495,6 +586,7 @@ const handleEvents = async (event: string, backend: Backend): Promise<void> => {
       }
       break;
     case 'addBackend':
+      backendAddDirty.value = false;
       toggleForm.value = false;
       await loadContent();
       break;

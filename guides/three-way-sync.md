@@ -32,18 +32,18 @@ folder to prevent conflicts:
 For each individual account (yours and your spouse's)
 
 > [!NOTE]
-> you can switch via the <!--i:fa-users--> user dropdown in the top-right corner of the interface.
+> you can switch via the <!--i:i-lucide-users--> user dropdown in the top-right corner of the interface.
 
-1. Go to <!--i:fa-server--> **Backends** and click on the <!--i:fa-plus--> **Add Backend** button
+1. Go to <!--i:i-lucide-server--> **Backends** and click on the <!--i:i-lucide-plus--> **Add Backend** button
 2. Follow the usual add backend process to add the share account.
 3. Configure the settings as follows:
     - *`Name`*: Choose a unique name that isn't already used. e.g. `shared_family_one` or `shared_family_two`
-    - *`Import play and progress updates from this backend?`*: Yes
-    - *`Send play and progress updates to this backend?`*: No
+    - *`Import play and progress updates`*: Yes
+    - *`Send play and progress updates`*: No
 
 > [!IMPORTANT]
-> Keeping *`Import play and progress updates from this backend?`* enabled ensures the shared account's watch state
-> overrides the individual accounts. Disabling *`Send play and progress updates to this backend?`* prevents individual
+> Keeping *`Import play and progress updates`* enabled ensures the shared account's watch state
+> overrides the individual accounts. Disabling *`Send play and progress updates`* prevents individual
 > accounts from modifying the shared account's data.
 
 # Verify the Setup
@@ -57,7 +57,7 @@ Once configured, your sync flow should work as follows:
 
 To verify everything is working correctly:
 
-1. Go to the <!--i:fa-history--> **History** page
+1. Go to the <!--i:i-lucide-history--> **History** page
 2. Check that watch state from the shared account appears in both individual accounts
 3. Verify that changes in individual accounts do not affect the shared account
 

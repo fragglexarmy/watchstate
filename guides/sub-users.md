@@ -38,8 +38,8 @@ This mode is available when you have **exactly 1 backend** configured. In this m
 
 To enable single backend mode:
 
-1. Navigate to **<!--i:fa-tools--> Tools > <!--i:fa-users--> Sub Users**.
-2. If you have exactly 1 backend configured, you'll see an **"Allow single backend users"** checkbox.
+1. Navigate to **Configuration** > <!--i:i-lucide-users-round--> **Sub Users**.
+2. If you have exactly 1 backend configured, you'll see an **"Allow single backend users"** switch.
 3. Check this option to enable single backend mode.
 4. All users from that backend (except the main user) will be created as individual sub-users.
 
@@ -67,7 +67,7 @@ If you're using Plex:
 * You **must** provide an **Admin-level `X-Plex-Token`** to access the user list required for sub-user grouping.
 * To verify your token:
 
-    * Navigate to **<!--i:fa-tools--> Tools > <!--i:fa-key--> Plex Token**.
+    * Navigate to **Diagnostics** > <!--i:i-lucide-key-round--> **Plex Token**.
     * Review the message:
         * If it shows **Success**, your token has sufficient privileges.
         * If it shows an **Error**, your token likely has restricted permissions. Replace it with a valid admin token.
@@ -91,14 +91,14 @@ If you're using Jellyfin or Emby:
 
 After verifying all backends are properly configured:
 
-1. Navigate to **<!--i:fa-tools--> Tools > <!--i:fa-users--> Sub Users**.
+1. Navigate to **Configuration** > <!--i:i-lucide-users-round--> **Sub Users**.
 2. **If you have multiple backends:**
     * The system will attempt to **automatically group users** based on matching names across the backends.
     * **Manual adjustment may be necessary**:
         * Use drag-and-drop functionality to reassign or organize users into the appropriate groups.
         * This is helpful when naming conventions differ across services.
 3. **If you have a single backend:**
-    * Enable the **"Allow single backend users"** checkbox.
+    * Enable the **"Allow single backend users"** switch.
     * All users will be listed in the unmatched section and will be created individually.
     * No grouping or matching is required.
 
@@ -109,7 +109,7 @@ After verifying all backends are properly configured:
 If you have Plex users with managed user accounts (protected users):
 
 * **These users require a PIN** to be set before sub-user creation can proceed.
-* Click the **lock icon** (<!--i:fa-lock-open-->) next to each protected user to set their 4-digit PIN.
+* Click the **lock icon** (<!--i:i-lucide-lock-open-->) next to each protected user to set their 4-digit PIN.
 * The PIN will be stored in the mapper and used when generating access tokens.
 * In **single backend mode**, you can set PINs for unmatched users directly in the unmatched users section.
 

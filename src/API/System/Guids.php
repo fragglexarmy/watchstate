@@ -88,7 +88,7 @@ final class Guids
             return api_error($e->getMessage(), Status::BAD_REQUEST);
         }
 
-        $pattern = stripslashes($params->get('validator.pattern'));
+        $pattern = $params->get('validator.pattern');
         try {
             preg_match($pattern, '');
         } catch (Throwable) {

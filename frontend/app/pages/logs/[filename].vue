@@ -1,167 +1,199 @@
 <template>
-  <div>
-    <div class="columns is-multiline">
-      <div class="column is-12 is-clearfix is-unselectable">
-        <span class="title is-4">
-          <span class="icon"
-            ><i class="fas fa-globe" :class="{ 'fa-spin': isLoading }" />&nbsp;</span
-          >
-          <NuxtLink to="/logs">Logs</NuxtLink>
-          : {{ filename }}
-        </span>
-
-        <div class="is-pulled-right" v-if="!error">
-          <div class="field is-grouped">
-            <div class="control">
-              <button
-                v-if="!autoScroll"
-                @click="scrollToBottom"
-                class="button is-primary"
-                v-tooltip.bottom="'Go to bottom'"
-              >
-                <span class="icon"><i class="fas fa-arrow-down"></i></span>
-              </button>
-            </div>
-
-            <div class="control has-icons-left" v-if="toggleFilter && 'json' !== contentType">
-              <input
-                type="search"
-                v-model.lazy="query"
-                class="input"
-                id="filter"
-                placeholder="Filter"
-              />
-              <span class="icon is-left"><i class="fas fa-filter" /></span>
-            </div>
-
-            <div class="control" v-if="'json' !== contentType">
-              <button
-                class="button is-danger is-light"
-                v-tooltip.bottom="'Filter log lines.'"
-                @click="toggleFilter = !toggleFilter"
-              >
-                <span class="icon"><i class="fas fa-filter" /></span>
-              </button>
-            </div>
-
-            <p class="control">
-              <button
-                class="button is-danger"
-                v-tooltip.bottom="'Delete Logfile.'"
-                @click="deleteFile"
-              >
-                <span class="icon"><i class="fas fa-trash" /></span>
-              </button>
-            </p>
-
-            <p class="control">
-              <button
-                class="button is-success"
-                v-tooltip.bottom="'Download file.'"
-                @click="downloadFile"
-                :class="{ 'is-loading': isDownloading }"
-              >
-                <span class="icon"><i class="fas fa-download" /></span>
-              </button>
-            </p>
-
-            <p class="control">
-              <button
-                class="button is-purple"
-                @click="wrapLines = !wrapLines"
-                v-tooltip.bottom="'Toggle wrap line'"
-              >
-                <span class="icon"><i class="fas fa-text-width" /></span>
-              </button>
-            </p>
-
-            <p class="control">
-              <button class="button" v-tooltip.bottom="'Copy text'" @click="() => copyData()">
-                <span class="icon"><i class="fas fa-copy" /></span>
-              </button>
-            </p>
-          </div>
-        </div>
-        <div class="is-hidden-mobile">
-          <span class="subtitle">
-            <template v-if="'json' === contentType">Viewing JSON file.</template>
-            <template v-else>
-              <template v-if="isTodayLog">The logs are being streamed in real-time.</template>
-              Scroll-up to load older logs.
-            </template>
-          </span>
+  <main class="w-full min-w-0 max-w-full space-y-4">
+    <div class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+      <div class="min-w-0 space-y-2">
+        <div
+          class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-toned"
+        >
+          <UIcon :name="pageShell.icon" :class="['size-4', stream ? 'animate-spin' : '']" />
+          <span>{{ pageShell.sectionLabel }}</span>
+          <span>/</span>
+          <NuxtLink to="/logs" class="text-toned hover:text-primary">{{
+            pageShell.pageLabel
+          }}</NuxtLink>
+          <span>/</span>
+          <span class="truncate text-highlighted normal-case tracking-normal">{{ filename }}</span>
         </div>
       </div>
 
-      <div class="column is-12">
-        <div class="logbox is-grid" ref="logContainer" v-if="!error && 'json' === contentType">
+      <div v-if="!error" class="flex flex-wrap items-center justify-end gap-2">
+        <UTooltip v-if="'log' === contentType && !autoScroll" text="Go to bottom">
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="sm"
+            icon="i-lucide-chevron-down"
+            @click="scrollToBottom"
+          >
+            <span class="hidden sm:inline">Bottom</span>
+          </UButton>
+        </UTooltip>
+
+        <UInput
+          v-if="'json' !== contentType && (toggleFilter || query)"
+          id="filter"
+          v-model="query"
+          type="search"
+          placeholder="Filter"
+          icon="i-lucide-filter"
+          size="sm"
+          class="w-full sm:w-72"
+        />
+
+        <UTooltip v-if="'json' !== contentType" text="Filter log lines.">
+          <UButton
+            color="neutral"
+            :variant="toggleFilter ? 'soft' : 'outline'"
+            size="sm"
+            icon="i-lucide-filter"
+            @click="toggleFilter = !toggleFilter"
+          >
+            <span class="hidden sm:inline">Filter</span>
+          </UButton>
+        </UTooltip>
+
+        <UTooltip text="Delete logfile.">
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="sm"
+            icon="i-lucide-trash-2"
+            @click="deleteFile"
+          >
+            <span class="hidden sm:inline">Delete</span>
+          </UButton>
+        </UTooltip>
+
+        <UTooltip text="Download file.">
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="sm"
+            icon="i-lucide-download"
+            :loading="isDownloading"
+            @click="downloadFile"
+          >
+            <span class="hidden sm:inline">Download</span>
+          </UButton>
+        </UTooltip>
+
+        <UTooltip text="Toggle wrap line">
+          <UButton
+            color="neutral"
+            :variant="wrapLines ? 'soft' : 'outline'"
+            size="sm"
+            icon="i-lucide-wrap-text"
+            @click="wrapLines = !wrapLines"
+          >
+            <span class="hidden sm:inline">Wrap</span>
+          </UButton>
+        </UTooltip>
+
+        <UTooltip text="Copy text">
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="sm"
+            icon="i-lucide-copy"
+            @click="copyData"
+          >
+            <span class="hidden sm:inline">Copy</span>
+          </UButton>
+        </UTooltip>
+      </div>
+    </div>
+
+    <UAlert
+      v-if="error"
+      color="warning"
+      variant="soft"
+      icon="i-lucide-triangle-alert"
+      title="API Error"
+      close
+      @update:open="(open) => (!open ? router.push('/logs') : undefined)"
+    >
+      <template #description>
+        <p class="text-sm text-default">{{ error }}</p>
+      </template>
+    </UAlert>
+
+    <UAlert
+      v-else-if="isLoading && 0 === data.length"
+      color="info"
+      variant="soft"
+      icon="i-lucide-loader-circle"
+      title="Loading"
+      description="Loading data. Please wait..."
+      :ui="{ icon: 'animate-spin' }"
+    />
+
+    <template v-else-if="!error">
+      <UAlert
+        v-if="'log' === contentType && reachedEnd && !query"
+        color="info"
+        variant="soft"
+        icon="i-lucide-triangle-alert"
+        title="End of file"
+        description="No more logs available for this file."
+      />
+
+      <UAlert
+        v-if="'log' === contentType && 0 === filterItems.length"
+        :color="query ? 'warning' : 'info'"
+        variant="soft"
+        :icon="query ? 'i-lucide-filter' : 'i-lucide-triangle-alert'"
+        :title="query ? 'No matching logs' : 'No logs available'"
+      >
+        <template #description>
+          <p class="text-sm text-default">
+            <template v-if="query"
+              >No logs match this query: <u>{{ query }}</u></template
+            >
+            <template v-else>No logs available.</template>
+          </p>
+        </template>
+      </UAlert>
+
+      <UCard
+        v-if="'json' === contentType || 0 < filterItems.length"
+        class="overflow-hidden border border-default/70 shadow-sm"
+        :ui="viewerCardUi"
+      >
+        <div v-if="'json' === contentType" ref="logContainer" class="logbox">
           <code
             id="logView"
-            class="p-1 logline is-block"
-            :class="{ 'is-pre-wrap': wrapLines, 'is-pre': !wrapLines }"
+            class="logline block"
+            :class="wrapLines ? 'whitespace-pre-wrap ws-wrap-anywhere' : 'whitespace-pre'"
           >
             {{ renderJson(data) }}
           </code>
         </div>
-        <div
-          class="logbox is-grid"
-          ref="logContainer"
-          v-if="!error && 'log' === contentType"
-          @scroll.passive="handleScroll"
-        >
-          <code
-            id="logView"
-            class="p-1 logline is-block"
-            :class="{ 'is-pre-wrap': wrapLines, 'is-pre': !wrapLines }"
-          >
-            <span
-              class="is-block m-0 notification is-info is-dark has-text-centered"
-              v-if="reachedEnd && !query"
-            >
-              <span class="notification-title">
-                <span class="icon"><i class="fas fa-exclamation-triangle" /></span>
-                No more logs available for this file.
-              </span>
-            </span>
-            <span v-for="item in filterItems" :key="item.id" class="is-block">
-              <span v-if="item.date"
-                >[<span class="has-tooltip" :title="item.date">{{ formatDate(item.date) }}</span
-                >]:&nbsp;</span
-              >
-              <span v-if="item?.item_id"
-                ><span class="is-clickable has-tooltip" @click="goto_history_item(item)"
-                  ><span class="icon"><i class="fas fa-history" /></span><span>View</span></span
-                >&nbsp;</span
-              >
-              <span>{{ item.text }}</span>
-            </span>
-            <span class="is-block" v-if="filterItems.length < 1">
-              <span
-                class="is-block m-0 notification is-warning is-dark has-text-centered"
-                v-if="query"
-              >
-                <span class="notification-title is-danger">
-                  <span class="icon"><i class="fas fa-filter" /></span>
-                  No logs match this query: <u>{{ query }}</u>
-                </span>
-              </span>
-              <span v-else> <span class="has-text-danger">No logs available</span></span>
-            </span>
-          </code>
-          <div ref="bottomMarker"></div>
-        </div>
 
-        <Message
-          v-if="error"
-          title="API Error"
-          message_class="has-background-warning-90 has-text-dark"
-          :message="error"
-          :use-close="true"
-          @close="router.push('/logs')"
-        />
-      </div>
-    </div>
-  </div>
+        <div v-else ref="logContainer" class="logbox" @scroll.passive="handleScroll">
+          <code id="logView" class="logline block">
+            <span v-for="item in filterItems" :key="item.id" class="log-entry block"
+              ><template v-if="item.date"
+                >[<span class="cursor-help" :title="item.date">{{ formatDate(item.date) }}</span
+                >]:&nbsp;</template
+              ><template v-if="item.item_id"
+                ><button
+                  type="button"
+                  class="mr-2 inline-flex items-center gap-1 text-primary hover:underline"
+                  @click="goto_history_item(item)"
+                >
+                  <UIcon name="i-lucide-history" class="size-4" />
+                  <span>View</span></button
+                >&nbsp;</template
+              ><span
+                :class="wrapLines ? 'whitespace-pre-wrap ws-wrap-anywhere' : 'whitespace-pre'"
+                >{{ String(item.text).trimStart() }}</span
+              ></span
+            >
+          </code>
+        </div>
+      </UCard>
+    </template>
+  </main>
 </template>
 
 <style scoped>
@@ -171,11 +203,11 @@
   max-width: 100%;
 }
 
-#logView > span:nth-child(even) {
+.log-entry:nth-child(even) {
   color: #ffc9d4;
 }
 
-#logView > span:nth-child(odd) {
+.log-entry:nth-child(odd) {
   color: #e3c981;
 }
 
@@ -185,9 +217,6 @@ code {
 
 .logbox {
   background-color: #1f2229;
-  box-shadow:
-    0 4px 8px 0 rgba(0, 0, 0, 0.2),
-    0 6px 20px 0 rgba(0, 0, 0, 0.19);
   min-width: 100%;
   max-height: 73vh;
   overflow-y: auto;
@@ -210,8 +239,11 @@ div.logbox pre {
 import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useHead, useRoute, useRouter } from '#app';
 import { useStorage } from '@vueuse/core';
-import moment from 'moment';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
+import moment from 'moment';
+import { useDialog } from '~/composables/useDialog';
+import { requireTopLevelPageShell } from '~/utils/topLevelNavigation';
+import type { GenericResponse, LogEntry } from '~/types';
 import {
   copyText,
   disableOpacity,
@@ -221,13 +253,15 @@ import {
   parse_api_response,
   request,
 } from '~/utils';
-import type { GenericResponse, LogEntry } from '~/types';
-import Message from '~/components/Message.vue';
-import { useDialog } from '~/composables/useDialog';
 
 const router = useRouter();
 const route = useRoute();
-const filename = route.params.filename as string;
+const filenameParam = Array.isArray(route.params.filename)
+  ? route.params.filename[0]
+  : route.params.filename;
+const filename = filenameParam ?? '';
+
+const pageShell = requireTopLevelPageShell('logs');
 
 useHead({ title: `Logs : ${filename}` });
 
@@ -239,13 +273,18 @@ const isDownloading = ref<boolean>(false);
 const isLoading = ref<boolean>(false);
 const toggleFilter = ref<boolean>(false);
 const autoScroll = ref<boolean>(true);
-const isTodayLog = computed((): boolean => filename.includes(moment().format('YYYYMMDD')));
 const reachedEnd = ref<boolean>(false);
 const offset = ref<number>(0);
 const contentType = ref<'log' | 'json'>('log');
+const stream = ref<boolean>(false);
+const logContainer = ref<HTMLElement | null>(null);
+const streamController = ref<AbortController | null>(null);
+const isTodayLog = computed<boolean>(() => filename.includes(moment().format('YYYYMMDD')));
+
 let scrollTimeout: ReturnType<typeof setTimeout> | null = null;
 
 const token = useStorage('token', '');
+const dialog = useDialog();
 
 type FilePickerOptions = {
   suggestedName?: string;
@@ -255,41 +294,42 @@ type FilePickerHandle = {
   createWritable: () => Promise<WritableStream>;
 };
 
-watch(toggleFilter, async (): Promise<void> => {
+const viewerCardUi = {
+  body: 'p-0',
+};
+
+const scrollLogContainerToBottom = (behavior: ScrollBehavior = 'auto'): void => {
+  if (!logContainer.value) {
+    return;
+  }
+
+  logContainer.value.scrollTo({ top: logContainer.value.scrollHeight, behavior });
+};
+
+watch(toggleFilter, () => {
   if (!toggleFilter.value) {
     query.value = '';
   }
 });
 
-const filterItems = computed((): Array<LogEntry> => {
+const filterItems = computed<Array<LogEntry>>(() => {
   if (!query.value) {
-    return data.value ?? [];
+    return data.value;
   }
-  return data.value.filter((m) => m.text.toLowerCase().includes(query.value.toLowerCase()));
+
+  return data.value.filter((item) => item.text.toLowerCase().includes(query.value.toLowerCase()));
 });
-
-const stream = ref<boolean>(false);
-const logContainer = ref<HTMLElement | null>(null);
-const bottomMarker = ref<HTMLElement | null>(null);
-
-const ctrl = new AbortController();
 
 const loadContent = async (): Promise<void> => {
   try {
     isLoading.value = true;
     const response = await request(`/log/${filename}?offset=${offset.value}`);
     const json = await parse_api_response<{
-      /** The log file name */
       filename: string;
-      /** Current offset position */
       offset: number;
-      /** Next offset for pagination, null if no more data */
       next: number | null;
-      /** Maximum number of lines in the file */
       max: number;
-      /** Content type of the log file */
       type: 'log' | 'json';
-      /** Array of log entries */
       lines: Array<LogEntry>;
     }>(response);
 
@@ -304,7 +344,6 @@ const loadContent = async (): Promise<void> => {
       return;
     }
 
-    // Handle successful response
     if ('error' in json) {
       error.value = `${json.error.code}: ${json.error.message}`;
       return;
@@ -312,28 +351,24 @@ const loadContent = async (): Promise<void> => {
 
     contentType.value = json.type ?? 'log';
 
-    if (json.lines.length > 0) {
+    if (0 < json.lines.length) {
       data.value.unshift(...json.lines);
     }
 
-    if ('next' in json) {
-      offset.value = json.next ?? offset.value;
-      if (null === json.next) {
-        reachedEnd.value = true;
-      }
+    offset.value = json.next ?? offset.value;
+    if (null === json.next) {
+      reachedEnd.value = true;
     }
 
-    // Auto-scroll only if the user was already at the bottom
     await nextTick(() => {
-      if (autoScroll.value && bottomMarker.value) {
-        bottomMarker.value.scrollIntoView({ behavior: 'auto' });
+      if (autoScroll.value) {
+        scrollLogContainerToBottom('auto');
       }
     });
 
     watchLog();
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unexpected error';
-    error.value = message;
+    error.value = err instanceof Error ? err.message : 'Unexpected error';
   } finally {
     isLoading.value = false;
   }
@@ -365,9 +400,7 @@ const handleScroll = (): void => {
 const scrollToBottom = (): void => {
   autoScroll.value = true;
   nextTick(() => {
-    if (bottomMarker.value) {
-      bottomMarker.value.scrollIntoView({ behavior: 'smooth' });
-    }
+    scrollLogContainerToBottom('smooth');
   });
 };
 
@@ -380,17 +413,23 @@ onBeforeUnmount(() => closeStream());
 
 onUnmounted(async () => {
   closeStream();
+  if (scrollTimeout) {
+    clearTimeout(scrollTimeout);
+    scrollTimeout = null;
+  }
   await nextTick(() => enableOpacity());
 });
 
 const watchLog = (): void => {
-  if (!isTodayLog.value || true === stream.value) {
-    closeStream();
+  if (!isTodayLog.value || 'log' !== contentType.value || stream.value) {
     return;
   }
 
-  // fetchEventSource returns a Promise<void>, not EventSource
-  fetchEventSource(`/v1/api/log/${filename}?stream=1`, {
+  const controller = new AbortController();
+  streamController.value = controller;
+  stream.value = true;
+
+  void fetchEventSource(`/v1/api/log/${filename}?stream=1`, {
     onmessage: async (evt) => {
       if ('data' !== evt.event) {
         return;
@@ -398,55 +437,62 @@ const watchLog = (): void => {
 
       const lines = evt.data.split(/\n/g);
 
-      for (let x = 0; x < lines.length; x++) {
+      for (let index = 0; index < lines.length; index++) {
         try {
-          const line = String(lines[x]);
+          const line = String(lines[index]);
           if (!line.trim()) {
             continue;
           }
+
           data.value.push(JSON.parse(line) as LogEntry);
 
           await nextTick(() => {
-            if (autoScroll.value && bottomMarker.value) {
-              bottomMarker.value.scrollIntoView({ behavior: 'smooth' });
+            if (autoScroll.value) {
+              scrollLogContainerToBottom('smooth');
             }
           });
-        } catch (error) {
-          console.error(error);
+        } catch (streamError) {
+          console.error(streamError);
         }
       }
+    },
+    onclose: () => {
+      stream.value = false;
+      streamController.value = null;
     },
     headers: {
       Authorization: `Token ${token.value}`,
     },
-    signal: ctrl.signal,
-  });
+    signal: controller.signal,
+  }).catch((streamError) => {
+    if (controller.signal.aborted) {
+      return;
+    }
 
-  // Mark stream as active
-  stream.value = true;
+    console.error(streamError);
+    stream.value = false;
+    streamController.value = null;
+  });
 };
 
 const closeStream = (): void => {
-  if (stream.value) {
-    ctrl.abort();
-    stream.value = false;
-  }
+  streamController.value?.abort();
+  streamController.value = null;
+  stream.value = false;
 };
 
-const downloadFile = (): void => {
+const downloadFile = async (): Promise<void> => {
   isDownloading.value = true;
 
-  const response = request(`/log/${filename}?download=1`);
-  const pickerWindow = window as Window & {
-    showSaveFilePicker?: (options: FilePickerOptions) => Promise<FilePickerHandle>;
-  };
-  const showSaveFilePicker = pickerWindow.showSaveFilePicker;
+  try {
+    const response = await request(`/log/${filename}?download=1`);
+    const pickerWindow = window as Window & {
+      showSaveFilePicker?: (options: FilePickerOptions) => Promise<FilePickerHandle>;
+    };
+    const showSaveFilePicker = pickerWindow.showSaveFilePicker;
 
-  if (showSaveFilePicker) {
-    response.then(async (res) => {
-      isDownloading.value = false;
-
-      if (!res.body) {
+    if (showSaveFilePicker) {
+      if (!response.body) {
         notification('error', 'Error', 'No data returned from download request.');
         return;
       }
@@ -454,27 +500,30 @@ const downloadFile = (): void => {
       const handle = await showSaveFilePicker({
         suggestedName: `${filename}`,
       });
-      await res.body.pipeTo(await handle.createWritable());
-    });
-  } else {
-    response
-      .then((res) => res.blob())
-      .then((blob) => {
-        isDownloading.value = false;
-        const fileURL = URL.createObjectURL(blob);
-        const fileLink = document.createElement('a');
-        fileLink.href = fileURL;
-        fileLink.download = `${filename}`;
-        fileLink.click();
-      });
+      await response.body.pipeTo(await handle.createWritable());
+      return;
+    }
+
+    const blob = await response.blob();
+    const fileURL = URL.createObjectURL(blob);
+    const fileLink = document.createElement('a');
+    fileLink.href = fileURL;
+    fileLink.download = `${filename}`;
+    fileLink.click();
+    URL.revokeObjectURL(fileURL);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    notification('error', 'Error', `Failed to download the file. ${message}`);
+  } finally {
+    isDownloading.value = false;
   }
 };
 
 const deleteFile = async (): Promise<void> => {
-  const { status: confirmStatus } = await useDialog().confirmDialog({
+  const { status: confirmStatus } = await dialog.confirmDialog({
     message: `Are you sure you want to delete the log file '${filename}'? This action cannot be undone.`,
     confirmText: 'Delete',
-    confirmColor: 'is-danger',
+    confirmColor: 'error',
   });
 
   if (true !== confirmStatus) {
@@ -512,12 +561,14 @@ const deleteFile = async (): Promise<void> => {
 const formatDate = (dt: string): string => moment(dt).format('DD/MM HH:mm:ss');
 
 const renderJson = (lines: Array<LogEntry>): string =>
-  JSON.stringify(JSON.parse(lines.map((e) => e.text).join('')), null, 4);
-const copyData = () => {
+  JSON.stringify(JSON.parse(lines.map((entry) => entry.text).join('')), null, 4);
+
+const copyData = (): void => {
   if ('json' === contentType.value) {
     copyText(renderJson(data.value));
     return;
   }
-  copyText(filterItems.value.map((i) => i.text).join('\n'));
+
+  copyText(filterItems.value.map((item) => item.text).join('\n'));
 };
 </script>

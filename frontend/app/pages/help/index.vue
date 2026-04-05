@@ -1,56 +1,66 @@
 <template>
-  <div>
-    <div class="columns is-multiline">
-      <div class="column is-12 is-clearfix is-unselectable">
-        <span class="title is-4">
-          <span class="icon"><i class="fas fa-hands-helping" /></span>
-          {{ 'Getting started' }}
-        </span>
-        <div class="is-hidden-mobile">
-          <span class="subtitle">
-            This page contains guides to help you get started with WatchState. This is an early
-            version, we are still working on the guides.
-          </span>
-        </div>
+  <main class="w-full min-w-0 max-w-full space-y-4">
+    <div class="space-y-1">
+      <div
+        class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-toned"
+      >
+        <UIcon :name="pageShell.icon" class="size-4" />
+        <span>{{ pageShell.sectionLabel }}</span>
+        <span>/</span>
+        <span>{{ pageShell.pageLabel }}</span>
       </div>
     </div>
 
-    <div class="columns is-multiline">
-      <div v-for="choice in choices" :key="choice.url" class="column is-6-tablet is-12-mobile">
-        <div class="box content" style="height: 100%">
-          <h3 class="title is-5">
-            <NuxtLink
-              :to="`${choice.url}?title=${choice.title}`"
-              class="has-text-link"
-              v-if="choice.url"
-            >
-              {{ `${choice.number}. ${choice.title}` }}
-            </NuxtLink>
-            <span v-else>{{ `${choice.number}. ${choice.title}` }}</span>
-          </h3>
-          <hr />
-          <Message
-            message_class="has-background-warning-90 has-text-dark"
+    <div class="grid gap-4 xl:grid-cols-2">
+      <UCard
+        v-for="choice in choices"
+        :key="choice.number"
+        class="h-full border border-default/70 shadow-sm"
+        :ui="cardUi"
+      >
+        <template #header>
+          <div class="min-w-0 space-y-1">
+            <div class="inline-flex items-center gap-2 text-base font-semibold text-highlighted">
+              <UIcon name="i-lucide-book-open" class="size-4 shrink-0 text-toned" />
+              <NuxtLink
+                v-if="choice.url"
+                :to="`${choice.url}?title=${choice.title}`"
+                class="truncate hover:text-primary"
+              >
+                {{ `${choice.number}. ${choice.title}` }}
+              </NuxtLink>
+              <span v-else class="truncate">{{ `${choice.number}. ${choice.title}` }}</span>
+            </div>
+          </div>
+        </template>
+        <template #default>
+          {{ choice.text }}
+          <UAlert
             v-if="!choice.url"
-            class="p-1"
-          >
-            <p>
-              <span class="icon"><i class="fas fa-exclamation has-text-danger" /></span>
-              <span>This guide is not available yet.</span>
-            </p>
-          </Message>
-          <p>{{ choice.text }}</p>
-        </div>
-      </div>
+            color="warning"
+            variant="soft"
+            icon="i-lucide-triangle-alert"
+            title="Not available yet"
+            description="This guide is not available yet."
+          />
+        </template>
+      </UCard>
     </div>
-  </div>
+  </main>
 </template>
 
 <script setup lang="ts">
 import { useHead } from '#app';
-import Message from '~/components/Message.vue';
+import { requireTopLevelPageShell } from '~/utils/topLevelNavigation';
 
 useHead({ title: 'WatchState Guides' });
+
+const pageShell = requireTopLevelPageShell('help');
+
+const cardUi = {
+  header: 'p-4',
+  body: 'px-4 pb-4 pt-0',
+};
 
 const choices: Array<{ number: number; title: string; text: string; url: string }> = [
   {

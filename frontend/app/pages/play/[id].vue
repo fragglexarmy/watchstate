@@ -1,319 +1,273 @@
 <template>
-  <div>
-    <div class="columns is-multiline">
-      <div class="column is-12 is-clearfix is-unselectable">
-        <span class="title is-4">
-          <span class="icon"><i class="fas fa-play"></i></span>
-          Play :
-          {{ displayName }}
-        </span>
-        <div class="is-pulled-right">
-          <div class="field is-grouped" v-if="isPlaying">
-            <div class="control">
-              <button class="button is-warning" @click="closeStream" v-tooltip.bottom="'Go back.'">
-                <span class="icon"><i class="fas fa-backspace"></i></span>
-              </button>
-            </div>
-            <p class="control">
-              <button
-                class="button"
-                @click="toggleWatched"
-                :class="{ 'is-success': !item.watched, 'is-danger': item.watched }"
-                v-tooltip.bottom="'Toggle watch state'"
-              >
-                <span class="icon">
-                  <i
-                    class="fas"
-                    :class="{ 'fa-eye-slash': item.watched, 'fa-eye': !item.watched }"
-                  ></i>
-                </span>
-              </button>
-            </p>
-          </div>
+  <div class="space-y-6">
+    <div class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+      <div class="space-y-2">
+        <div
+          class="flex flex-wrap items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-toned"
+        >
+          <UIcon :name="pageShell.icon" class="size-4" />
+          <span>{{ pageShell.sectionLabel }}</span>
+          <span>/</span>
+          <NuxtLink to="/history" class="hover:text-primary">{{ pageShell.pageLabel }}</NuxtLink>
+          <span>/</span>
+          <span class="text-highlighted normal-case tracking-normal">Play</span>
         </div>
-        <div class="is-hidden-mobile">
-          <span class="subtitle" v-if="item?.content_title">
-            {{ item?.content_title }}
-          </span>
+
+        <div class="flex flex-wrap items-center gap-2 text-lg font-semibold text-highlighted">
+          <UIcon name="i-lucide-play" class="size-5 text-toned" />
+          <span class="wrap-break-word">{{ displayName }}</span>
         </div>
+
+        <p v-if="item?.content_title" class="text-sm text-toned">{{ item?.content_title }}</p>
       </div>
 
-      <div class="column is-12" v-if="!isPlaying">
-        <Message
-          v-if="isLoading"
-          message_class="is-background-info-90 has-text-dark"
-          icon="fas fa-spinner fa-spin"
-          title="Loading"
-          message="Loading data. Please wait..."
-        />
+      <div v-if="isPlaying" class="flex flex-wrap items-center justify-end gap-2">
+        <UTooltip text="Go back.">
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="sm"
+            icon="i-lucide-arrow-left"
+            @click="closeStream"
+          >
+            <span class="hidden sm:inline">Back</span>
+          </UButton>
+        </UTooltip>
 
-        <Message
-          v-if="!isLoading && (item?.files?.length ?? 0) < 1"
-          title="Warning"
-          message_class="is-background-warning-80 has-text-dark"
-          icon="fas fa-exclamation-triangle"
-        >
-          No video URLs were found.
-        </Message>
+        <UTooltip text="Toggle watch state">
+          <UButton
+            color="neutral"
+            :variant="item.watched ? 'soft' : 'outline'"
+            size="sm"
+            :icon="item.watched ? 'i-lucide-eye-off' : 'i-lucide-eye'"
+            @click="toggleWatched"
+          >
+            <span class="hidden sm:inline">{{ item.watched ? 'Unwatched' : 'Watched' }}</span>
+          </UButton>
+        </UTooltip>
       </div>
     </div>
 
-    <div class="columns is-multiline">
-      <div class="column is-12" v-if="isPlaying">
-        <Player :link="playUrl" />
-      </div>
+    <template v-if="!isPlaying">
+      <UAlert
+        v-if="isLoading"
+        color="info"
+        variant="soft"
+        icon="i-lucide-loader-circle"
+        title="Loading"
+        description="Loading data. Please wait..."
+        :ui="{ icon: 'animate-spin' }"
+      />
 
-      <div class="column is-12" v-if="!isPlaying">
-        <div class="card">
-          <div class="card-header">
-            <p class="card-header-title">Select settings.</p>
-            <p class="card-header-icon"></p>
-          </div>
+      <UAlert
+        v-else-if="(item?.files?.length ?? 0) < 1"
+        color="warning"
+        variant="soft"
+        icon="i-lucide-triangle-alert"
+        title="Warning"
+        description="No video URLs were found."
+      />
+    </template>
 
-          <div class="card-content">
-            <div class="field">
-              <label class="label">Select source file</label>
-              <div class="control has-icons-left">
-                <div class="select is-fullwidth">
-                  <select v-model="config.path" @change="(e) => changeStream(e)">
-                    <option value="">Select...</option>
-                    <template v-for="file in item?.files" :key="file.path">
-                      <optgroup :label="`In: ${file.source.join(', ')}`">
-                        <option :value="file.path" v-text="basename(file.path)" />
-                      </optgroup>
-                    </template>
-                  </select>
-                </div>
-                <div class="icon is-left">
-                  <i class="fas fa-file-video"></i>
-                </div>
-              </div>
-            </div>
+    <Player v-if="isPlaying" :link="playUrl" />
 
-            <div class="field" v-if="selectedItem?.ffprobe?.streams">
-              <label class="label">Select audio stream</label>
-              <div class="control has-icons-left">
-                <div class="select is-fullwidth">
-                  <select v-model="config.audio">
-                    <option value="">Select audio stream...</option>
-                    <template
-                      v-for="stream in filterStreams('audio')"
-                      :key="`audio-${stream.index}`"
-                    >
-                      <option :value="stream.index">
-                        {{ stream.index }} - {{ String(stream.codec_name).toUpperCase() }}
-                        <template v-if="stream.tags?.title">
-                          - {{ ucFirst(String(stream.tags.title)) }}
-                        </template>
-                        <template v-if="stream.tags?.language">
-                          - ({{ String(stream.tags.language).toUpperCase() }})
-                        </template>
-                      </option>
-                    </template>
-                  </select>
-                </div>
-                <div class="icon is-left">
-                  <i class="fas fa-file-audio"></i>
-                </div>
-              </div>
-            </div>
+    <template v-else>
+      <UCard :ui="cardUi">
+        <template #header>
+          <div class="text-base font-semibold text-highlighted">Select settings.</div>
+        </template>
 
-            <div
-              class="field"
-              v-if="filterStreams('subtitle').length > 0 || externalSubtitles.length > 0"
+        <div class="space-y-5">
+          <UFormField label="Select source file" name="config_path">
+            <USelect
+              v-model="config.path"
+              :items="fileItems"
+              value-key="value"
+              placeholder="Select..."
+              icon="i-lucide-file-video"
+              class="w-full"
+              @update:model-value="(value) => changeStream(null, String(value))"
+            />
+          </UFormField>
+
+          <UFormField
+            v-if="selectedItem?.ffprobe?.streams"
+            label="Select audio stream"
+            name="config_audio"
+          >
+            <USelect
+              v-model="config.audio"
+              :items="audioItems"
+              value-key="value"
+              placeholder="Select audio stream..."
+              icon="i-lucide-file-audio"
+              class="w-full"
+            />
+          </UFormField>
+
+          <UFormField
+            v-if="filterStreams('subtitle').length > 0 || externalSubtitles.length > 0"
+            label="Burn subtitles"
+            name="config_subtitle"
+            description="We recommend using the burn subtitle function only when you are using a picture based subtitles. Text based subtitles are able to be selected and converted on the fly using the player."
+          >
+            <USelect
+              v-model="config.subtitle"
+              :items="subtitleItems"
+              value-key="value"
+              placeholder="Select subtitle..."
+              icon="i-lucide-captions"
+              class="w-full"
+            />
+          </UFormField>
+
+          <template v-if="showAdvanced">
+            <UFormField
+              label="Video transcoding codec"
+              name="video_codec"
+              description="We don't do pre-checks on codecs, so some of those codecs may not work or you don't have the hardware for it."
             >
-              <label class="label">Burn subtitles</label>
-              <div class="control has-icons-left">
-                <div class="select is-fullwidth">
-                  <select v-model="config.subtitle">
-                    <option value="">Select subtitle...</option>
-                    <template v-if="filterStreams('subtitle').length > 0">
-                      <optgroup label="Internal Subtitles">
-                        <option
-                          v-for="stream in filterStreams('subtitle')"
-                          :key="`subtitle-${stream.index}`"
-                          :value="stream.index"
-                        >
-                          {{ stream.index }} - {{ String(stream.codec_name).toUpperCase() }}
-                          <template v-if="stream.tags?.title">
-                            - {{ ucFirst(String(stream.tags.title)) }}
-                          </template>
-                          <template v-if="stream.tags?.language">
-                            - ({{ String(stream.tags.language).toUpperCase() }})
-                          </template>
-                        </option>
-                      </optgroup>
-                    </template>
-                    <template v-if="externalSubtitles.length > 0">
-                      <optgroup label="External Subtitles">
-                        <option
-                          v-for="subtitle in externalSubtitles"
-                          :key="`subtitle-${subtitle}`"
-                          :value="subtitle"
-                        >
-                          {{ basename(subtitle) }}
-                        </option>
-                      </optgroup>
-                    </template>
-                  </select>
-                </div>
-                <div class="icon is-left">
-                  <i class="fas fa-closed-captioning"></i>
-                </div>
-              </div>
-              <p class="help">
-                <span class="icon"><i class="fas fa-info"></i></span>
-                We recommend using the burn subtitle function only when you are using a picture
-                based subtitles, Text based subtitles are able to be selected and converted on the
-                fly using the player. We plan to support direct play of compatible streams in the
-                future.
-              </p>
-            </div>
+              <USelect
+                v-model="video_codec"
+                :items="codecItems"
+                value-key="value"
+                placeholder="Select codec..."
+                icon="i-lucide-captions"
+                class="w-full"
+                @update:model-value="(value) => updateHwAccel(String(value))"
+              />
+            </UFormField>
 
-            <template v-if="showAdvanced">
-              <div class="field">
-                <label class="label">Video transcoding codec.</label>
-                <div class="control has-icons-left">
-                  <div class="select is-fullwidth">
-                    <select
-                      v-model="video_codec"
-                      @change="(e) => updateHwAccel((e.target as HTMLSelectElement)?.value)"
-                    >
-                      <option value="" disabled>Select codec...</option>
-                      <option
-                        v-for="codec in item.hardware?.codecs"
-                        :key="`codec-${codec.codec}`"
-                        :value="codec.codec"
-                        v-text="codec.name"
-                      />
-                    </select>
+            <UFormField
+              v-if="'h264_vaapi' === config.video_codec"
+              label="Select VAAPI rendering device"
+              name="vaapi_device"
+              description="The standard H264 (CPU) is the default and should work on most systems."
+            >
+              <USelect
+                v-model="vaapi_device"
+                :items="deviceItems"
+                value-key="value"
+                placeholder="Select device..."
+                icon="i-lucide-monitor-cog"
+                class="w-full"
+              />
+            </UFormField>
+
+            <div class="rounded-md border border-default bg-elevated/30 px-3 py-3">
+              <div class="flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="text-sm font-medium text-highlighted">
+                    Include debug information in response headers
                   </div>
-                  <div class="icon is-left">
-                    <i class="fas fa-closed-captioning"></i>
-                  </div>
+                  <p class="mt-1 text-sm text-toned">
+                    Useful to know what options and ffmpeg command being run.
+                  </p>
                 </div>
-                <p class="help">
-                  <span class="icon"><i class="fas fa-info"></i></span>
-                  We don't do pre-checks on codecs, so some of those codecs may not work or you
-                  don't have the hardware for it. the standard <code>H264 (CPU)</code> is the
-                  default and should work on most systems.
-                </p>
-              </div>
 
-              <div class="field" v-if="'h264_vaapi' === config.video_codec">
-                <label class="label">Select VAAPI rendering device</label>
-                <div class="control has-icons-left">
-                  <div class="select is-fullwidth">
-                    <select v-model="vaapi_device">
-                      <option value="" disabled>Select device...</option>
-                      <option
-                        v-for="device in item.hardware?.devices"
-                        :key="`codec-${device}`"
-                        :value="device"
-                        v-text="basename(device)"
-                      />
-                    </select>
-                  </div>
-                  <div class="icon is-left">
-                    <i class="fas fa-closed-captioning"></i>
-                  </div>
-                </div>
-                <p class="help">
-                  <span class="icon"><i class="fas fa-info"></i></span>
-                  We don't do pre-checks on codecs, so some of those codecs may not work or you
-                  don't have the hardware for it. the standard <code>H264 (CPU)</code> is the
-                  default and should work on most systems.
-                </p>
-              </div>
-
-              <div class="field">
-                <label class="label" for="debug"
-                  >Include debug information in response headers</label
-                >
-                <div class="control">
-                  <input
-                    id="debug"
-                    type="checkbox"
-                    class="switch is-success"
-                    v-model="session_debug"
-                  />
-                  <label for="debug">Enable</label>
-                </div>
-                <p class="help">
-                  <span class="icon"><i class="fas fa-info"></i></span>
-                  Useful to know what options and ffmpeg command being run.
-                </p>
-              </div>
-            </template>
-
-            <div class="is-justify-content-end field is-grouped" v-if="config?.path">
-              <div class="control">
-                <button class="button is-warning" @click="showAdvanced = !showAdvanced">
-                  <span class="icon"><i class="fas fa-cog"></i></span>
-                  <span>Advanced settings</span>
-                </button>
-              </div>
-
-              <div class="control">
-                <button
-                  class="button has-text-white has-background-danger-50"
-                  @click="generateToken"
-                  :disabled="isGenerating"
-                >
-                  <span class="icon"><i class="fas fa-play"></i></span>
-                  <span>Play</span>
-                </button>
+                <USwitch id="debug" v-model="session_debug" color="neutral" />
               </div>
             </div>
-          </div>
+          </template>
         </div>
-      </div>
 
-      <div class="column is-12" v-if="!isPlaying">
-        <Message
-          message_class="has-background-info-90 has-text-dark"
-          :toggle="show_page_tips"
-          @toggle="show_page_tips = !show_page_tips"
-          :use-toggle="true"
-          title="Tips"
-          icon="fas fa-info-circle"
-        >
-          <ul>
-            <li>
-              Selecting subtitle for burn in will force the video stream to be converted. We attempt
-              to direct play compatible streams when possible. Text based subtitles can be converted
-              on the fly in the player. and require no burn in.
-            </li>
-            <li>
-              Right now the transcoding is done via CPU and is not optimized for best performance.
-              We have plans to include GPU acceleration in the future.
-            </li>
-            <li>
-              If you select subtitle for burn in the player will no longer show text based subtitles
-              for selection.
-            </li>
-            <li>
-              Right now we are transcoding all streams to <code>H264</code> for video and
-              <code>AAC</code> for audio, regardless of the stream is compatible with the browser or
-              not, this will hopefully change in the feature to allow direct play of compatible
-              streams. we have the code in place to allow such thing, i just haven't be able to get
-              reliable results with it yet.
-            </li>
-          </ul>
-        </Message>
-      </div>
-    </div>
+        <template #footer>
+          <div v-if="config?.path" class="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <UButton
+              color="neutral"
+              :variant="showAdvanced ? 'soft' : 'outline'"
+              size="sm"
+              icon="i-lucide-settings"
+              @click="showAdvanced = !showAdvanced"
+            >
+              <span class="hidden sm:inline">Advanced settings</span>
+            </UButton>
+
+            <UButton
+              color="neutral"
+              variant="outline"
+              size="sm"
+              icon="i-lucide-play"
+              :loading="isGenerating"
+              :disabled="isGenerating"
+              @click="generateToken"
+            >
+              <span class="hidden sm:inline">Play</span>
+            </UButton>
+          </div>
+        </template>
+      </UCard>
+
+      <UCard class="border border-default/70 shadow-sm" :ui="tipsCardUi">
+        <template #header>
+          <button
+            type="button"
+            class="flex w-full items-center justify-between gap-3 text-left"
+            @click="show_page_tips = !show_page_tips"
+          >
+            <span class="inline-flex items-center gap-2 text-sm font-semibold text-highlighted">
+              <UIcon name="i-lucide-info" class="size-4 text-toned" />
+              <span>Tips</span>
+            </span>
+            <span class="inline-flex items-center gap-1 text-xs font-medium text-toned">
+              <UIcon
+                :name="show_page_tips ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+                class="size-4"
+              />
+              <span>{{ show_page_tips ? 'Hide' : 'Show' }}</span>
+            </span>
+          </button>
+        </template>
+
+        <ul v-if="show_page_tips" class="list-disc space-y-2 pl-5 text-sm leading-6 text-default">
+          <li>
+            Selecting subtitle for burn in will force the video stream to be converted. We attempt
+            to direct play compatible streams when possible. Text based subtitles can be converted
+            on the fly in the player. and require no burn in.
+          </li>
+          <li>
+            Right now the transcoding is done via CPU and is not optimized for best performance. We
+            have plans to include GPU acceleration in the future.
+          </li>
+          <li>
+            If you select subtitle for burn in the player will no longer show text based subtitles
+            for selection.
+          </li>
+          <li>
+            Right now we are transcoding all streams to <code>H264</code> for video and
+            <code>AAC</code> for audio, regardless of the stream is compatible with the browser or
+            not. this will hopefully change in the feature to allow direct play of compatible
+            streams.
+          </li>
+        </ul>
+      </UCard>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, navigateTo } from '#app';
 import { useStorage } from '@vueuse/core';
-import Message from '~/components/Message.vue';
 import Player from '~/components/Player.vue';
-import { request, basename, notification, ucFirst, parse_api_response } from '~/utils';
+import { requireTopLevelPageShell } from '~/utils/topLevelNavigation';
+import {
+  request,
+  basename,
+  disableOpacity,
+  enableOpacity,
+  notification,
+  ucFirst,
+  parse_api_response,
+} from '~/utils';
 import { useDialog } from '~/composables/useDialog';
+
+type SelectItem = {
+  label: string;
+  value?: string | number;
+  type?: 'label' | 'item';
+};
+
 type PlayStream = {
   index: number;
   codec_type: 'video' | 'audio' | 'subtitle';
@@ -330,6 +284,7 @@ type PlayStream = {
 const route = useRoute();
 
 const id = route.params.id as string;
+const pageShell = requireTopLevelPageShell('history');
 type PlayMediaFile = {
   path: string;
   source: Array<string>;
@@ -384,19 +339,12 @@ const vaapi_device = useStorage('play_vaapi_device', '');
 const session_debug = useStorage('play_debug', false);
 
 const config = ref<{
-  /** Selected file path */
   path: string;
-  /** Selected audio stream index */
   audio: string | number;
-  /** Selected subtitle stream index or external subtitle path */
   subtitle: string | number;
-  /** Video codec to use */
   video_codec: string;
-  /** VAAPI device path */
   vaapi_device: string;
-  /** Whether to use hardware acceleration */
   hwaccel: boolean;
-  /** Whether to include debug information */
   debug: boolean;
 }>({
   path: '',
@@ -410,6 +358,70 @@ const config = ref<{
 
 const selectedItem = ref<PlayMediaFile | null>(null);
 const externalSubtitles = computed((): Array<string> => selectedItem.value?.subtitles ?? []);
+
+const cardUi = {
+  header: 'p-4',
+  body: 'px-4 pb-4 pt-0',
+  footer: 'border-t border-default px-4 py-4',
+};
+
+const tipsCardUi = {
+  header: 'p-4',
+  body: 'px-4 pb-4 pt-0',
+};
+
+const fileItems = computed<Array<Array<SelectItem>>>(() =>
+  (item.value.files ?? []).map((file) => [
+    { label: `In: ${file.source.join(', ')}`, type: 'label' },
+    { label: basename(file.path), value: file.path, type: 'item' },
+  ]),
+);
+
+const audioItems = computed<Array<SelectItem>>(() =>
+  filterStreams('audio').map((stream) => ({
+    value: stream.index,
+    label: `${stream.index} - ${String(stream.codec_name).toUpperCase()}${stream.tags?.title ? ` - ${ucFirst(String(stream.tags.title))}` : ''}${stream.tags?.language ? ` - (${String(stream.tags.language).toUpperCase()})` : ''}`,
+  })),
+);
+
+const subtitleItems = computed<Array<Array<SelectItem>>>(() => {
+  const items: Array<Array<SelectItem>> = [];
+
+  if (filterStreams('subtitle').length > 0) {
+    items.push([
+      { label: 'Internal Subtitles', type: 'label' },
+      ...filterStreams('subtitle').map((stream) => ({
+        value: stream.index,
+        label: `${stream.index} - ${String(stream.codec_name).toUpperCase()}${stream.tags?.title ? ` - ${ucFirst(String(stream.tags.title))}` : ''}${stream.tags?.language ? ` - (${String(stream.tags.language).toUpperCase()})` : ''}`,
+        type: 'item' as const,
+      })),
+    ]);
+  }
+
+  if (externalSubtitles.value.length > 0) {
+    items.push([
+      { label: 'External Subtitles', type: 'label' },
+      ...externalSubtitles.value.map((subtitle) => ({
+        label: basename(subtitle),
+        value: subtitle,
+        type: 'item' as const,
+      })),
+    ]);
+  }
+
+  return items;
+});
+
+const codecItems = computed<Array<SelectItem>>(() =>
+  (item.value.hardware?.codecs ?? []).map((codec) => ({ label: codec.name, value: codec.codec })),
+);
+
+const deviceItems = computed<Array<SelectItem>>(() =>
+  (item.value.hardware?.devices ?? []).map((device) => ({
+    label: basename(device),
+    value: device,
+  })),
+);
 
 const formatPlayName = (value: PlayNameInfo): string => {
   const title = value.title || '??';
@@ -451,7 +463,7 @@ const loadContent = async (): Promise<void> => {
       season: json.season,
       episode: json.episode,
     };
-  } catch (error) {
+  } catch (error: unknown) {
     console.error(error);
     notification('error', 'Error', 'Failed to load item.');
   } finally {
@@ -497,7 +509,6 @@ const generateToken = async (): Promise<void> => {
     }
 
     if (config.value.subtitle) {
-      // -- check if the value is number it's internal subtitle
       if (String(config.value.subtitle).match(/^\d+$/)) {
         userConfig.config.subtitle = config.value.subtitle;
       } else {
@@ -524,7 +535,7 @@ const generateToken = async (): Promise<void> => {
       path: `/play/${id}`,
       query: { token: json.token },
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error(error);
     notification('error', 'Error', 'Failed to generate token.');
   } finally {
@@ -609,7 +620,7 @@ const toggleWatched = async (): Promise<void> => {
       '',
       `Marked '${displayName.value}' as ${item.value.watched ? 'played' : 'unplayed'}`,
     );
-  } catch (e) {
+  } catch (e: unknown) {
     notification('error', 'Error', `Request error. ${e}`);
   }
 };
@@ -631,7 +642,29 @@ const updateHwAccel = (codec: string): void => {
     return;
   }
   config.value.hwaccel = Boolean(codecInfo[0]?.hwaccel);
+  config.value.video_codec = codec;
 };
+
+watch(video_codec, (value) => {
+  config.value.video_codec = value;
+});
+
+watch(vaapi_device, (value) => {
+  config.value.vaapi_device = value;
+});
+
+watch(session_debug, (value) => {
+  config.value.debug = value;
+});
+
+watch(isPlaying, (value: boolean) => {
+  if (true === value) {
+    disableOpacity();
+    return;
+  }
+
+  enableOpacity();
+});
 
 onMounted(async () => {
   window.addEventListener('popstate', onPopState);
@@ -643,5 +676,8 @@ onMounted(async () => {
   updateHwAccel(video_codec.value);
 });
 
-onUnmounted(() => window.removeEventListener('popstate', onPopState));
+onUnmounted(() => {
+  window.removeEventListener('popstate', onPopState);
+  enableOpacity();
+});
 </script>

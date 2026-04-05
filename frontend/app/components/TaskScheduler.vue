@@ -1,49 +1,55 @@
 <template>
-  <div class="columns is-multiline" v-show="!status.status || forceShow">
-    <div class="column is-12">
-      <Message
-        class="is-2 is-position-relative"
-        :message_class="`has-text-dark ${status.status ? 'has-background-success-90' : 'has-background-danger-90'}`"
-        :title="`Task scheduler is ${status.status ? 'running' : 'not running'}.`"
-        :icon="`fas fa-${status.status ? 'check' : 'exclamation-circle'}`"
-      >
-        {{ status.message }}
+  <UAlert
+    v-if="!status.status || forceShow"
+    :color="status.status ? 'success' : 'error'"
+    variant="soft"
+    :icon="status.status ? 'i-lucide-circle-check' : 'i-lucide-triangle-alert'"
+    :title="`Task scheduler is ${status.status ? 'running' : 'not running'}.`"
+    orientation="horizontal"
+  >
+    <template #description>
+      <span>{{ status.message }}</span>
+    </template>
 
-        <div class="m-2 mr-3 is-position-absolute" style="top: 0; right: 0">
-          <div class="field is-grouped is-unselectable">
-            <div class="control">
-              <NuxtLink @click="loadContent" class="is-small">
-                <span class="icon"
-                  ><i class="fas fa-sync" :class="{ 'fa-spin': isLoading }"></i
-                ></span>
-                Refresh
-              </NuxtLink>
-            </div>
-            <div class="control">
-              <NuxtLink @click="restart" class="is-small" v-if="status.restartable">
-                <span class="icon"
-                  ><i class="fas fa-power-off" :class="{ 'fa-spin': isRestarting }"></i
-                ></span>
-                Restart
-              </NuxtLink>
-            </div>
-          </div>
-        </div>
-      </Message>
-    </div>
-  </div>
+    <template #actions>
+      <div class="flex flex-wrap items-center gap-2">
+        <UButton
+          color="neutral"
+          variant="ghost"
+          size="sm"
+          icon="i-lucide-refresh-cw"
+          :loading="isLoading"
+          @click="loadContent"
+        >
+          Refresh
+        </UButton>
+
+        <UButton
+          v-if="status.restartable"
+          color="warning"
+          variant="soft"
+          size="sm"
+          icon="i-lucide-power"
+          :loading="isRestarting"
+          @click="restart"
+        >
+          Restart
+        </UButton>
+      </div>
+    </template>
+  </UAlert>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue';
-import Message from '~/components/Message.vue';
-import { request, notification } from '~/utils';
+import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { useDialog } from '~/composables/useDialog';
+import { notification, request } from '~/utils';
 
 const emit = defineEmits<{
   (e: 'update', status: { status: boolean; message: string; restartable: boolean }): void;
 }>();
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     /** Force show the scheduler status */
     forceShow?: boolean;
@@ -66,11 +72,13 @@ const loadContent = async (): Promise<void> => {
   if (isLoading.value) {
     return;
   }
+
   try {
     if (timer) {
       clearTimeout(timer);
       timer = null;
     }
+
     isLoading.value = true;
     const response = await request('/system/scheduler');
     const json = await response.json();
@@ -92,7 +100,7 @@ const restart = async (): Promise<void> => {
   const { status: confirmStatus } = await useDialog().confirmDialog({
     message: 'Restart the task scheduler?',
     confirmText: 'Restart',
-    confirmColor: 'is-warning',
+    confirmColor: 'warning',
   });
 
   if (true !== confirmStatus) {
@@ -103,14 +111,17 @@ const restart = async (): Promise<void> => {
     isRestarting.value = true;
     const response = await request('/system/scheduler/restart', { method: 'POST' });
     const json = await response.json();
+
     notification(
       200 === response.status ? 'success' : 'error',
       '',
       json.message ?? json.error?.message ?? '??',
     );
+
     if (200 !== response.status) {
       return;
     }
+
     status.value = json;
     emit('update', json);
   } catch (e) {
@@ -120,7 +131,7 @@ const restart = async (): Promise<void> => {
   }
 };
 
-onMounted(() => loadContent());
+onMounted(() => void loadContent());
 
 onBeforeUnmount(() => {
   if (timer) {
@@ -128,4 +139,6 @@ onBeforeUnmount(() => {
     timer = null;
   }
 });
+
+const { forceShow } = props;
 </script>

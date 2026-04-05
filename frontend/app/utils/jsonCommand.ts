@@ -60,26 +60,54 @@ const splitPathSegments = (pathText: string): Array<string> => {
   return segments.map((seg) => seg.replace(/\\\\/g, '\\').replace(/\\\./g, '.'));
 };
 
+const findUnescapedSlash = (text: string, start: number = 0): number => {
+  let escaping = false;
+
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+
+    if (escaping) {
+      escaping = false;
+      continue;
+    }
+
+    if ('\\' === ch) {
+      escaping = true;
+      continue;
+    }
+
+    if ('/' === ch) {
+      return i;
+    }
+  }
+
+  return -1;
+};
+
+const unescapeCommandValue = (value: string): string => value.replace(/\\\//g, '/');
+
 const parseCommand = (input: string): ParseCommandResult => {
-  if (!input || 0 === input.trim().length) {
+  const commandText = input.trim();
+
+  if (!commandText || 0 === commandText.length) {
     return { ok: false, error: 'Empty command' };
   }
 
-  const firstSlash = input.indexOf('/');
+  const firstSlash = commandText.indexOf('/');
   if (-1 === firstSlash) {
     return { ok: false, error: 'Invalid command format: missing "/" separators' };
   }
 
-  const opChar = input.slice(0, firstSlash).trim();
-  const rest = input.slice(firstSlash + 1);
+  const opChar = commandText.slice(0, firstSlash).trim();
+  const rest = commandText.slice(firstSlash + 1);
+  const secondSlash = findUnescapedSlash(rest);
 
-  const secondSlash = rest.indexOf('/');
   if (-1 === secondSlash) {
     return { ok: false, error: 'Invalid command format: missing second "/" separator' };
   }
 
   const pathText = rest.slice(0, secondSlash).trim();
-  const valueText = rest.slice(secondSlash + 1);
+  const remainder = rest.slice(secondSlash + 1);
 
   if (!pathText || 0 === pathText.length) {
     return { ok: false, error: 'Path cannot be empty' };
@@ -103,6 +131,23 @@ const parseCommand = (input: string): ParseCommandResult => {
   const command: JsonCommand = { op, path };
 
   if ('set' === op) {
+    const closingSlash = findUnescapedSlash(remainder);
+
+    if (-1 === closingSlash) {
+      command.rawValue = remainder;
+      return { ok: true, command };
+    }
+
+    const valueText = remainder.slice(0, closingSlash);
+    const trailing = remainder.slice(closingSlash + 1).trim();
+
+    if (0 !== trailing.length) {
+      return {
+        ok: false,
+        error: 'Unexpected content after closing "/". Escape literal "/" in values as "\\/".',
+      };
+    }
+
     command.rawValue = valueText;
   }
 
@@ -123,7 +168,7 @@ const parseValue = (raw: string | undefined): JsonValue => {
   try {
     return JSON.parse(trimmed) as JsonValue;
   } catch {
-    return raw;
+    return unescapeCommandValue(raw);
   }
 };
 

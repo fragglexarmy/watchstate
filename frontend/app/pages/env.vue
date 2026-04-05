@@ -1,399 +1,443 @@
 <template>
-  <div>
-    <div class="columns is-multiline">
-      <div class="column is-12 is-clearfix is-unselectable">
-        <span id="env_page_title" class="title is-4">
-          <span class="icon"><i class="fas fa-cogs"></i></span>
-          Environment variables
-        </span>
-        <div class="is-pulled-right">
-          <div class="field is-grouped">
-            <div class="control has-icons-left" v-if="toggleFilter || query">
-              <input
-                type="search"
-                v-model.lazy="query"
-                class="input"
-                id="filter"
-                placeholder="Filter displayed content"
-              />
-              <span class="icon is-left"><i class="fas fa-filter" /></span>
-            </div>
+  <main class="w-full min-w-0 max-w-full space-y-4">
+    <section class="space-y-4">
+      <div class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+        <div class="space-y-1">
+          <div
+            id="env_page_title"
+            class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-toned"
+          >
+            <UIcon :name="pageShell.icon" class="size-4" />
+            <span>{{ pageShell.sectionLabel }}</span>
+            <span>/</span>
+            <span>{{ pageShell.pageLabel }}</span>
+          </div>
 
-            <div class="control">
-              <button class="button is-danger is-light" @click="toggleFilter = !toggleFilter">
-                <span class="icon"><i class="fas fa-filter" /></span>
-              </button>
-            </div>
+          <p class="text-sm text-toned">
+            This page lets you edit the environment variables used to configure the application.
+          </p>
+        </div>
 
-            <p class="control">
-              <button
-                class="button is-primary"
-                v-tooltip.bottom="'Add new variable'"
-                @click="toggleForm = !toggleForm"
-                :disabled="isLoading"
-              >
-                <span class="icon">
-                  <i class="fas fa-add"></i>
-                </span>
-              </button>
+        <div class="flex flex-wrap items-center justify-end gap-2">
+          <UInput
+            v-if="toggleFilter || query"
+            id="filter"
+            v-model="query"
+            type="search"
+            placeholder="Filter displayed content"
+            icon="i-lucide-filter"
+            size="sm"
+            class="w-full sm:w-72"
+          />
+
+          <UButton
+            color="neutral"
+            :variant="toggleFilter ? 'soft' : 'outline'"
+            size="sm"
+            icon="i-lucide-filter"
+            @click="toggleFilter = !toggleFilter"
+          >
+            <span class="hidden sm:inline">Filter</span>
+          </UButton>
+
+          <UTooltip text="Add new variable">
+            <UButton
+              color="neutral"
+              variant="outline"
+              size="sm"
+              icon="i-lucide-plus"
+              :disabled="isLoading"
+              @click="openAddForm"
+            >
+              <span class="hidden sm:inline">Add</span>
+            </UButton>
+          </UTooltip>
+
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="sm"
+            icon="i-lucide-refresh-cw"
+            :loading="isLoading"
+            :disabled="isLoading || toggleForm"
+            @click="loadContent"
+          >
+            <span class="hidden sm:inline">Reload</span>
+          </UButton>
+        </div>
+      </div>
+
+      <UAlert
+        v-if="filteredRows.length < 1 && isLoading"
+        color="info"
+        variant="soft"
+        icon="i-lucide-loader-circle"
+        title="Loading"
+        description="Loading data. Please wait..."
+        :ui="{ icon: 'animate-spin' }"
+      />
+
+      <UAlert
+        v-else-if="filteredRows.length < 1"
+        :color="query ? 'warning' : 'info'"
+        variant="soft"
+        icon="i-lucide-info"
+        :title="query ? 'No results' : 'Information'"
+      >
+        <template #description>
+          <div class="space-y-2 text-sm text-default">
+            <p v-if="query">
+              No environment variables found matching <strong>{{ query }}</strong
+              >. Please try a different filter.
             </p>
-            <p class="control">
-              <button
-                class="button is-info"
-                @click="loadContent"
-                :disabled="isLoading || toggleForm"
-                :class="{ 'is-loading': isLoading }"
+
+            <p v-else class="flex flex-wrap items-center gap-2">
+              <span>No environment variables configured yet.</span>
+              <UButton
+                color="neutral"
+                variant="link"
+                size="sm"
+                icon="i-lucide-plus"
+                class="px-0"
+                @click="openAddForm"
               >
-                <span class="icon"><i class="fas fa-sync"></i></span>
-              </button>
+                Add a new variable
+              </UButton>
             </p>
           </div>
-        </div>
-        <div class="is-hidden-mobile">
-          <span class="subtitle">
-            This page allow you alter the environment variables that are used to configure the
-            application.
-          </span>
-        </div>
-      </div>
+        </template>
+      </UAlert>
 
-      <div class="column is-12" v-if="!toggleForm && filteredRows.length < 1">
-        <Message
-          v-if="isLoading"
-          message_class="has-background-info-90 has-text-dark"
-          title="Loading"
-          icon="fas fa-spinner fa-spin"
-          message="Loading data. Please wait..."
-        />
-        <Message
-          v-else
-          message_class="has-background-warning-90 has-text-dark"
-          :title="query ? 'No results' : 'Information'"
-          icon="fas fa-info-circle"
+      <div class="grid gap-4 xl:grid-cols-3">
+        <UCard
+          v-for="item in filteredRows"
+          :key="item.key"
+          class="h-full border bg-default/90 shadow-sm"
+          :class="item?.danger ? 'border-error/70' : 'border-default/70'"
+          :ui="itemCardUi"
         >
-          <p v-if="query">
-            No environment variables found matching <strong>{{ query }}</strong
-            >. Please try a different filter.
-          </p>
-          <p v-else>
-            No environment variables configured yet. Click on the
-            <i @click="toggleForm = true" class="is-clickable fa fa-add"></i> button to add a new
-            variable.
-          </p>
-        </Message>
-      </div>
-
-      <div class="column is-12" v-if="toggleForm">
-        <form id="env_add_form" @submit.prevent="addVariable">
-          <div class="card">
-            <header class="card-header">
-              <p class="card-header-title is-unselectable is-justify-center">
-                Manage Environment Variable
-              </p>
-            </header>
-            <div class="card-content">
-              <div class="field">
-                <label class="label is-unselectable" for="form_key">Environment key</label>
-                <div class="control has-icons-left">
-                  <div class="select is-fullwidth">
-                    <select v-model="form_key" id="form_key" @change="keyChanged">
-                      <option value="" disabled>Select Key</option>
-                      <option v-for="item in items" :key="`opt-${item.key}`" :value="item.key">
-                        {{ item.key }}
-                      </option>
-                    </select>
-                  </div>
-                  <div class="icon is-left">
-                    <i class="fas fa-key"></i>
-                  </div>
+          <template #header>
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0 flex-1">
+                <div class="break-all text-base font-semibold text-highlighted">
+                  <span>
+                    {{ item.key }}
+                  </span>
                 </div>
+
+                <p class="mt-1 text-sm text-toned">
+                  {{ item.description }}
+                </p>
               </div>
 
-              <div class="field" v-if="form_config && !value_set(form_key)">
-                <Message :newStyle="true" message_class="is-info is-size-7">
-                  <p class="is-size-7 has-text-grey-dark">
-                    <span class="icon-text">
-                      <span class="icon"><i class="fas fa-info-circle"></i></span>
-                      <span>This environment variable overrides the shown configuration key.</span>
-                    </span>
-                  </p>
-                  <code>{{ form_config }}</code> :
-                  <strong v-if="!form_mask">{{ form_config_value }}</strong>
-                  <strong v-else>
-                    <span :title="form_config_value" class="is-masked is-unselectable">{{
-                      form_config_value
-                    }}</span>
-                  </strong>
-                </Message>
+              <UTooltip
+                v-if="item.danger"
+                text="Some variables usually have an impact on the security of the application."
+              >
+                <UBadge color="error" variant="soft" class="inline-flex items-center gap-1">
+                  <UIcon name="i-lucide-triangle-alert" class="size-3.5" />
+                  <span>Important</span>
+                </UBadge>
+              </UTooltip>
+            </div>
+          </template>
+
+          <template #default>
+            <div class="space-y-4 select-none">
+              <div
+                v-if="'bool' === item.type"
+                class="rounded-md border border-default bg-elevated/40 px-3 py-2.5 text-sm text-default"
+              >
+                <span
+                  class="inline-flex items-center gap-2"
+                  :class="fixBool(item.value) ? 'text-success' : 'text-toned'"
+                >
+                  <UIcon
+                    :name="fixBool(item.value) ? 'i-lucide-toggle-right' : 'i-lucide-toggle-left'"
+                    class="size-5"
+                  />
+                  <span>{{ fixBool(item.value) ? 'On (True)' : 'Off (False)' }}</span>
+                </span>
               </div>
 
-              <div class="field">
-                <label class="label is-unselectable" for="form_value">
-                  Environment value
-                  <span class="tag is-info" v-if="!value_set(form_key)"> not set </span>
-                </label>
-                <div class="field-body" v-if="form_mask && 'string' === form_type">
-                  <div class="field">
-                    <div class="field has-addons">
-                      <div class="control is-expanded">
-                        <input
-                          class="input"
-                          id="form_value"
-                          v-model="form_value"
-                          required
-                          placeholder="Masked value"
-                          :type="false === form_expose ? 'password' : 'text'"
-                        />
-                      </div>
-                      <div class="control">
-                        <button
-                          type="button"
-                          class="button is-primary"
-                          @click="form_expose = !form_expose"
-                        >
-                          <span class="icon" v-if="!form_expose"><i class="fas fa-eye" /></span>
-                          <span class="icon" v-else><i class="fas fa-eye-slash" /></span>
-                        </button>
-                      </div>
-                    </div>
-                    <div>
-                      <p class="help title is-6" v-html="getHelp(form_key)" />
-                    </div>
-                  </div>
-                </div>
-                <div v-else class="control has-icons-left">
-                  <template v-if="form_choice && form_choice.length > 0">
-                    <div class="select is-fullwidth">
-                      <select v-model="form_value" class="is-capitalized">
-                        <option value="" disabled>Select Value</option>
-                        <option
-                          v-for="choice in form_choice"
-                          :key="`opt-${choice}`"
-                          :value="choice"
-                        >
-                          {{ ucFirst(String(choice).toLowerCase()) }}
-                        </option>
-                      </select>
-                    </div>
-                    <span class="icon is-left"><i class="fas fa-list" /></span>
-                  </template>
-                  <template v-else-if="'bool' === form_type">
-                    <input
-                      id="form_value"
-                      type="checkbox"
-                      class="switch is-success"
-                      :checked="fixBool(form_value)"
-                      @change="form_value = !fixBool(form_value)"
-                    />
-                    <label for="form_value">
-                      <template v-if="fixBool(form_value)">On (True)</template>
-                      <template v-else>Off (False)</template>
-                    </label>
-                  </template>
-                  <template v-else-if="'int' === form_type">
-                    <input
-                      class="input"
-                      id="form_value"
-                      type="number"
-                      placeholder="Value"
-                      v-model="form_value"
-                      pattern="[0-9]*"
-                      inputmode="numeric"
-                    />
-                    <div class="icon is-small is-left">
-                      <i class="fas fa-font"></i>
-                    </div>
-                  </template>
-                  <template v-else>
-                    <input
-                      class="input"
-                      id="form_value"
-                      type="text"
-                      placeholder="Value"
-                      v-model="form_value"
-                    />
-                    <div class="icon is-small is-left"><i class="fas fa-font"></i></div>
-                  </template>
-                  <div>
-                    <p class="help title is-6" v-html="getHelp(form_key)"></p>
-                  </div>
-                </div>
+              <div
+                v-else
+                class="cursor-pointer rounded-md border border-default bg-elevated/40 px-3 py-2.5 text-sm text-default"
+              >
+                <p
+                  class="break-all overflow-hidden text-ellipsis whitespace-nowrap"
+                  :class="item.displayMasked ? 'text-toned italic' : ''"
+                  @click="(event) => !item.displayMasked && toggleValueOverflow(event)"
+                >
+                  <UIcon v-if="item.displayMasked" name="i-lucide-lock" class="size-4 text-toned" />
+                  {{ item.displayMasked ? 'Hidden' : item.value }}
+                </p>
               </div>
             </div>
-            <div class="card-footer">
-              <div class="card-footer-item">
-                <button
-                  class="button is-fullwidth is-primary"
-                  type="submit"
-                  :disabled="!form_key || '' === form_value"
+          </template>
+
+          <template #footer>
+            <div class="flex flex-wrap items-center justify-end gap-2">
+              <UButton
+                v-if="item.canMask"
+                color="neutral"
+                variant="outline"
+                size="sm"
+                :icon="item.displayMasked ? 'i-lucide-lock-open' : 'i-lucide-lock'"
+                @click="item.displayMasked = !item.displayMasked"
+              >
+                {{ item.displayMasked ? 'Show' : 'Hide' }}
+              </UButton>
+
+              <UButton
+                color="neutral"
+                variant="outline"
+                size="sm"
+                icon="i-lucide-copy"
+                @click="copyText(item.value as string)"
+              >
+                Copy
+              </UButton>
+
+              <UButton
+                color="neutral"
+                variant="outline"
+                size="sm"
+                icon="i-lucide-pencil"
+                @click="editEnv(item)"
+              >
+                Edit
+              </UButton>
+
+              <UButton
+                color="neutral"
+                variant="outline"
+                size="sm"
+                icon="i-lucide-trash-2"
+                @click="deleteEnv(item)"
+              >
+                Delete
+              </UButton>
+            </div>
+          </template>
+        </UCard>
+      </div>
+    </section>
+
+    <UModal
+      :open="toggleForm"
+      :title="formModalTitle"
+      :ui="formModalUi"
+      @update:open="handleFormOpenChange"
+    >
+      <template #body>
+        <form id="env_add_form" class="space-y-5" @submit.prevent="addVariable">
+          <UFormField label="Environment key" name="form_key">
+            <USelect
+              id="form_key"
+              v-model="form_key"
+              :items="formKeyItems"
+              value-key="value"
+              placeholder="Select Key"
+              icon="i-lucide-key-round"
+              class="w-full"
+              @update:model-value="keyChanged"
+            />
+          </UFormField>
+
+          <UAlert
+            v-if="form_config && !value_set(form_key)"
+            color="info"
+            variant="soft"
+            icon="i-lucide-info"
+            title="Configuration override"
+          >
+            <template #description>
+              <div class="space-y-2 text-sm text-default">
+                <p>This environment variable overrides the shown configuration key.</p>
+                <p>
+                  <code>{{ form_config }}</code>
+                  <span>:</span>
+                  <strong v-if="!form_mask">{{ form_config_value }}</strong>
+                  <strong v-else class="text-toned italic">Hidden</strong>
+                </p>
+              </div>
+            </template>
+          </UAlert>
+
+          <div class="space-y-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <label for="form_value" class="text-sm font-medium text-highlighted"
+                >Environment value</label
+              >
+              <UBadge v-if="!value_set(form_key)" color="neutral" variant="soft">not set</UBadge>
+            </div>
+
+            <div v-if="form_mask && 'string' === form_type" class="space-y-3">
+              <div class="flex flex-col gap-2 sm:flex-row">
+                <UInput
+                  id="form_value"
+                  v-model="formStringValue"
+                  required
+                  :type="false === form_expose ? 'password' : 'text'"
+                  placeholder="Masked value"
+                  class="flex-1"
+                />
+
+                <UButton
+                  type="button"
+                  color="neutral"
+                  variant="outline"
+                  :icon="!form_expose ? 'i-lucide-eye' : 'i-lucide-eye-off'"
+                  :aria-label="!form_expose ? 'Show value' : 'Hide value'"
+                  class="whitespace-nowrap"
+                  @click="form_expose = !form_expose"
                 >
-                  <span class="icon-text">
-                    <span class="icon"><i class="fas fa-save"></i></span>
-                    <span>Save</span>
-                  </span>
-                </button>
+                  {{ form_expose ? 'Hide' : 'Show' }}
+                </UButton>
               </div>
-              <div class="card-footer-item">
-                <button class="button is-fullwidth is-danger" type="button" @click="cancelForm">
-                  <span class="icon-text">
-                    <span class="icon"><i class="fas fa-cancel"></i></span>
-                    <span>Cancel</span>
-                  </span>
-                </button>
+
+              <div
+                v-if="form_key"
+                class="text-sm leading-6 text-toned"
+                v-html="getHelp(form_key)"
+              />
+            </div>
+
+            <div v-else class="space-y-3">
+              <USelect
+                v-if="form_choice && form_choice.length > 0"
+                id="form_value"
+                v-model="formSelectValue"
+                :items="formChoiceItems"
+                value-key="value"
+                placeholder="Select Value"
+                icon="i-lucide-list"
+                class="w-full"
+              />
+
+              <div
+                v-else-if="'bool' === form_type"
+                class="rounded-md border border-default bg-elevated/30 px-3 py-3"
+              >
+                <USwitch
+                  :model-value="fixBool(form_value)"
+                  :color="fixBool(form_value) ? 'success' : 'neutral'"
+                  :label="fixBool(form_value) ? 'On (True)' : 'Off (False)'"
+                  @update:model-value="updateBoolValue"
+                />
               </div>
+
+              <UInput
+                v-else-if="'int' === form_type"
+                id="form_value"
+                v-model="formNumberValue"
+                type="number"
+                placeholder="Value"
+                icon="i-lucide-type"
+                pattern="[0-9]*"
+                inputmode="numeric"
+                class="w-full"
+              />
+
+              <UInput
+                v-else
+                id="form_value"
+                v-model="formStringValue"
+                type="text"
+                placeholder="Value"
+                icon="i-lucide-type"
+                class="w-full"
+              />
+
+              <div
+                v-if="form_key"
+                class="text-sm leading-6 text-toned"
+                v-html="getHelp(form_key)"
+              />
             </div>
           </div>
         </form>
-      </div>
+      </template>
 
-      <div v-else-if="filteredRows" class="column is-12">
-        <div class="columns is-multiline">
-          <div
-            class="column"
-            v-for="item in filteredRows"
-            :key="item.key"
-            :class="{ 'is-4': !item?.danger, 'is-12': item.danger }"
+      <template #footer>
+        <div class="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="sm"
+            icon="i-lucide-x"
+            class="justify-center"
+            type="button"
+            @click="cancelForm"
           >
-            <div
-              class="card is-flex is-full-height is-flex-direction-column"
-              :class="{ 'is-danger': item?.danger }"
-            >
-              <header class="card-header">
-                <p class="card-header-title is-unselectable">
-                  <template v-if="item?.danger">
-                    <span class="title is-5">
-                      <span class="icon" v-tooltip="'This option is considered dangerous.'">
-                        <i class="has-text-danger fas fa-exclamation-triangle"></i>&nbsp;
-                      </span>
-                      {{ item.key }}
-                    </span>
-                  </template>
-                  <template v-else>
-                    <span class="has-tooltip is-clickable" v-tooltip="item.description">
-                      {{ item.key }}
-                    </span>
-                  </template>
-                </p>
-                <span
-                  class="card-header-icon"
-                  v-if="item.mask"
-                  @click="item.mask = false"
-                  v-tooltip="'Unmask the value'"
-                >
-                  <span class="icon"><i class="fas fa-unlock"></i></span>
-                </span>
-              </header>
-              <div class="card-content is-flex-grow-1">
-                <div class="content">
-                  <p v-if="'bool' === item.type">
-                    <span class="icon-text">
-                      <span class="icon">
-                        <i class="fas fa-toggle-on has-text-primary" v-if="fixBool(item.value)"></i>
-                        <i class="fas fa-toggle-off" v-else></i>
-                      </span>
-                      <span>{{ fixBool(item.value) ? 'On (True)' : 'Off (False)' }}</span>
-                    </span>
-                  </p>
-                  <p
-                    v-else
-                    class="is-text-overflow is-clickable is-unselectable"
-                    :class="{ 'is-masked': item.mask, 'is-unselectable': item.mask }"
-                    @click="
-                      (e: MouseEvent) =>
-                        (e.target as HTMLElement)?.classList.toggle('is-text-overflow')
-                    "
-                  >
-                    {{ item.value }}
-                  </p>
+            Cancel
+          </UButton>
 
-                  <p v-if="item?.danger" class="title is-5 has-text-danger">
-                    {{ item.description }}
-                  </p>
-                </div>
-              </div>
-              <footer class="card-footer">
-                <div class="card-footer-item">
-                  <button class="button is-primary is-fullwidth" @click="editEnv(item)">
-                    <span class="icon-text">
-                      <span class="icon"><i class="fas fa-edit"></i></span>
-                      <span>Edit</span>
-                    </span>
-                  </button>
-                </div>
-                <div class="card-footer-item">
-                  <button
-                    class="button is-fullwidth is-warning"
-                    @click="copyText(item.value as string)"
-                  >
-                    <span class="icon-text">
-                      <span class="icon"><i class="fas fa-copy"></i></span>
-                      <span>Copy</span>
-                    </span>
-                  </button>
-                </div>
-                <div class="card-footer-item">
-                  <button class="button is-fullwidth is-danger" @click="deleteEnv(item)">
-                    <span class="icon-text">
-                      <span class="icon"><i class="fas fa-trash"></i></span>
-                      <span>Delete</span>
-                    </span>
-                  </button>
-                </div>
-              </footer>
-            </div>
-          </div>
+          <UButton
+            color="primary"
+            variant="solid"
+            size="sm"
+            icon="i-lucide-save"
+            class="justify-center"
+            type="submit"
+            form="env_add_form"
+            :disabled="!form_key || '' === form_value"
+          >
+            Save
+          </UButton>
         </div>
-      </div>
+      </template>
+    </UModal>
 
-      <div class="column is-12">
-        <Message
-          message_class="has-background-info-90 has-text-dark"
-          :toggle="show_page_tips"
-          @toggle="show_page_tips = !show_page_tips"
-          :use-toggle="true"
-          title="Tips"
-          icon="fas fa-info-circle"
+    <UCard class="border border-default/70 bg-default/90 shadow-sm" :ui="tipsCardUi">
+      <template #header>
+        <button
+          type="button"
+          class="flex w-full items-center justify-between gap-3 text-left"
+          @click="show_page_tips = !show_page_tips"
         >
-          <ul>
-            <li>
-              Some variables values are masked, to unmask them click on icon
-              <i class="fa fa-unlock"></i>.
-            </li>
-            <li>
-              Some values are too large to fit into the view, clicking on the value will show the
-              full value.
-            </li>
-            <li>
-              These values are loaded from the <code>{{ file }}</code> file.
-            </li>
-            <li>To add a new variable click on the <i class="fa fa-add"></i> button.</li>
-            <li>
-              Environment variables with <span class="has-text-danger">red borders</span> and
-              <i class="fas fa-exclamation-triangle"></i> icon are considered dangerous. Please be
-              careful when editing them.
-            </li>
-          </ul>
-        </Message>
-      </div>
-    </div>
-  </div>
+          <span class="inline-flex items-center gap-2 text-sm font-semibold text-highlighted">
+            <UIcon name="i-lucide-info" class="size-4 text-toned" />
+            <span>Tips</span>
+          </span>
+
+          <span class="inline-flex items-center gap-1 text-xs font-medium text-toned">
+            <UIcon
+              :name="show_page_tips ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+              class="size-4"
+            />
+            <span>{{ show_page_tips ? 'Hide' : 'Show' }}</span>
+          </span>
+        </button>
+      </template>
+
+      <ul v-if="show_page_tips" class="list-disc space-y-2 pl-5 text-sm leading-6 text-default">
+        <li>
+          Some variable values are hidden. Use the <strong>Show</strong> or <strong>Hide</strong>
+          button on the card to toggle their visibility.
+        </li>
+        <li>
+          Some values are too large to fit into the view, clicking on the value will show the full
+          value.
+        </li>
+        <li>
+          These values are loaded from the <code>{{ file }}</code> file.
+        </li>
+      </ul>
+    </UCard>
+  </main>
 </template>
 
 <script setup lang="ts">
-import '~/assets/css/bulma-switch.css';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { navigateTo, useHead, useRoute, useRouter } from '#app';
+import { useDirtyCloseGuard } from '~/composables/useDirtyCloseGuard';
+import { useDirtyState } from '~/composables/useDirtyState';
 import { useDialog } from '~/composables/useDialog';
 import { useStorage } from '@vueuse/core';
-import Message from '~/components/Message.vue';
-import {
-  awaitElement,
-  copyText,
-  notification,
-  parse_api_response,
-  request,
-  ucFirst,
-} from '~/utils';
+import { requireTopLevelPageShell } from '~/utils/topLevelNavigation';
+import { copyText, notification, parse_api_response, request, ucFirst } from '~/utils';
 import type { EnvConfigValue, EnvVar, GenericResponse } from '~/types';
 
 const route = useRoute();
@@ -401,7 +445,25 @@ const router = useRouter();
 
 useHead({ title: 'Environment Variables' });
 
-const items = ref<Array<EnvVar>>([]);
+const pageShell = requireTopLevelPageShell('env');
+
+type SelectItem = {
+  label: string;
+  value: string | number | boolean;
+};
+
+type EnvCardItem = EnvVar & {
+  canMask: boolean;
+  displayMasked: boolean;
+};
+
+const makeCardItem = (item: EnvVar): EnvCardItem => ({
+  ...item,
+  canMask: item.mask,
+  displayMasked: item.mask,
+});
+
+const items = ref<Array<EnvCardItem>>([]);
 const toggleForm = ref<boolean>(false);
 const form_key = ref<string>('');
 const form_value = ref<string | number | boolean | null>(null);
@@ -418,11 +480,138 @@ const file = ref<string>('.env');
 const query = ref<string>((route.query.filter as string) ?? '');
 const toggleFilter = ref<boolean>(false);
 
+const formModalUi = {
+  content: 'max-w-3xl',
+  body: 'space-y-5 p-5',
+  footer: 'border-t border-default p-5',
+};
+
+const itemCardUi = {
+  header: 'p-5',
+  body: 'p-5',
+  footer: 'p-5 border-t border-default',
+};
+
+const tipsCardUi = {
+  header: 'p-4',
+  body: 'p-5 pt-0',
+};
+
+const dirtySource = computed(() => ({
+  key: form_key.value,
+  value: form_value.value,
+  type: form_type.value,
+  mask: form_mask.value,
+  choice: form_choice.value,
+  config: form_config.value,
+  config_value: form_config_value.value,
+}));
+const { isDirty: isFormDirty, markClean: markFormClean } = useDirtyState(dirtySource);
+
+const formKeyItems = computed<Array<SelectItem>>(() =>
+  items.value.map((item) => ({
+    label: item.key,
+    value: item.key,
+  })),
+);
+
+const formChoiceItems = computed<Array<SelectItem>>(() =>
+  form_choice.value.map((choice) => ({
+    label: ucFirst(String(choice).toLowerCase()),
+    value: choice,
+  })),
+);
+
+const formStringValue = computed<string>({
+  get: () => String(form_value.value ?? ''),
+  set: (value) => {
+    form_value.value = value;
+  },
+});
+
+const formNumberValue = computed<string>({
+  get: () => String(form_value.value ?? ''),
+  set: (value) => {
+    form_value.value = value;
+  },
+});
+
+const formSelectValue = computed<string | number | boolean | undefined>({
+  get: () => form_value.value ?? undefined,
+  set: (value) => {
+    form_value.value = value ?? null;
+  },
+});
+
+const formModalTitle = computed(() =>
+  form_key.value ? `Edit ${form_key.value}` : 'Manage Environment Variable',
+);
+
+const resetFormData = (): void => {
+  form_key.value = '';
+  form_value.value = null;
+  form_type.value = null;
+  form_mask.value = false;
+  form_expose.value = false;
+  form_choice.value = [];
+  form_config.value = undefined;
+  form_config_value.value = '';
+  markFormClean();
+};
+
+const closeFormRouteState = async (): Promise<void> => {
+  const currentRoute = useRoute();
+
+  if (currentRoute.query?.callback) {
+    await navigateTo({ path: currentRoute.query.callback as string });
+    return;
+  }
+
+  if (currentRoute.query?.edit || currentRoute.query?.value) {
+    await router.push({ path: '/env' });
+  }
+};
+
+const { requestClose: requestCloseForm } = useDirtyCloseGuard(toggleForm, {
+  dirty: isFormDirty,
+  onDiscard: async () => {
+    resetFormData();
+  },
+});
+
+const requestCloseEnvForm = async (): Promise<boolean> => {
+  const didClose = await requestCloseForm();
+
+  if (true === didClose) {
+    await closeFormRouteState();
+  }
+
+  return didClose;
+};
+
+const handleFormOpenChange = async (value: boolean): Promise<void> => {
+  if (true === value) {
+    toggleForm.value = true;
+    return;
+  }
+
+  await requestCloseEnvForm();
+};
+
+const openAddForm = (): void => {
+  resetFormData();
+  toggleForm.value = true;
+};
+
 watch(toggleFilter, () => {
   if (!toggleFilter.value) {
     query.value = '';
   }
 });
+
+const updateBoolValue = (value: boolean | 'indeterminate'): void => {
+  form_value.value = true === value;
+};
 
 const loadContent = async (): Promise<void> => {
   const currentRoute = useRoute();
@@ -437,7 +626,7 @@ const loadContent = async (): Promise<void> => {
       return;
     }
 
-    items.value = json.data;
+    items.value = json.data.map((item) => makeCardItem(item));
 
     if (json.file) {
       file.value = json.file;
@@ -445,13 +634,17 @@ const loadContent = async (): Promise<void> => {
 
     if (currentRoute.query.edit) {
       const envItems = items.value as Array<{ key: string; value?: string }>;
-      const item = envItems.find((i) => i.key === currentRoute.query.edit) as EnvVar | undefined;
+      const item = envItems.find((i) => i.key === currentRoute.query.edit) as
+        | EnvCardItem
+        | undefined;
       if (item && currentRoute.query?.value && !item?.value) {
         item.value = currentRoute.query.value as string;
       }
       if (!item) {
         notification('error', 'Error', `Invalid key '${currentRoute.query.edit}'.`, 2000);
-        await cancelForm();
+        resetFormData();
+        toggleForm.value = false;
+        await closeFormRouteState();
       } else {
         editEnv(item);
       }
@@ -468,7 +661,7 @@ const deleteEnv = async (env: EnvVar): Promise<void> => {
   const { status } = await useDialog().confirmDialog({
     title: 'Delete environment variable',
     message: `Delete '${env.key}'?`,
-    confirmColor: 'is-danger',
+    confirmColor: 'error',
   });
 
   if (true !== status) {
@@ -492,7 +685,7 @@ const deleteEnv = async (env: EnvVar): Promise<void> => {
         delete i.value;
       }
       return true;
-    }) as Array<EnvVar>;
+    }) as Array<EnvCardItem>;
 
     notification(
       'success',
@@ -527,7 +720,9 @@ const addVariable = async (): Promise<void> => {
     });
 
     if (304 === response.status) {
-      await cancelForm();
+      resetFormData();
+      toggleForm.value = false;
+      await closeFormRouteState();
       return;
     }
 
@@ -545,11 +740,13 @@ const addVariable = async (): Promise<void> => {
     const envItems = items.value as Array<{ key: string }>;
     const index = envItems.findIndex((i) => i.key === key);
     if (-1 !== index) {
-      items.value[index] = json;
+      items.value[index] = makeCardItem(json);
     }
 
     notification('success', 'Success', `Environment variable '${key}' successfully updated.`, 5000);
-    await cancelForm();
+    resetFormData();
+    toggleForm.value = false;
+    await closeFormRouteState();
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     notification('error', 'Error', `Request error. ${message}`, 5000);
@@ -570,50 +767,25 @@ const editEnv = (env: EnvVar): void => {
   form_config.value = env.config;
   form_config_value.value =
     env.config_value === undefined ? '' : JSON.stringify(env.config_value as EnvConfigValue);
+  form_expose.value = false;
 
   toggleForm.value = true;
+  markFormClean();
   if (!useRoute().query.edit) {
     router.push({ path: '/env', query: { edit: env.key } });
   }
 };
 
 const cancelForm = async (): Promise<void> => {
-  const currentRoute = useRoute();
-  form_key.value = '';
-  form_value.value = null;
-  form_type.value = null;
-  form_mask.value = false;
-  form_choice.value = [];
-  form_config.value = undefined;
-  form_config_value.value = '';
-  toggleForm.value = false;
-
-  if (currentRoute.query?.callback) {
-    await navigateTo({ path: currentRoute.query.callback as string });
-    return;
-  }
-
-  if (currentRoute.query?.edit || currentRoute.query?.value) {
-    await router.push({ path: '/env' });
-  }
+  await requestCloseEnvForm();
 };
-
-watch(toggleForm, async (value: boolean) => {
-  if (!value) {
-    await cancelForm();
-  } else {
-    awaitElement('#env_page_title', (_: string, el: Element) =>
-      el.scrollIntoView({ behavior: 'smooth' }),
-    );
-  }
-});
 
 const keyChanged = (): void => {
   if (!form_key.value) {
     return;
   }
 
-  const data = items.value.find((i) => i.key === form_key.value) as EnvVar;
+  const data = items.value.find((i) => i.key === form_key.value) as EnvCardItem | undefined;
   if (!data) {
     return;
   }
@@ -625,11 +797,14 @@ const keyChanged = (): void => {
   form_config.value = data.config;
   form_config_value.value =
     data.config_value === undefined ? '' : JSON.stringify(data.config_value as EnvConfigValue);
+  form_expose.value = false;
 
   nextTick(() => {
     if ('undefined' === typeof form_value.value && 'bool' === form_type.value) {
       form_value.value = false;
     }
+
+    markFormClean();
   });
 
   router.push({ path: '/env', query: { edit: form_key.value } });
@@ -647,17 +822,21 @@ const getHelp = (key: string): string => {
 
   let text = `${data.description}`;
 
-  if (data.danger) {
-    text = `<span class="has-text-danger title is-5"> <i class="has-text-warning fas fa-exclamation-triangle fa-bounce"></i> ${text}</span>`;
-  }
-
   if (data?.type) {
     text += ` Expects: <code>${data.type}</code>`;
   }
 
   return data?.deprecated
-    ? `<strong><code class="is-strike-through"">Deprecated</code></strong> - ${text}`
+    ? `<strong><code class="line-through">Deprecated</code></strong> - ${text}`
     : text;
+};
+
+const toggleValueOverflow = (event: MouseEvent): void => {
+  const target = event.target as HTMLElement | null;
+
+  target?.classList.toggle('overflow-hidden');
+  target?.classList.toggle('text-ellipsis');
+  target?.classList.toggle('whitespace-nowrap');
 };
 
 const fixBool = (value: string | number | boolean | null | undefined): boolean => {
@@ -669,15 +848,15 @@ const fixBool = (value: string | number | boolean | null | undefined): boolean =
   return ['true', '1'].includes(normalized);
 };
 
-const filteredRows = computed(() => {
+const filteredRows = computed<Array<EnvCardItem>>(() => {
   const rows = items.value as Array<{ key: string; value?: unknown }>;
   if (!query.value) {
-    return rows.filter((i) => 'undefined' !== typeof i.value) as Array<EnvVar>;
+    return rows.filter((i) => 'undefined' !== typeof i.value) as Array<EnvCardItem>;
   }
 
   return rows
     .filter((i) => i.key.toLowerCase().includes(query.value.toLowerCase()))
-    .filter((i) => 'undefined' !== typeof i.value) as Array<EnvVar>;
+    .filter((i) => 'undefined' !== typeof i.value) as Array<EnvCardItem>;
 });
 
 const stateCallBack = async (e: PopStateEvent): Promise<void> => {
@@ -688,7 +867,8 @@ const stateCallBack = async (e: PopStateEvent): Promise<void> => {
 
   const currentRoute = useRoute();
   if (!currentRoute.query?.edit) {
-    await cancelForm();
+    resetFormData();
+    toggleForm.value = false;
     return;
   }
 
@@ -709,6 +889,12 @@ onMounted(async () => {
 
 onUnmounted(() => window.removeEventListener('popstate', stateCallBack));
 
+watch(toggleForm, (value: boolean) => {
+  if (!value) {
+    resetFormData();
+  }
+});
+
 const value_set = (key: string): boolean => {
   const item = items.value.find((i) => i.key === key);
   if (!item) {
@@ -716,4 +902,6 @@ const value_set = (key: string): boolean => {
   }
   return 'undefined' !== typeof item.value;
 };
+
+markFormClean();
 </script>

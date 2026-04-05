@@ -2,6 +2,24 @@ import { reactive, readonly } from 'vue';
 
 export type DialogResult<T = string | null> = { status: boolean; value: T };
 
+export type DialogConfirmColor =
+  | 'primary'
+  | 'secondary'
+  | 'success'
+  | 'info'
+  | 'warning'
+  | 'error'
+  | 'neutral'
+  | 'is-danger'
+  | 'is-primary'
+  | 'is-link'
+  | 'is-info'
+  | 'is-success'
+  | 'is-warning'
+  | 'is-light'
+  | 'is-dark'
+  | 'is-white';
+
 type BaseOptions = {
   /**
    * Title of the dialog
@@ -18,20 +36,7 @@ type BaseOptions = {
   /**
    * Color class for the confirm button (e.g., 'is-primary', 'is-danger')
    */
-  confirmColor?:
-    | 'is-danger'
-    | 'is-primary'
-    | 'is-link'
-    | 'is-info'
-    | 'is-success'
-    | 'is-warning'
-    | 'is-light'
-    | 'is-dark'
-    | 'is-white';
-  /**
-   * No opacity control.
-   */
-  opacityControl?: boolean;
+  confirmColor?: DialogConfirmColor;
 };
 
 export type PromptOptions = BaseOptions & {
