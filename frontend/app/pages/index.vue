@@ -415,7 +415,7 @@ const loadContent = async (): Promise<void> => {
   const loadToken = ++historyLoadToken;
 
   try {
-    const response = await request('/history?perpage=10');
+    const response = await request('/history?perpage=4');
     if (!response.ok) {
       return;
     }
