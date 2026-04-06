@@ -135,7 +135,7 @@
         </template>
 
         <div class="space-y-4">
-          <div class="flex flex-col gap-2 sm:flex-row">
+          <div class="flex gap-2 flex-row">
             <USelect
               v-model="item.selected"
               :items="restoreTargetItems"
@@ -160,9 +160,9 @@
         </div>
 
         <template #footer>
-          <div class="grid gap-2.5 sm:grid-cols-3">
+          <div class="grid grid-cols-2 gap-2.5 xl:grid-cols-3">
             <div
-              class="flex items-center justify-center gap-2 rounded-md border border-default bg-elevated/40 px-3 py-2 text-center text-sm font-medium text-default"
+              class="col-span-2 flex items-center justify-center gap-2 rounded-md border border-default bg-elevated/40 px-3 py-2 text-center text-sm font-medium text-default xl:col-span-1"
             >
               <UIcon name="i-lucide-calendar" class="size-4 shrink-0 text-toned" />
               <UTooltip :text="`Last Update: ${moment(item.date).format(TOOLTIP_DATE_FORMAT)}`">

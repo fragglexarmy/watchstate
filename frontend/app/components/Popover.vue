@@ -10,7 +10,7 @@
     :open-delay="showDelay"
     :close-delay="hideDelay"
     :arrow="showArrow"
-    :dismissible="trigger !== 'hover'"
+    :dismissible="activeTrigger !== 'hover'"
     :content="popoverContent"
     :ui="popoverUi"
   >
@@ -28,6 +28,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import { useBreakpoints } from '@vueuse/core';
 
 export interface PopoverProps {
   /** Placement of the popover relative to trigger */
@@ -76,8 +77,17 @@ const props = withDefaults(defineProps<PopoverProps>(), {
 const emit = defineEmits<{ (e: 'show' | 'hide'): void }>();
 
 const isOpen = ref(false);
+const breakpoints = useBreakpoints({ mobile: 0, desktop: 640 });
 
-const popoverMode = computed(() => ('hover' === props.trigger ? 'hover' : 'click'));
+const resolvedTrigger = computed<'click' | 'hover' | 'manual'>(() => {
+  if ('hover' !== props.trigger) {
+    return props.trigger;
+  }
+
+  return 'mobile' === breakpoints.active().value ? 'click' : 'hover';
+});
+
+const popoverMode = computed(() => ('hover' === resolvedTrigger.value ? 'hover' : 'click'));
 
 const placementInfo = computed(() => {
   const [side, align] = props.placement.split('-') as [
@@ -126,5 +136,6 @@ const toggle = () => {
 
 watch(isOpen, (value) => emit(value ? 'show' : 'hide'));
 
-const { trigger, showDelay, hideDelay, showArrow, disabled } = props;
+const activeTrigger = resolvedTrigger;
+const { showDelay, hideDelay, showArrow, disabled } = props;
 </script>

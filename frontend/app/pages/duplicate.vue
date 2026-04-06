@@ -37,9 +37,8 @@
           size="sm"
           icon="i-lucide-filter"
           @click="toggleFilter"
-        >
-          <span v-if="!isMobile">Filter</span>
-        </UButton>
+          label="Filter"
+        />
 
         <UButton
           color="neutral"
@@ -47,9 +46,8 @@
           size="sm"
           icon="i-lucide-trash-2"
           @click="deleteRecords"
-        >
-          <span v-if="!isMobile">Delete</span>
-        </UButton>
+          label="Delete"
+        />
 
         <UButton
           color="neutral"
@@ -59,9 +57,8 @@
           :loading="isLoading"
           :disabled="isLoading"
           @click.prevent="loadContent(page, true, true)"
-        >
-          <span v-if="!isMobile">Reload</span>
-        </UButton>
+          label="Reload"
+        />
       </div>
     </div>
 
@@ -133,28 +130,36 @@
                       :image="`/history/${item.id}/images/poster`"
                       v-if="poster_enable"
                     >
+                      <UTooltip
+                        :text="String(item?.full_title || makeName(item as unknown as JsonObject))"
+                      >
+                        <NuxtLink
+                          :to="'/history/' + item.id"
+                          class="block truncate text-highlighted hover:text-primary"
+                        >
+                          {{ item?.full_title || makeName(item as unknown as JsonObject) }}
+                        </NuxtLink>
+                      </UTooltip>
+                    </FloatingImage>
+
+                    <UTooltip
+                      v-else
+                      :text="String(item?.full_title || makeName(item as unknown as JsonObject))"
+                    >
                       <NuxtLink
                         :to="'/history/' + item.id"
-                        class="text-highlighted hover:text-primary"
+                        class="block truncate text-highlighted hover:text-primary"
                       >
                         {{ item?.full_title || makeName(item as unknown as JsonObject) }}
                       </NuxtLink>
-                    </FloatingImage>
-
-                    <NuxtLink
-                      v-else
-                      :to="'/history/' + item.id"
-                      class="text-highlighted hover:text-primary"
-                    >
-                      {{ item?.full_title || makeName(item as unknown as JsonObject) }}
-                    </NuxtLink>
+                    </UTooltip>
                   </div>
 
                   <div class="flex shrink-0 items-center gap-2">
                     <Popover
                       v-if="(item?.duplicate_reference_ids?.length || 0) > 0"
                       placement="top"
-                      trigger="hover"
+                      :trigger="duplicatePopoverTrigger"
                       :show-delay="200"
                       :hide-delay="200"
                       :offset="8"
@@ -229,7 +234,7 @@
                 <Popover
                   v-if="item?.content_path && hasFileDifferences(item)"
                   placement="bottom-start"
-                  trigger="hover"
+                  :trigger="duplicatePopoverTrigger"
                   :show-delay="200"
                   :hide-delay="200"
                   :offset="8"
@@ -312,7 +317,7 @@
           </div>
 
           <template #footer>
-            <div class="grid gap-2 sm:grid-cols-2">
+            <div class="grid grid-cols-2 gap-2">
               <div
                 class="flex items-center justify-center gap-2 rounded-md border border-default bg-elevated/40 px-3 py-2 text-sm text-default"
               >
@@ -387,7 +392,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useHead, useRoute, useRouter } from '#app';
-import { useMediaQuery, useStorage } from '@vueuse/core';
+import { useBreakpoints, useStorage } from '@vueuse/core';
 import moment from 'moment';
 import Lazy from '~/components/Lazy.vue';
 import FloatingImage from '~/components/FloatingImage.vue';
@@ -430,7 +435,7 @@ useHead({ title: 'DFR' });
 
 const show_page_tips = useStorage('show_page_tips', true);
 const poster_enable = useStorage('poster_enable', true);
-const isMobile = useMediaQuery('(max-width: 1024px)');
+const breakpoints = useBreakpoints({ mobile: 0, desktop: 640 });
 
 const items = ref<Array<DuplicateItemWithUI>>([]);
 const page = ref<number>(Number(route.query.page) || 1);
@@ -619,6 +624,10 @@ const filteredRows = (items: Array<DuplicateItemWithUI>): Array<DuplicateItemWit
 };
 
 const filteredItems = computed(() => filteredRows(items.value as Array<DuplicateItemWithUI>));
+
+const duplicatePopoverTrigger = computed<'click' | 'hover'>(() =>
+  'mobile' === breakpoints.active().value ? 'click' : 'hover',
+);
 
 const stringifyItem = (item: DuplicateItemWithUI): string => {
   return JSON.stringify(item).toLowerCase();

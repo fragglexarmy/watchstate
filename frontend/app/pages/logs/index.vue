@@ -90,12 +90,14 @@
         <template #header>
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0 flex-1">
-              <NuxtLink
-                :to="`/logs/${item.filename}`"
-                class="block truncate text-base font-semibold text-highlighted hover:text-primary"
-              >
-                {{ item.filename ?? item.date }}
-              </NuxtLink>
+              <UTooltip :text="String(item.filename ?? item.date)">
+                <NuxtLink
+                  :to="`/logs/${item.filename}`"
+                  class="block truncate text-base font-semibold text-highlighted hover:text-primary"
+                >
+                  {{ item.filename ?? item.date }}
+                </NuxtLink>
+              </UTooltip>
             </div>
 
             <UBadge color="neutral" variant="soft">
@@ -108,7 +110,7 @@
         </template>
 
         <template #footer>
-          <div class="grid gap-2.5 sm:grid-cols-2">
+          <div class="grid grid-cols-2 gap-2.5">
             <div
               class="flex items-center justify-center gap-2 rounded-md border border-default bg-elevated/40 px-3 py-2 text-center text-sm font-medium text-default"
             >

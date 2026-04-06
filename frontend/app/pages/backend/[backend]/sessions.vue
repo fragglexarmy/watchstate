@@ -21,10 +21,11 @@
           </div>
         </div>
 
-        <UTooltip text="Reload sessions">
+        <div class="flex flex-wrap items-center justify-end gap-2">
           <UButton
             color="neutral"
             variant="outline"
+            size="sm"
             icon="i-lucide-refresh-cw"
             :loading="isLoading"
             :disabled="isLoading"
@@ -33,7 +34,7 @@
           >
             <span class="hidden sm:inline">Reload</span>
           </UButton>
-        </UTooltip>
+        </div>
       </div>
 
       <UAlert
@@ -55,39 +56,116 @@
         description="There are no active play sessions currently running."
       />
 
-      <UCard v-else class="border border-default/70 shadow-sm" :ui="cardUi">
-        <template #header>
-          <div class="flex items-center gap-2">
-            <UIcon name="i-lucide-play-circle" class="size-5 text-toned" />
-            <span class="font-semibold text-highlighted">Active Sessions</span>
+      <div v-else class="space-y-4">
+        <div class="space-y-1">
+          <div
+            class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-toned"
+          >
+            <UIcon name="i-lucide-play-circle" class="size-4" />
+            <span>Active Sessions</span>
           </div>
-        </template>
-
-        <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-default text-sm text-default">
-            <thead>
-              <tr class="text-left text-xs font-semibold uppercase tracking-[0.16em] text-toned">
-                <th class="px-4 py-3">User</th>
-                <th class="px-4 py-3">Title</th>
-                <th class="px-4 py-3">State</th>
-                <th class="px-4 py-3">Progress at</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-default">
-              <tr v-for="item in items" :key="item.id" class="bg-default/60">
-                <td class="px-4 py-3">{{ item.user_name }}</td>
-                <td class="px-4 py-3">
-                  <NuxtLink :to="makeItemLink(item)" class="text-primary hover:underline">
-                    {{ item.item_title }}
-                  </NuxtLink>
-                </td>
-                <td class="px-4 py-3">{{ item.session_state }}</td>
-                <td class="px-4 py-3">{{ formatDuration(item.item_offset_at) }}</td>
-              </tr>
-            </tbody>
-          </table>
         </div>
-      </UCard>
+
+        <div class="grid gap-4 xl:grid-cols-2">
+          <UCard
+            v-for="item in items"
+            :key="item.id"
+            class="h-full border border-default/70 shadow-sm"
+            :ui="cardUi"
+          >
+            <template #header>
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0 flex-1">
+                  <UTooltip :text="String(item.item_title)">
+                    <NuxtLink
+                      :to="makeItemLink(item)"
+                      class="block truncate text-base font-semibold text-highlighted hover:text-primary"
+                    >
+                      {{ item.item_title }}
+                    </NuxtLink>
+                  </UTooltip>
+                </div>
+
+                <UBadge :color="sessionStateColor(item.session_state)" variant="soft">
+                  <span class="inline-flex items-center gap-1">
+                    <UIcon :name="sessionStateIcon(item.session_state)" class="size-3.5" />
+                    <span>{{ sessionStateLabel(item.session_state) }}</span>
+                  </span>
+                </UBadge>
+              </div>
+            </template>
+
+            <div
+              :class="[
+                'grid gap-3 sm:grid-cols-2',
+                item.updated_at ? 'xl:grid-cols-3' : 'xl:grid-cols-2',
+              ]"
+            >
+              <div
+                class="rounded-md border border-default bg-elevated/40 px-3 py-2.5 text-sm text-default"
+              >
+                <div
+                  class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
+                >
+                  <div
+                    class="inline-flex min-w-0 items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
+                  >
+                    <UIcon name="i-lucide-user" class="size-3.5 shrink-0" />
+                    <span>User</span>
+                  </div>
+
+                  <div class="min-w-0 font-medium text-highlighted sm:ml-auto sm:text-right">
+                    {{ item.user_name }}
+                  </div>
+                </div>
+              </div>
+
+              <div
+                class="rounded-md border border-default bg-elevated/40 px-3 py-2.5 text-sm text-default"
+              >
+                <div
+                  class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
+                >
+                  <div
+                    class="inline-flex min-w-0 items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
+                  >
+                    <UIcon name="i-lucide-gauge" class="size-3.5 shrink-0" />
+                    <span>Progress At</span>
+                  </div>
+
+                  <div class="min-w-0 font-medium text-highlighted sm:ml-auto sm:text-right">
+                    {{ formatDuration(item.item_offset_at) }}
+                  </div>
+                </div>
+              </div>
+
+              <div
+                v-if="item.updated_at"
+                class="rounded-md border border-default bg-elevated/40 px-3 py-2.5 text-sm text-default sm:col-span-2 xl:col-span-1"
+              >
+                <div
+                  class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
+                >
+                  <div
+                    class="inline-flex min-w-0 items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
+                  >
+                    <UIcon name="i-lucide-calendar" class="size-3.5 shrink-0" />
+                    <span>Updated</span>
+                  </div>
+
+                  <div class="min-w-0 sm:ml-auto sm:text-right">
+                    <UTooltip :text="item.updated_at">
+                      <span class="cursor-help font-medium text-highlighted">{{
+                        item.updated_at
+                      }}</span>
+                    </UTooltip>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </UCard>
+        </div>
+      </div>
     </section>
   </div>
 </template>
@@ -105,8 +183,58 @@ const items = ref<Array<SessionItem>>([]);
 const isLoading = ref<boolean>(false);
 
 const cardUi = {
-  header: 'p-5',
-  body: 'p-0',
+  header: 'p-4 sm:p-5',
+  body: 'px-4 pb-4 pt-0 sm:px-5 sm:pb-5',
+};
+
+const sessionStateLabel = (state: string): string => {
+  const normalizedState = state.toLowerCase();
+
+  if ('playing' === normalizedState) {
+    return 'Playing';
+  }
+
+  if ('paused' === normalizedState) {
+    return 'Paused';
+  }
+
+  if ('buffering' === normalizedState) {
+    return 'Buffering';
+  }
+
+  return state;
+};
+
+const sessionStateColor = (state: string): 'neutral' | 'success' | 'warning' => {
+  const normalizedState = state.toLowerCase();
+
+  if ('playing' === normalizedState) {
+    return 'success';
+  }
+
+  if ('paused' === normalizedState || 'buffering' === normalizedState) {
+    return 'warning';
+  }
+
+  return 'neutral';
+};
+
+const sessionStateIcon = (state: string): string => {
+  const normalizedState = state.toLowerCase();
+
+  if ('playing' === normalizedState) {
+    return 'i-lucide-play';
+  }
+
+  if ('paused' === normalizedState) {
+    return 'i-lucide-pause';
+  }
+
+  if ('buffering' === normalizedState) {
+    return 'i-lucide-loader-circle';
+  }
+
+  return 'i-lucide-play-circle';
 };
 
 const loadContent = async (): Promise<void> => {

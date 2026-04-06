@@ -19,31 +19,25 @@
       </div>
 
       <div class="flex flex-wrap items-center justify-end gap-2">
-        <UTooltip text="Add new rule">
-          <UButton
-            color="neutral"
-            variant="outline"
-            size="sm"
-            icon="i-lucide-plus"
-            @click="toggleForm = true"
-          >
-            <span class="hidden sm:inline">Add</span>
-          </UButton>
-        </UTooltip>
+        <UButton
+          color="neutral"
+          variant="outline"
+          size="sm"
+          icon="i-lucide-plus"
+          @click="toggleForm = true"
+          label="Add"
+        />
 
-        <UTooltip text="Reload rules">
-          <UButton
-            color="neutral"
-            variant="outline"
-            size="sm"
-            icon="i-lucide-refresh-cw"
-            :loading="isLoading"
-            :disabled="isLoading"
-            @click="loadContent"
-          >
-            <span class="hidden sm:inline">Reload</span>
-          </UButton>
-        </UTooltip>
+        <UButton
+          color="neutral"
+          variant="outline"
+          size="sm"
+          icon="i-lucide-refresh-cw"
+          :loading="isLoading"
+          :disabled="isLoading"
+          @click="loadContent"
+          label="Reload"
+        />
       </div>
     </div>
 
@@ -104,9 +98,8 @@
                 size="sm"
                 icon="i-lucide-pencil"
                 @click="editItem(item)"
-              >
-                <span class="hidden sm:inline">Edit</span>
-              </UButton>
+                label="Edit"
+              />
 
               <UButton
                 color="neutral"
@@ -114,9 +107,8 @@
                 size="sm"
                 icon="i-lucide-trash-2"
                 @click="deleteItem(item)"
-              >
-                <span class="hidden sm:inline">Delete</span>
-              </UButton>
+                label="Delete"
+              />
             </div>
           </div>
         </template>
@@ -222,7 +214,7 @@
       </template>
 
       <template #footer>
-        <div class="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
+        <div class="flex w-full gap-2 flex-row justify-end">
           <UButton
             color="neutral"
             variant="outline"

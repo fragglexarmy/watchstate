@@ -29,9 +29,8 @@
           :loading="isLoading"
           :disabled="isLoading"
           @click="() => void loadContent()"
-        >
-          <span class="hidden sm:inline">Reload</span>
-        </UButton>
+          label="Reload"
+        />
       </div>
     </div>
 
@@ -72,28 +71,30 @@
                   />
 
                   <div class="min-w-0 flex-1">
-                    <NuxtLink
-                      :to="`/history/${item.id}`"
-                      class="block truncate text-highlighted hover:text-primary"
+                    <FloatingImage
+                      :image="`/history/${item.id}/images/poster`"
+                      v-if="poster_enable"
                     >
-                      {{ makeName(item) }}
-                    </NuxtLink>
+                      <UTooltip :text="String(makeName(item))">
+                        <NuxtLink
+                          :to="`/history/${item.id}`"
+                          class="block truncate text-highlighted hover:text-primary"
+                        >
+                          {{ makeName(item) }}
+                        </NuxtLink>
+                      </UTooltip>
+                    </FloatingImage>
+
+                    <UTooltip v-else :text="String(makeName(item))">
+                      <NuxtLink
+                        :to="`/history/${item.id}`"
+                        class="block truncate text-highlighted hover:text-primary"
+                      >
+                        {{ makeName(item) }}
+                      </NuxtLink>
+                    </UTooltip>
                   </div>
                 </div>
-              </div>
-
-              <div class="flex shrink-0 items-center gap-2">
-                <UTooltip :text="item.showRawData ? 'Hide raw data' : 'Show raw data'">
-                  <UButton
-                    color="neutral"
-                    variant="ghost"
-                    size="sm"
-                    square
-                    :icon="item.showRawData ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
-                    :aria-label="item.showRawData ? 'Hide raw data' : 'Show raw data'"
-                    @click="item.showRawData = !item.showRawData"
-                  />
-                </UTooltip>
               </div>
             </div>
           </template>
@@ -197,27 +198,10 @@
                 </NuxtLink>
               </div>
             </div>
-
-            <div
-              v-if="item.showRawData"
-              class="relative overflow-auto rounded-md border border-default bg-elevated/20 p-3"
-            >
-              <UButton
-                color="neutral"
-                variant="soft"
-                size="xs"
-                icon="i-lucide-copy"
-                class="absolute right-9 top-3"
-                @click="copyText(JSON.stringify(item, null, 2))"
-              />
-              <pre
-                class="max-h-85.75 overflow-auto pr-12 text-xs text-default"
-              ><code>{{ JSON.stringify(item, null, 2) }}</code></pre>
-            </div>
           </div>
 
           <template #footer>
-            <div class="grid gap-2.5 sm:grid-cols-2">
+            <div class="grid grid-cols-2 gap-2.5">
               <div
                 class="flex items-center justify-center gap-2 rounded-md border border-default bg-elevated/40 px-3 py-2 text-center text-sm font-medium text-default"
               >
@@ -315,6 +299,7 @@ import { onMounted, ref } from 'vue';
 import { useRoute, useHead } from '#app';
 import { useStorage } from '@vueuse/core';
 import moment from 'moment';
+import FloatingImage from '~/components/FloatingImage.vue';
 import Lazy from '~/components/Lazy.vue';
 import { requireTopLevelPageShell } from '~/utils/topLevelNavigation';
 import {
@@ -358,6 +343,7 @@ const counts = ref<StaleCounts>({ remote: 0, local: 0, stale: 0 });
 const isLoading = ref<boolean>(false);
 const hasLoaded = ref<boolean>(false);
 const show_page_tips = useStorage('show_page_tips', true);
+const poster_enable = useStorage('poster_enable', true);
 
 useHead({ title: `Backends: ${backend} - Staleness` });
 

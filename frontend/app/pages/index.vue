@@ -36,7 +36,7 @@
           v-for="item in lastHistory"
           :key="item.id"
           class="h-full border border-default/70 shadow-sm"
-          :class="item.watched ? 'bg-success/5 ring-1 ring-success/20' : 'bg-default/90'"
+          :class="item.watched ? 'bg-default/90 ring-1 ring-success/20' : 'bg-default/90'"
           :ui="historyCardUi"
         >
           <template #header>
@@ -55,21 +55,29 @@
                       v-if="poster_enable"
                       :image="`/history/${item.id}/images/poster`"
                     >
+                      <UTooltip
+                        :text="String(item.full_title || makeName(item as unknown as JsonObject))"
+                      >
+                        <ULink
+                          :to="`/history/${item.id}`"
+                          class="block truncate text-highlighted hover:text-primary"
+                        >
+                          {{ item.full_title || makeName(item as unknown as JsonObject) }}
+                        </ULink>
+                      </UTooltip>
+                    </FloatingImage>
+
+                    <UTooltip
+                      v-else
+                      :text="String(item.full_title || makeName(item as unknown as JsonObject))"
+                    >
                       <ULink
                         :to="`/history/${item.id}`"
-                        class="text-highlighted hover:text-primary"
+                        class="block truncate text-highlighted hover:text-primary"
                       >
                         {{ item.full_title || makeName(item as unknown as JsonObject) }}
                       </ULink>
-                    </FloatingImage>
-
-                    <ULink
-                      v-else
-                      :to="`/history/${item.id}`"
-                      class="text-highlighted hover:text-primary"
-                    >
-                      {{ item.full_title || makeName(item as unknown as JsonObject) }}
-                    </ULink>
+                    </UTooltip>
                   </div>
                 </div>
               </div>
@@ -78,7 +86,7 @@
                 <Popover
                   v-if="(item.duplicate_reference_ids?.length ?? 0) > 0"
                   placement="top"
-                  trigger="hover"
+                  :trigger="duplicatePopoverTrigger"
                   :show-delay="200"
                   :hide-delay="200"
                   :offset="8"
@@ -101,7 +109,9 @@
             </div>
           </template>
 
-          <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div
+            :class="['grid grid-cols-2 gap-3', item.progress ? 'xl:grid-cols-4' : 'xl:grid-cols-3']"
+          >
             <div
               v-if="item.updated_at"
               class="flex items-center justify-center gap-2 rounded-md border border-default bg-elevated/40 px-3 py-2 text-center text-sm font-medium text-default"
@@ -136,24 +146,23 @@
             </div>
 
             <div
-              class="flex items-center justify-center gap-2 rounded-md border border-default bg-elevated/40 px-3 py-2 text-center text-sm font-medium text-default sm:col-span-2 xl:col-span-1"
+              :class="[
+                'flex items-center justify-center gap-2 rounded-md border border-default bg-elevated/40 px-3 py-2 text-center text-sm font-medium text-default',
+                item.updated_at && !item.progress ? 'col-span-2 xl:col-span-1' : '',
+              ]"
             >
               <UIcon name="i-lucide-mail" class="size-4 shrink-0 text-toned" />
               <span>{{ item.event }}</span>
             </div>
-          </div>
 
-          <template v-if="item.progress" #footer>
-            <div class="flex items-center justify-center gap-6 border-t border-default pt-4">
-              <UBadge :color="item.watched ? 'success' : 'warning'" variant="soft">
-                {{ item.watched ? 'Played' : 'Unplayed' }}
-              </UBadge>
-
-              <span class="text-sm font-medium text-default">
-                {{ formatDuration(item.progress as number) }}
-              </span>
+            <div
+              v-if="item.progress"
+              class="flex items-center justify-center gap-2 rounded-md border border-default bg-elevated/40 px-3 py-2 text-center text-sm font-medium text-default"
+            >
+              <UIcon name="i-lucide-gauge" class="size-4 shrink-0 text-toned" />
+              <span>{{ formatDuration(item.progress as number) }}</span>
             </div>
-          </template>
+          </div>
         </UCard>
       </div>
     </section>
@@ -176,71 +185,74 @@
           :ui="logCardUi"
         >
           <template #header>
-            <div class="flex flex-wrap items-start gap-3">
-              <div class="min-w-0 flex-1">
-                <div class="flex min-w-0 items-center gap-3">
-                  <span
-                    class="inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-default bg-elevated/60 text-toned"
-                  >
-                    <UIcon
-                      :name="logTypeIcon(log.type)"
-                      :class="reloadingLogs ? 'animate-spin' : ''"
-                    />
-                  </span>
-
-                  <div class="min-w-0">
-                    <NuxtLink
-                      :to="`/logs/${log.filename}`"
-                      class="block truncate text-base font-semibold text-highlighted hover:text-primary"
+            <div class="space-y-2">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0 flex-1">
+                  <div class="flex min-w-0 items-center gap-3">
+                    <span
+                      class="inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-default bg-elevated/60 text-toned"
                     >
-                      {{ ucFirst(log.type) }} Logs
-                    </NuxtLink>
-                    <p class="text-sm text-toned">Recent log stream from {{ log.filename }}</p>
+                      <UIcon
+                        :name="logTypeIcon(log.type)"
+                        :class="reloadingLogs ? 'animate-spin' : ''"
+                      />
+                    </span>
+
+                    <div class="min-w-0">
+                      <NuxtLink
+                        :to="`/logs/${log.filename}`"
+                        class="block truncate text-base font-semibold text-highlighted hover:text-primary"
+                      >
+                        {{ ucFirst(log.type) }} Logs
+                      </NuxtLink>
+                    </div>
                   </div>
+                </div>
+
+                <div class="flex shrink-0 items-center gap-2">
+                  <UTooltip :text="autoReloadLogs ? 'Disable auto reload' : 'Enable auto reload'">
+                    <UButton
+                      color="neutral"
+                      :variant="autoReloadLogs ? 'soft' : 'outline'"
+                      size="sm"
+                      :icon="autoReloadLogs ? 'i-lucide-pause' : 'i-lucide-play'"
+                      :aria-label="autoReloadLogs ? 'Disable auto reload' : 'Enable auto reload'"
+                      @click="toggleLogsAutoReload()"
+                    >
+                      <span class="hidden sm:inline">Auto Reload</span>
+                    </UButton>
+                  </UTooltip>
+
+                  <UTooltip text="Toggle wrap line">
+                    <UButton
+                      color="neutral"
+                      :variant="wrapLines ? 'soft' : 'outline'"
+                      size="sm"
+                      icon="i-lucide-wrap-text"
+                      aria-label="Toggle wrap lines"
+                      @click="wrapLines = !wrapLines"
+                    >
+                      <span class="hidden sm:inline">Wrap</span>
+                    </UButton>
+                  </UTooltip>
+
+                  <UTooltip text="Fetch latest log entries.">
+                    <UButton
+                      color="neutral"
+                      variant="outline"
+                      size="sm"
+                      icon="i-lucide-refresh-cw"
+                      :loading="reloadingLogs"
+                      aria-label="Fetch latest log entries"
+                      @click="void reloadLogs()"
+                    >
+                      <span class="hidden sm:inline">Reload</span>
+                    </UButton>
+                  </UTooltip>
                 </div>
               </div>
 
-              <div class="flex shrink-0 items-center gap-2">
-                <UTooltip :text="autoReloadLogs ? 'Disable auto reload' : 'Enable auto reload'">
-                  <UButton
-                    color="neutral"
-                    :variant="autoReloadLogs ? 'soft' : 'outline'"
-                    size="sm"
-                    :icon="autoReloadLogs ? 'i-lucide-pause' : 'i-lucide-play'"
-                    :aria-label="autoReloadLogs ? 'Disable auto reload' : 'Enable auto reload'"
-                    @click="toggleLogsAutoReload()"
-                  >
-                    <span class="hidden sm:inline">Auto Reload</span>
-                  </UButton>
-                </UTooltip>
-
-                <UTooltip text="Toggle wrap line">
-                  <UButton
-                    color="neutral"
-                    :variant="wrapLines ? 'soft' : 'outline'"
-                    size="sm"
-                    icon="i-lucide-wrap-text"
-                    aria-label="Toggle wrap lines"
-                    @click="wrapLines = !wrapLines"
-                  >
-                    <span class="hidden sm:inline">Wrap</span>
-                  </UButton>
-                </UTooltip>
-
-                <UTooltip text="Fetch latest log entries.">
-                  <UButton
-                    color="neutral"
-                    variant="outline"
-                    size="sm"
-                    icon="i-lucide-refresh-cw"
-                    :loading="reloadingLogs"
-                    aria-label="Fetch latest log entries"
-                    @click="void reloadLogs()"
-                  >
-                    <span class="hidden sm:inline">Reload</span>
-                  </UButton>
-                </UTooltip>
-              </div>
+              <p class="text-sm text-toned">Recent log stream from {{ log.filename }}</p>
             </div>
           </template>
 
@@ -287,7 +299,7 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, onUpdated, ref, watch } from 'vue';
 import { useHead, useRoute } from '#app';
-import { useStorage } from '@vueuse/core';
+import { useBreakpoints, useStorage } from '@vueuse/core';
 import { NuxtLink } from '#components';
 import moment from 'moment';
 import FloatingImage from '~/components/FloatingImage.vue';
@@ -326,6 +338,7 @@ const route = useRoute();
 const poster_enable = useStorage('poster_enable', true);
 const autoReloadLogs = useStorage<boolean>('auto_reload_logs', true);
 const wrapLines = useStorage('logs_wrap_lines', false);
+const breakpoints = useBreakpoints({ mobile: 0, desktop: 640 });
 
 const lastHistory = ref<Array<HistoryItem>>([]);
 const logs = ref<Array<IndexLogFile>>([]);
@@ -334,6 +347,10 @@ const historyLoading = ref<boolean>(true);
 const logReloadInterval = ref<ReturnType<typeof setInterval> | null>(null);
 const logReloadFrequency = 10000;
 let historyLoadToken = 0;
+
+const duplicatePopoverTrigger = computed<'click' | 'hover'>(() =>
+  'mobile' === breakpoints.active().value ? 'click' : 'hover',
+);
 
 const historyCardUi = {
   header: 'p-4 sm:p-5',
@@ -398,7 +415,7 @@ const loadContent = async (): Promise<void> => {
   const loadToken = ++historyLoadToken;
 
   try {
-    const response = await request('/history?perpage=6');
+    const response = await request('/history?perpage=10');
     if (!response.ok) {
       return;
     }

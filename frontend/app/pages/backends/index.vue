@@ -114,14 +114,16 @@
           :ui="backendCardUi"
         >
           <template #header>
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div class="flex items-start justify-between gap-3">
               <div class="min-w-0 flex-1">
-                <NuxtLink
-                  :to="`/backend/${backend.name}`"
-                  class="block truncate text-base font-semibold text-highlighted hover:text-primary"
-                >
-                  {{ backend.name }}
-                </NuxtLink>
+                <UTooltip :text="String(backend.name)">
+                  <NuxtLink
+                    :to="`/backend/${backend.name}`"
+                    class="block truncate text-base font-semibold text-highlighted hover:text-primary"
+                  >
+                    {{ backend.name }}
+                  </NuxtLink>
+                </UTooltip>
               </div>
 
               <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
@@ -202,22 +204,29 @@
                 </div>
               </div>
             </div>
-            <div class="grid gap-3 sm:grid-cols-2">
+            <div class="grid grid-cols-2 gap-3">
               <div class="rounded-md border border-default bg-elevated/40 p-4 text-sm text-default">
-                <div class="flex items-start justify-between gap-3">
-                  <div class="font-semibold text-highlighted">Last Export</div>
+                <div
+                  class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
+                >
+                  <div
+                    class="inline-flex min-w-0 items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
+                  >
+                    <UIcon name="i-lucide-upload" class="size-3.5 shrink-0" />
+                    <span>Last Export</span>
+                  </div>
 
-                  <div class="min-w-0 text-right">
+                  <div class="min-w-0 sm:ml-auto sm:text-right">
                     <template v-if="backend.export.enabled">
                       <UTooltip
                         v-if="backend.export.lastSync"
                         :text="moment(backend.export.lastSync).format(TOOLTIP_DATE_FORMAT)"
                       >
-                        <span class="cursor-help">{{
+                        <span class="cursor-help font-medium text-highlighted">{{
                           moment(backend.export.lastSync).fromNow()
                         }}</span>
                       </UTooltip>
-                      <span v-else>Never</span>
+                      <span v-else class="font-medium text-highlighted">Never</span>
                     </template>
 
                     <UTooltip v-else text="Local database is not being sync to this backend.">
@@ -228,23 +237,30 @@
               </div>
 
               <div class="rounded-md border border-default bg-elevated/40 p-4 text-sm text-default">
-                <div class="flex items-start justify-between gap-3">
-                  <div class="font-semibold text-highlighted">Last Import</div>
+                <div
+                  class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
+                >
+                  <div
+                    class="inline-flex min-w-0 items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
+                  >
+                    <UIcon name="i-lucide-download" class="size-3.5 shrink-0" />
+                    <span>Last Import</span>
+                  </div>
 
-                  <div class="min-w-0 text-right">
+                  <div class="min-w-0 sm:ml-auto sm:text-right">
                     <template
                       v-if="backend.import.enabled || backend.options?.IMPORT_METADATA_ONLY"
                     >
-                      <div class="flex flex-wrap items-center justify-end gap-2">
+                      <div class="flex flex-wrap items-center gap-2 sm:justify-end">
                         <UTooltip
                           v-if="backend.import.lastSync"
                           :text="moment(backend.import.lastSync).format(TOOLTIP_DATE_FORMAT)"
                         >
-                          <span class="cursor-help">{{
+                          <span class="cursor-help font-medium text-highlighted">{{
                             moment(backend.import.lastSync).fromNow()
                           }}</span>
                         </UTooltip>
-                        <span v-else>Never</span>
+                        <span v-else class="font-medium text-highlighted">Never</span>
 
                         <UTooltip
                           v-if="!backend.import.enabled && backend.options?.IMPORT_METADATA_ONLY"

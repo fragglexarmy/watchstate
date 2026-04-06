@@ -204,13 +204,9 @@
             <template #header>
               <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0 flex flex-1 items-start gap-2">
-                  <UButton
-                    color="neutral"
-                    variant="ghost"
-                    size="sm"
-                    square
-                    :icon="'episode' === item.type.toLowerCase() ? 'i-lucide-tv' : 'i-lucide-film'"
-                    @click="item.showRawData = !item?.showRawData"
+                  <UIcon
+                    :name="'episode' === item.type.toLowerCase() ? 'i-lucide-tv' : 'i-lucide-film'"
+                    class="mt-0.5 size-4 shrink-0 text-toned"
                   />
 
                   <div class="min-w-0 flex-1 text-base font-semibold text-highlighted">
@@ -218,18 +214,21 @@
                       :image="`/history/${item.id}/images/poster`"
                       v-if="poster_enable"
                     >
+                      <UTooltip :text="String(makeName(item))">
+                        <NuxtLink
+                          :to="`/history/${item.id}`"
+                          class="block truncate text-highlighted hover:text-primary"
+                          >{{ makeName(item) }}</NuxtLink
+                        >
+                      </UTooltip>
+                    </FloatingImage>
+                    <UTooltip v-else :text="String(makeName(item))">
                       <NuxtLink
                         :to="`/history/${item.id}`"
-                        class="text-highlighted hover:text-primary"
+                        class="block truncate text-highlighted hover:text-primary"
                         >{{ makeName(item) }}</NuxtLink
                       >
-                    </FloatingImage>
-                    <NuxtLink
-                      v-else
-                      :to="`/history/${item.id}`"
-                      class="text-highlighted hover:text-primary"
-                      >{{ makeName(item) }}</NuxtLink
-                    >
+                    </UTooltip>
                   </div>
                 </div>
 
@@ -369,27 +368,10 @@
                   </UTooltip>
                 </div>
               </div>
-
-              <div
-                v-if="item?.showRawData"
-                class="relative overflow-auto rounded-md border border-default bg-elevated/20 p-3"
-              >
-                <UButton
-                  color="neutral"
-                  variant="soft"
-                  size="xs"
-                  icon="i-lucide-copy"
-                  class="absolute right-3 top-3"
-                  @click="copyText(JSON.stringify(item, null, 2))"
-                />
-                <pre
-                  class="max-h-85.75 overflow-auto pr-12 text-xs text-default"
-                ><code>{{ JSON.stringify(item, null, 2) }}</code></pre>
-              </div>
             </div>
 
             <template #footer>
-              <div class="grid gap-2 sm:grid-cols-2">
+              <div class="grid grid-cols-2 gap-2">
                 <div
                   class="flex items-center justify-center gap-2 rounded-md border border-default bg-elevated/40 px-3 py-2 text-sm text-default"
                 >
@@ -448,7 +430,6 @@ const pageShell = requireTopLevelPageShell('integrity');
 type IntegrityItemWithUI = IntegrityItem & {
   expand_title?: boolean;
   expand_path?: boolean;
-  showRawData?: boolean;
 };
 
 useHead({ title: 'File Integrity' });

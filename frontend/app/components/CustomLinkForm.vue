@@ -113,7 +113,7 @@
       </UCard>
     </template>
 
-    <div class="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
+    <div class="flex w-full gap-2 flex-row justify-end">
       <UButton
         type="button"
         color="neutral"
@@ -143,7 +143,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
+import { useDirtyState } from '~/composables/useDirtyState';
 import { request, notification, parse_api_response, ucFirst } from '~/utils';
 import type { CustomGUID, CustomLink, GenericError, GenericResponse, GuidProvider } from '~/types';
 
@@ -169,6 +170,7 @@ type SelectItem = {
 
 const emit = defineEmits<{
   (e: 'cancel' | 'saved'): void;
+  (e: 'dirty-change', dirty: boolean): void;
 }>();
 
 const defaultData = (): CustomLinkFormData => ({
@@ -184,6 +186,11 @@ const supported = ref<Array<string>>([]);
 const isSaving = ref<boolean>(false);
 const links = ref<Array<CustomLink>>([]);
 const toggleReplace = ref<boolean>(false);
+const dirtySource = computed(() => ({
+  ...form.value,
+  toggleReplace: toggleReplace.value,
+}));
+const { isDirty, markClean } = useDirtyState(dirtySource);
 
 const nestedCardUi = {
   header: 'p-4',
@@ -233,6 +240,8 @@ onMounted(async () => {
     const message = e instanceof Error ? e.message : 'Unexpected error';
     notification('error', 'Error', `Request error. ${message}`, 5000);
   }
+
+  markClean();
 });
 
 const addNewLink = async (): Promise<void> => {
@@ -306,6 +315,8 @@ const addNewLink = async (): Promise<void> => {
     notification('success', 'Success', 'Successfully added new client link.', 5000);
     form.value = defaultData();
     toggleReplace.value = false;
+    markClean();
+    emit('dirty-change', false);
     emit('saved');
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unexpected error';
@@ -318,4 +329,6 @@ const addNewLink = async (): Promise<void> => {
 const validForm = computed(
   (): boolean => !(!form.value.map.to || !form.value.map.from || !form.value.type),
 );
+
+watch(isDirty, (value: boolean) => emit('dirty-change', value));
 </script>

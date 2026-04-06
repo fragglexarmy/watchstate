@@ -19,20 +19,6 @@
           <span class="text-highlighted normal-case tracking-normal">Search</span>
         </div>
       </div>
-
-      <div class="flex flex-wrap items-center justify-end gap-2">
-        <UButton
-          color="neutral"
-          variant="outline"
-          size="sm"
-          icon="i-lucide-refresh-cw"
-          :loading="isLoading"
-          :disabled="isLoading || !searchField || !query"
-          @click="() => void searchContent(true)"
-        >
-          <span class="hidden sm:inline">Reload</span>
-        </UButton>
-      </div>
     </div>
 
     <UCard class="border border-default/70 shadow-sm" :ui="panelCardUi">
@@ -43,64 +29,77 @@
         </div>
       </template>
 
-      <form class="space-y-3" @submit.prevent="void searchContent(false)">
-        <div class="grid gap-3 lg:grid-cols-[14rem_10rem_minmax(0,1fr)_auto_auto] lg:items-start">
-          <USelect
-            v-model="searchField"
-            :items="searchFieldItems"
-            value-key="value"
-            label-key="label"
-            color="neutral"
-            variant="outline"
-            size="sm"
-            placeholder="Select field"
-            icon="i-lucide-folder-tree"
-            :disabled="isLoading"
-          />
+      <form class="space-y-5" @submit.prevent="void searchContent(false)">
+        <div class="grid gap-4 lg:grid-cols-[14rem_10rem_minmax(0,1fr)]">
+          <UFormField label="Search field" name="search_field">
+            <USelect
+              v-model="searchField"
+              :items="searchFieldItems"
+              value-key="value"
+              label-key="label"
+              color="neutral"
+              variant="outline"
+              size="sm"
+              placeholder="Select field"
+              icon="i-lucide-folder-tree"
+              class="w-full"
+              :disabled="isLoading"
+            />
+          </UFormField>
 
-          <USelect
-            v-model="limit"
-            :items="limitItems"
-            value-key="value"
-            label-key="label"
-            color="neutral"
-            variant="outline"
-            size="sm"
-            placeholder="Select limit"
-            icon="i-lucide-list"
-            :disabled="isLoading"
-          />
+          <UFormField label="Result limit" name="search_limit">
+            <USelect
+              v-model="limit"
+              :items="limitItems"
+              value-key="value"
+              label-key="label"
+              color="neutral"
+              variant="outline"
+              size="sm"
+              placeholder="Select limit"
+              icon="i-lucide-list"
+              class="w-full"
+              :disabled="isLoading"
+            />
+          </UFormField>
 
-          <UInput
-            v-model="query"
-            type="search"
-            placeholder="Search..."
-            icon="i-lucide-search"
-            size="sm"
-            :disabled="'' === searchField || isLoading"
-          />
+          <UFormField label="Query" name="search_query">
+            <UInput
+              v-model="query"
+              type="search"
+              placeholder="Search..."
+              icon="i-lucide-search"
+              size="sm"
+              class="w-full"
+              :disabled="'' === searchField || isLoading"
+            />
+          </UFormField>
+        </div>
 
-          <UButton
-            color="primary"
-            size="sm"
-            icon="i-lucide-search"
-            type="submit"
-            :disabled="!query || '' === searchField || isLoading"
-            :loading="isLoading"
-          >
-            Search
-          </UButton>
-
+        <div class="flex gap-3 flex-row justify-end">
           <UButton
             color="neutral"
             variant="outline"
             size="sm"
             icon="i-lucide-x"
             type="button"
+            class="justify-center"
             :disabled="isLoading"
             @click="clearSearch"
           >
             Reset
+          </UButton>
+
+          <UButton
+            color="primary"
+            size="sm"
+            icon="i-lucide-search"
+            type="submit"
+            class="justify-center"
+            :disabled="!query || '' === searchField || isLoading"
+            :loading="isLoading"
+          >
+            Search
           </UButton>
         </div>
       </form>
@@ -147,11 +146,11 @@
         v-for="item in items"
         :key="item.id"
         class="h-full border border-default/70 shadow-sm"
-        :class="item.watched ? 'bg-success/5 ring-1 ring-success/20' : 'bg-default/90'"
+        :class="item.watched ? 'bg-default/90 ring-1 ring-success/20' : 'bg-default/90'"
         :ui="resultCardUi"
       >
         <template #header>
-          <div class="flex items-start gap-3">
+          <div class="flex items-start justify-between gap-3">
             <div class="min-w-0 flex-1">
               <div
                 class="flex min-w-0 items-start gap-2 text-base font-semibold leading-6 text-highlighted"
@@ -162,19 +161,52 @@
                 />
 
                 <div class="min-w-0 flex-1">
-                  <NuxtLink
-                    v-if="item.webUrl"
-                    :to="item.webUrl"
-                    target="_blank"
-                    class="block truncate text-highlighted hover:text-primary"
-                  >
-                    {{ makeName(item) }}
-                  </NuxtLink>
-                  <span v-else class="block truncate text-highlighted">
-                    {{ makeName(item) }}
-                  </span>
+                  <FloatingImage :image="`/history/${item.id}/images/poster`" v-if="poster_enable">
+                    <NuxtLink
+                      v-if="item.webUrl"
+                      :to="item.webUrl"
+                      target="_blank"
+                      class="block truncate text-highlighted hover:text-primary"
+                    >
+                      <UTooltip :text="String(makeName(item))">
+                        <span class="block truncate">{{ makeName(item) }}</span>
+                      </UTooltip>
+                    </NuxtLink>
+                    <UTooltip v-else :text="String(makeName(item))">
+                      <span class="block truncate text-highlighted">{{ makeName(item) }}</span>
+                    </UTooltip>
+                  </FloatingImage>
+
+                  <template v-else>
+                    <NuxtLink
+                      v-if="item.webUrl"
+                      :to="item.webUrl"
+                      target="_blank"
+                      class="block truncate text-highlighted hover:text-primary"
+                    >
+                      <UTooltip :text="String(makeName(item))">
+                        <span class="block truncate">{{ makeName(item) }}</span>
+                      </UTooltip>
+                    </NuxtLink>
+                    <UTooltip v-else :text="String(makeName(item))">
+                      <span class="block truncate text-highlighted">{{ makeName(item) }}</span>
+                    </UTooltip>
+                  </template>
                 </div>
               </div>
+            </div>
+
+            <div class="flex shrink-0 items-center gap-2">
+              <UButton
+                v-if="'show' !== item.type && item.id"
+                color="neutral"
+                variant="outline"
+                size="sm"
+                icon="i-lucide-history"
+                :to="`/history/${item.id}`"
+              >
+                Local
+              </UButton>
             </div>
           </div>
         </template>
@@ -218,31 +250,11 @@
               </span>
             </div>
           </div>
-
-          <div
-            v-if="item.showItem"
-            class="relative overflow-hidden rounded-md border border-default bg-elevated/60"
-          >
-            <code class="ws-terminal ws-terminal-panel ws-terminal-panel-md whitespace-pre-wrap">
-              {{ JSON.stringify(item, null, 2) }}
-            </code>
-
-            <UTooltip text="Copy text">
-              <UButton
-                color="neutral"
-                variant="soft"
-                size="sm"
-                icon="i-lucide-copy"
-                class="absolute right-3 top-3"
-                @click="() => void copyText(JSON.stringify(item, null, 2))"
-              />
-            </UTooltip>
-          </div>
         </div>
 
         <template #footer>
           <div class="space-y-3">
-            <div class="grid gap-2.5 sm:grid-cols-2">
+            <div class="grid grid-cols-2 gap-2.5">
               <div
                 class="flex items-center justify-center gap-2 rounded-md border border-default bg-elevated/40 px-3 py-2 text-center text-sm font-medium text-default"
               >
@@ -265,18 +277,6 @@
             </div>
 
             <div class="flex items-center justify-end gap-2">
-              <UTooltip :text="item.showItem ? 'Hide raw data' : 'Show raw data'">
-                <UButton
-                  color="neutral"
-                  variant="ghost"
-                  size="sm"
-                  square
-                  :icon="item.showItem ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
-                  :aria-label="item.showItem ? 'Hide raw data' : 'Show raw data'"
-                  @click="item.showItem = !item.showItem"
-                />
-              </UTooltip>
-
               <UButton
                 v-if="'show' === item.type"
                 color="neutral"
@@ -291,17 +291,6 @@
                 "
               >
                 View linked items
-              </UButton>
-
-              <UButton
-                v-else-if="item.id"
-                color="neutral"
-                variant="outline"
-                size="sm"
-                icon="i-lucide-history"
-                :to="`/history/${item.id}`"
-              >
-                View local item
               </UButton>
             </div>
           </div>
@@ -340,6 +329,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter, useHead } from '#app';
 import { useStorage } from '@vueuse/core';
+import FloatingImage from '~/components/FloatingImage.vue';
 import { requireTopLevelPageShell } from '~/utils/topLevelNavigation';
 import moment from 'moment';
 import {
@@ -349,7 +339,6 @@ import {
   notification,
   TOOLTIP_DATE_FORMAT,
   ag,
-  copyText,
   parse_api_response,
 } from '~/utils';
 import type { SearchItem } from '~/types';
@@ -360,6 +349,7 @@ type SearchItemWithUI = SearchItem & {
 
 const route = useRoute();
 const router = useRouter();
+const poster_enable = useStorage('poster_enable', true);
 
 const panelCardUi = {
   header: 'p-4',

@@ -84,24 +84,27 @@
 
     <UCard class="border border-default/70 shadow-sm" :ui="nestedCardUi">
       <template #header>
-        <div class="flex items-center justify-between gap-3">
-          <div>
-            <h2 class="text-sm font-semibold text-highlighted">Correct values</h2>
-            <p class="text-sm text-toned">
-              The values added here must match the pattern defined above.
-            </p>
+        <div class="space-y-2">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0 flex-1">
+              <h2 class="text-sm font-semibold text-highlighted">Correct values</h2>
+            </div>
+
+            <UButton
+              type="button"
+              color="neutral"
+              variant="outline"
+              size="sm"
+              icon="i-lucide-plus"
+              @click="form.validator.tests.valid.push('')"
+            >
+              Add
+            </UButton>
           </div>
 
-          <UButton
-            type="button"
-            color="neutral"
-            variant="outline"
-            size="sm"
-            icon="i-lucide-plus"
-            @click="form.validator.tests.valid.push('')"
-          >
-            Add
-          </UButton>
+          <p class="text-sm text-toned">
+            The values added here must match the pattern defined above.
+          </p>
         </div>
       </template>
 
@@ -109,7 +112,7 @@
         <div
           v-for="(_, index) in form.validator.tests.valid"
           :key="`valid-${index}`"
-          class="flex flex-col gap-2 sm:flex-row"
+          class="flex gap-2 flex-row"
         >
           <UInput
             :id="`valid-${index}`"
@@ -129,7 +132,7 @@
             :disabled="index < 1 || form.validator.tests.valid.length < 1"
             @click="form.validator.tests.valid.splice(index, 1)"
           >
-            Remove
+            <span class="hidden sm:inline">Remove</span>
           </UButton>
         </div>
 
@@ -144,24 +147,27 @@
 
     <UCard class="border border-default/70 shadow-sm" :ui="nestedCardUi">
       <template #header>
-        <div class="flex items-center justify-between gap-3">
-          <div>
-            <h2 class="text-sm font-semibold text-highlighted">Incorrect values</h2>
-            <p class="text-sm text-toned">
-              GUID values with should not match the pattern defined above.
-            </p>
+        <div class="space-y-2">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0 flex-1">
+              <h2 class="text-sm font-semibold text-highlighted">Incorrect values</h2>
+            </div>
+
+            <UButton
+              type="button"
+              color="neutral"
+              variant="outline"
+              size="sm"
+              icon="i-lucide-plus"
+              @click="form.validator.tests.invalid.push('')"
+            >
+              Add
+            </UButton>
           </div>
 
-          <UButton
-            type="button"
-            color="neutral"
-            variant="outline"
-            size="sm"
-            icon="i-lucide-plus"
-            @click="form.validator.tests.invalid.push('')"
-          >
-            Add
-          </UButton>
+          <p class="text-sm text-toned">
+            GUID values with should not match the pattern defined above.
+          </p>
         </div>
       </template>
 
@@ -169,7 +175,7 @@
         <div
           v-for="(_, index) in form.validator.tests.invalid"
           :key="`invalid-${index}`"
-          class="flex flex-col gap-2 sm:flex-row"
+          class="flex gap-2 flex-row"
         >
           <UInput
             :id="`invalid-${index}`"
@@ -189,7 +195,7 @@
             :disabled="index < 1 || form.validator.tests.invalid.length < 1"
             @click="form.validator.tests.invalid.splice(index, 1)"
           >
-            Remove
+            <span class="hidden sm:inline">Remove</span>
           </UButton>
         </div>
 
@@ -199,7 +205,7 @@
       </div>
     </UCard>
 
-    <div class="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
+    <div class="flex w-full gap-2 flex-row justify-end">
       <UButton
         type="button"
         color="neutral"
@@ -229,7 +235,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
+import { useDirtyState } from '~/composables/useDirtyState';
 import { request, notification, stringToRegex, parse_api_response } from '~/utils';
 import type { GenericError, GenericResponse, GuidProvider } from '~/types';
 
@@ -254,6 +261,7 @@ type GuidFormData = {
 
 const emit = defineEmits<{
   (e: 'cancel' | 'saved'): void;
+  (e: 'dirty-change', dirty: boolean): void;
 }>();
 
 const defaultData = (): GuidFormData => ({
@@ -273,6 +281,8 @@ const defaultData = (): GuidFormData => ({
 const form = ref<GuidFormData>(defaultData());
 const guids = ref<Array<GuidProvider>>([]);
 const isSaving = ref<boolean>(false);
+const dirtySource = computed(() => form.value);
+const { isDirty, markClean } = useDirtyState(dirtySource);
 
 const nestedCardUi = {
   header: 'p-4',
@@ -296,6 +306,8 @@ onMounted(async (): Promise<void> => {
     const error = e as Error;
     notification('error', 'Error', `Request error. ${error.message}`, 5000);
   }
+
+  markClean();
 });
 
 const addNewGuid = async (): Promise<void> => {
@@ -415,6 +427,8 @@ const addNewGuid = async (): Promise<void> => {
 
     notification('success', 'Success', 'Successfully added new GUID.', 5000);
     form.value = defaultData();
+    markClean();
+    emit('dirty-change', false);
     emit('saved');
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unexpected error';
@@ -441,4 +455,6 @@ const validForm = computed((): boolean => {
 
   return !(!data.validator.tests.valid[0] || !data.validator.tests.invalid[0]);
 });
+
+watch(isDirty, (value: boolean) => emit('dirty-change', value));
 </script>

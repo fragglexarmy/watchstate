@@ -1,5 +1,9 @@
 <template>
-  <div ref="targetEl" :style="`min-height:${fixedMinHeight ? fixedMinHeight : minHeight}px`">
+  <div
+    ref="targetEl"
+    class="block min-w-0 max-w-full"
+    :style="`min-height:${fixedMinHeight ? fixedMinHeight : minHeight}px`"
+  >
     <slot v-if="shouldRender" />
   </div>
 </template>

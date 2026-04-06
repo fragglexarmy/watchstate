@@ -22,14 +22,16 @@
           <div class="min-w-0 space-y-1">
             <div class="inline-flex items-center gap-2 text-base font-semibold text-highlighted">
               <UIcon name="i-lucide-book-open" class="size-4 shrink-0 text-toned" />
-              <NuxtLink
-                v-if="choice.url"
-                :to="`${choice.url}?title=${choice.title}`"
-                class="truncate hover:text-primary"
-              >
-                {{ `${choice.number}. ${choice.title}` }}
-              </NuxtLink>
-              <span v-else class="truncate">{{ `${choice.number}. ${choice.title}` }}</span>
+              <UTooltip :text="`${choice.number}. ${choice.title}`">
+                <NuxtLink
+                  v-if="choice.url"
+                  :to="`${choice.url}?title=${choice.title}`"
+                  class="block truncate hover:text-primary"
+                >
+                  {{ `${choice.number}. ${choice.title}` }}
+                </NuxtLink>
+                <span v-else class="block truncate">{{ `${choice.number}. ${choice.title}` }}</span>
+              </UTooltip>
             </div>
           </div>
         </template>

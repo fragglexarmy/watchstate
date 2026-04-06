@@ -116,7 +116,7 @@
             v-for="item in bHistory"
             :key="item.id"
             class="h-full border border-default/70 shadow-sm"
-            :class="item.watched ? 'bg-success/5 ring-1 ring-success/20' : 'bg-default/90'"
+            :class="item.watched ? 'bg-default/90 ring-1 ring-success/20' : 'bg-default/90'"
             :ui="historyCardUi"
           >
             <template #header>
@@ -135,28 +135,38 @@
                         v-if="poster_enable"
                         :image="`/history/${item.id}/images/poster`"
                       >
+                        <UTooltip
+                          :text="
+                            String(item?.full_title || makeName(item as unknown as JsonObject))
+                          "
+                        >
+                          <NuxtLink
+                            :to="`/history/${item.id}`"
+                            class="block truncate text-highlighted hover:text-primary"
+                          >
+                            {{ item?.full_title || makeName(item as unknown as JsonObject) }}
+                          </NuxtLink>
+                        </UTooltip>
+                      </FloatingImage>
+
+                      <UTooltip
+                        v-else
+                        :text="String(item?.full_title || makeName(item as unknown as JsonObject))"
+                      >
                         <NuxtLink
                           :to="`/history/${item.id}`"
-                          class="text-highlighted hover:text-primary"
+                          class="block truncate text-highlighted hover:text-primary"
                         >
                           {{ item?.full_title || makeName(item as unknown as JsonObject) }}
                         </NuxtLink>
-                      </FloatingImage>
-
-                      <NuxtLink
-                        v-else
-                        :to="`/history/${item.id}`"
-                        class="text-highlighted hover:text-primary"
-                      >
-                        {{ item?.full_title || makeName(item as unknown as JsonObject) }}
-                      </NuxtLink>
+                      </UTooltip>
                     </div>
                   </div>
                 </div>
               </div>
             </template>
 
-            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div class="grid grid-cols-2 gap-3 xl:grid-cols-3">
               <div
                 class="flex items-center justify-center gap-2 rounded-md border border-default bg-elevated/40 px-3 py-2 text-center text-sm font-medium text-default"
               >
@@ -180,7 +190,7 @@
               </div>
 
               <div
-                class="flex items-center justify-center gap-2 rounded-md border border-default bg-elevated/40 px-3 py-2 text-center text-sm font-medium text-default sm:col-span-2 xl:col-span-1"
+                class="col-span-2 flex items-center justify-center gap-2 rounded-md border border-default bg-elevated/40 px-3 py-2 text-center text-sm font-medium text-default xl:col-span-1"
               >
                 <UIcon name="i-lucide-mail" class="size-4 shrink-0 text-toned" />
                 <span>{{ item.event }}</span>
@@ -221,40 +231,45 @@
       <section v-if="info">
         <UCard class="border border-default/70 shadow-sm" :ui="infoCardUi">
           <template #header>
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div class="space-y-1">
-                <div class="flex items-center gap-2">
-                  <UIcon name="i-lucide-file-code-2" class="size-5 text-toned" />
-                  <span class="font-semibold text-highlighted">Basic Info</span>
+            <div class="space-y-2">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-2">
+                    <UIcon name="i-lucide-file-code-2" class="size-5 text-toned" />
+                    <span class="font-semibold text-highlighted">Basic Info</span>
+                  </div>
                 </div>
-                <p class="text-sm text-toned">
-                  Connection identity and runtime details reported by the backend.
-                </p>
-              </div>
 
-              <div class="flex flex-wrap items-center gap-2">
-                <UButton
-                  color="neutral"
-                  :variant="showRawInfo ? 'soft' : 'outline'"
-                  size="sm"
-                  :icon="showRawInfo ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
-                  @click="showRawInfo = !showRawInfo"
-                >
-                  <span class="hidden sm:inline">{{ showRawInfo ? 'Hide Raw' : 'Show Raw' }}</span>
-                </UButton>
-
-                <UTooltip text="Copy raw backend info">
+                <div class="flex shrink-0 flex-wrap items-center gap-2">
                   <UButton
                     color="neutral"
-                    variant="outline"
+                    :variant="showRawInfo ? 'soft' : 'outline'"
                     size="sm"
-                    icon="i-lucide-copy"
-                    @click="() => copyText(JSON.stringify(info, null, 2))"
+                    :icon="showRawInfo ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+                    @click="showRawInfo = !showRawInfo"
                   >
-                    <span class="hidden sm:inline">Copy Raw</span>
+                    <span class="hidden sm:inline">{{
+                      showRawInfo ? 'Hide Raw' : 'Show Raw'
+                    }}</span>
                   </UButton>
-                </UTooltip>
+
+                  <UTooltip text="Copy raw backend info">
+                    <UButton
+                      color="neutral"
+                      variant="outline"
+                      size="sm"
+                      icon="i-lucide-copy"
+                      @click="() => copyText(JSON.stringify(info, null, 2))"
+                    >
+                      <span class="hidden sm:inline">Copy Raw</span>
+                    </UButton>
+                  </UTooltip>
+                </div>
               </div>
+
+              <p class="text-sm text-toned">
+                Connection identity and runtime details reported by the backend.
+              </p>
             </div>
           </template>
 
