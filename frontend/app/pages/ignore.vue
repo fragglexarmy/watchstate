@@ -27,9 +27,8 @@
             size="sm"
             icon="i-lucide-plus"
             @click="openAddForm"
-          >
-            <span class="hidden sm:inline">Add</span>
-          </UButton>
+            label="Add"
+          />
         </UTooltip>
 
         <UTooltip text="Reload rules">
@@ -41,9 +40,8 @@
             :loading="isLoading"
             :disabled="isLoading"
             @click="loadContent"
-          >
-            <span class="hidden sm:inline">Reload</span>
-          </UButton>
+            label="Reload"
+          />
         </UTooltip>
       </div>
     </div>
@@ -97,9 +95,11 @@
               <UIcon :name="getItemTypeIcon(item.type)" class="mt-0.5 size-4 shrink-0 text-toned" />
 
               <div class="min-w-0">
-                <div class="truncate text-base font-semibold text-highlighted">
-                  {{ getItemTitle(item) }}
-                </div>
+                <UTooltip :text="String(getItemTitle(item))">
+                  <div class="truncate text-base font-semibold text-highlighted">
+                    {{ getItemTitle(item) }}
+                  </div>
+                </UTooltip>
               </div>
             </div>
 
@@ -120,14 +120,13 @@
                 size="sm"
                 icon="i-lucide-trash-2"
                 @click="deleteIgnore(item)"
-              >
-                <span class="hidden sm:inline">Delete</span>
-              </UButton>
+                label="Delete"
+              />
             </div>
           </div>
         </template>
 
-        <div class="grid gap-3 sm:grid-cols-2">
+        <div class="grid grid-cols-2 gap-3">
           <div class="rounded-md border border-default bg-elevated/20 px-3 py-3">
             <div class="mb-1 inline-flex items-center gap-2 text-xs font-medium text-toned">
               <UIcon name="i-lucide-server" class="size-4" />
@@ -159,7 +158,7 @@
             </div>
           </div>
 
-          <div class="rounded-md border border-default bg-elevated/20 px-3 py-3 sm:col-span-2">
+          <div class="rounded-md border border-default bg-elevated/20 px-3 py-3">
             <div class="mb-1 inline-flex items-center gap-2 text-xs font-medium text-toned">
               <UIcon name="i-lucide-database" class="size-4" />
               <span>GUID</span>
@@ -180,7 +179,7 @@
             </div>
           </div>
 
-          <div class="rounded-md border border-default bg-elevated/20 px-3 py-3 sm:col-span-2">
+          <div class="rounded-md border border-default bg-elevated/20 px-3 py-3">
             <div class="mb-1 inline-flex items-center gap-2 text-xs font-medium text-toned">
               <UIcon name="i-lucide-calendar" class="size-4" />
               <span>Created</span>

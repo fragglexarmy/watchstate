@@ -22,30 +22,24 @@
       </div>
 
       <div class="flex flex-wrap items-center justify-end gap-2">
-        <UTooltip text="Export to mapper.yaml file">
-          <UButton
-            color="neutral"
-            variant="outline"
-            size="sm"
-            icon="i-lucide-file-output"
-            :disabled="userWithNoPin.length > 0"
-            @click="generateFile"
-          >
-            <span class="hidden sm:inline">Export</span>
-          </UButton>
-        </UTooltip>
+        <UButton
+          color="neutral"
+          variant="outline"
+          size="sm"
+          icon="i-lucide-file-output"
+          :disabled="userWithNoPin.length > 0"
+          @click="generateFile"
+          label="Export"
+        />
 
-        <UTooltip text="Create new user association">
-          <UButton
-            color="neutral"
-            variant="outline"
-            size="sm"
-            icon="i-lucide-plus"
-            @click="addNewUser"
-          >
-            <span class="hidden sm:inline">Add group</span>
-          </UButton>
-        </UTooltip>
+        <UButton
+          color="neutral"
+          variant="outline"
+          size="sm"
+          icon="i-lucide-plus"
+          @click="addNewUser"
+          label="Add group"
+        />
 
         <UButton
           color="neutral"
@@ -55,9 +49,8 @@
           :loading="isLoading"
           :disabled="isLoading"
           @click="loadContent(true)"
-        >
-          <span class="hidden sm:inline">Reload</span>
-        </UButton>
+          label="Reload"
+        />
       </div>
     </div>
 
@@ -119,7 +112,9 @@
         <template #header>
           <div class="flex items-center justify-between gap-3">
             <div class="min-w-0 flex-1">
-              <h2 class="truncate text-base font-semibold text-highlighted">{{ group.user }}</h2>
+              <UTooltip :text="String(group.user)">
+                <h2 class="truncate text-base font-semibold text-highlighted">{{ group.user }}</h2>
+              </UTooltip>
             </div>
 
             <div class="flex shrink-0 items-center gap-2">
@@ -132,9 +127,8 @@
                 icon="i-lucide-trash-2"
                 aria-label="Delete group"
                 @click="deleteGroup(index)"
-              >
-                <span class="hidden sm:inline">Delete</span>
-              </UButton>
+                label="Delete"
+              />
             </div>
           </div>
         </template>
@@ -372,7 +366,7 @@
       </div>
 
       <template #footer>
-        <div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
+        <div class="flex gap-2 flex-row justify-end">
           <UButton
             color="neutral"
             variant="outline"
@@ -384,9 +378,8 @@
                 void saveMap();
               }
             "
-          >
-            Save mapping
-          </UButton>
+            label="Save mapping"
+          />
 
           <UButton
             color="neutral"

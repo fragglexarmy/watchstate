@@ -17,43 +17,34 @@
       </div>
 
       <div class="flex flex-wrap items-center justify-end gap-2">
-        <UTooltip text="Add new GUID">
-          <UButton
-            color="neutral"
-            variant="outline"
-            size="sm"
-            icon="i-lucide-plus"
-            @click="addGuidModalOpen = true"
-          >
-            <span class="hidden sm:inline">Add GUID</span>
-          </UButton>
-        </UTooltip>
+        <UButton
+          color="neutral"
+          variant="outline"
+          size="sm"
+          icon="i-lucide-plus"
+          @click="addGuidModalOpen = true"
+          label="Add GUID"
+        />
 
-        <UTooltip text="Add new link">
-          <UButton
-            color="neutral"
-            variant="outline"
-            size="sm"
-            icon="i-lucide-plus"
-            @click="addLinkModalOpen = true"
-          >
-            <span class="hidden sm:inline">Add Link</span>
-          </UButton>
-        </UTooltip>
+        <UButton
+          color="neutral"
+          variant="outline"
+          size="sm"
+          icon="i-lucide-plus"
+          @click="addLinkModalOpen = true"
+          label="Add Link"
+        />
 
-        <UTooltip text="Reload GUID data">
-          <UButton
-            color="neutral"
-            variant="outline"
-            size="sm"
-            icon="i-lucide-refresh-cw"
-            :loading="isLoading"
-            :disabled="isLoading"
-            @click="loadContent"
-          >
-            <span class="hidden sm:inline">Reload</span>
-          </UButton>
-        </UTooltip>
+        <UButton
+          color="neutral"
+          variant="outline"
+          size="sm"
+          icon="i-lucide-refresh-cw"
+          :loading="isLoading"
+          :disabled="isLoading"
+          @click="loadContent"
+          label="Reload"
+        />
       </div>
     </div>
 
@@ -79,21 +70,19 @@
             <template #header>
               <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0 flex-1 text-base font-semibold text-highlighted">
-                  <span class="block truncate">{{ guid.name }}</span>
+                  <UTooltip :text="String(guid.name)">
+                    <span class="block truncate">{{ guid.name }}</span>
+                  </UTooltip>
                 </div>
-
-                <UTooltip text="Delete GUID">
-                  <UButton
-                    color="neutral"
-                    variant="outline"
-                    size="sm"
-                    icon="i-lucide-trash-2"
-                    aria-label="Delete GUID"
-                    @click="deleteGUID(index, guid)"
-                  >
-                    <span class="hidden sm:inline">Delete</span>
-                  </UButton>
-                </UTooltip>
+                <UButton
+                  color="neutral"
+                  variant="outline"
+                  size="sm"
+                  icon="i-lucide-trash-2"
+                  aria-label="Delete GUID"
+                  @click="deleteGUID(index, guid)"
+                  label="Delete"
+                />
               </div>
             </template>
 
@@ -146,76 +135,85 @@
                     "
                     class="size-4 shrink-0 text-toned"
                   />
-                  <span class="truncate">{{ ucFirst(link.type) }} client link</span>
+                  <UTooltip :text="`${ucFirst(link.type)} client link`">
+                    <span class="truncate">{{ ucFirst(link.type) }} client link</span>
+                  </UTooltip>
                 </button>
 
                 <div v-else class="min-w-0 flex-1 text-base font-semibold text-highlighted">
-                  <span class="block truncate">{{ ucFirst(link.type) }} client link</span>
+                  <UTooltip :text="`${ucFirst(link.type)} client link`">
+                    <span class="block truncate">{{ ucFirst(link.type) }} client link</span>
+                  </UTooltip>
                 </div>
 
-                <UTooltip text="Delete link">
-                  <UButton
-                    color="neutral"
-                    variant="outline"
-                    size="sm"
-                    icon="i-lucide-trash-2"
-                    aria-label="Delete link"
-                    @click="deleteLink(index, link)"
-                  >
-                    <span class="hidden sm:inline">Delete</span>
-                  </UButton>
-                </UTooltip>
+                <UButton
+                  color="neutral"
+                  variant="outline"
+                  size="sm"
+                  icon="i-lucide-trash-2"
+                  aria-label="Delete link"
+                  @click="deleteLink(index, link)"
+                  label="Delete"
+                />
               </div>
             </template>
 
             <div class="grid gap-3 text-sm md:grid-cols-2">
-              <div
-                class="flex min-w-0 items-center justify-between gap-3 rounded-md border border-default bg-elevated/40 px-3 py-2.5"
-              >
-                <span class="inline-flex items-center gap-2 text-toned">
-                  <UIcon name="i-lucide-chevron-right" class="size-4" />
-                  <span>From Client GUID</span>
-                </span>
-                <span class="min-w-0 flex-1 truncate text-right font-medium text-highlighted">{{
-                  link.map.from
-                }}</span>
+              <div class="rounded-md border border-default bg-elevated/40 px-3 py-2.5">
+                <div
+                  class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
+                >
+                  <span class="inline-flex items-center gap-2 text-toned">
+                    <UIcon name="i-lucide-chevron-right" class="size-4" />
+                    <span>From Client GUID</span>
+                  </span>
+                  <span class="min-w-0 font-medium text-highlighted sm:ml-auto sm:text-right">{{
+                    link.map.from
+                  }}</span>
+                </div>
               </div>
 
-              <div
-                class="flex min-w-0 items-center justify-between gap-3 rounded-md border border-default bg-elevated/40 px-3 py-2.5"
-              >
-                <span class="inline-flex items-center gap-2 text-toned">
-                  <UIcon name="i-lucide-chevron-left" class="size-4" />
-                  <span>To WatchState GUID</span>
-                </span>
-                <span class="min-w-0 flex-1 truncate text-right font-medium text-highlighted">{{
-                  link.map.to
-                }}</span>
+              <div class="rounded-md border border-default bg-elevated/40 px-3 py-2.5">
+                <div
+                  class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
+                >
+                  <span class="inline-flex items-center gap-2 text-toned">
+                    <UIcon name="i-lucide-chevron-left" class="size-4" />
+                    <span>To WatchState GUID</span>
+                  </span>
+                  <span class="min-w-0 font-medium text-highlighted sm:ml-auto sm:text-right">{{
+                    link.map.to
+                  }}</span>
+                </div>
               </div>
 
               <template v-if="link.replace?.from && 'show' in link && link.show">
-                <div
-                  class="flex min-w-0 items-center justify-between gap-3 rounded-md border border-default bg-elevated/40 px-3 py-2.5"
-                >
-                  <span class="inline-flex items-center gap-2 text-toned">
-                    <UIcon name="i-lucide-x" class="size-4" />
-                    <span>Replace</span>
-                  </span>
-                  <span class="min-w-0 flex-1 truncate text-right font-medium text-highlighted">{{
-                    link.replace.from
-                  }}</span>
+                <div class="rounded-md border border-default bg-elevated/40 px-3 py-2.5">
+                  <div
+                    class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
+                  >
+                    <span class="inline-flex items-center gap-2 text-toned">
+                      <UIcon name="i-lucide-x" class="size-4" />
+                      <span>Replace</span>
+                    </span>
+                    <span class="min-w-0 font-medium text-highlighted sm:ml-auto sm:text-right">{{
+                      link.replace.from
+                    }}</span>
+                  </div>
                 </div>
 
-                <div
-                  class="flex min-w-0 items-center justify-between gap-3 rounded-md border border-default bg-elevated/40 px-3 py-2.5"
-                >
-                  <span class="inline-flex items-center gap-2 text-toned">
-                    <UIcon name="i-lucide-circle-check" class="size-4" />
-                    <span>With</span>
-                  </span>
-                  <span class="min-w-0 flex-1 truncate text-right font-medium text-highlighted">{{
-                    link.replace.to
-                  }}</span>
+                <div class="rounded-md border border-default bg-elevated/40 px-3 py-2.5">
+                  <div
+                    class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
+                  >
+                    <span class="inline-flex items-center gap-2 text-toned">
+                      <UIcon name="i-lucide-circle-check" class="size-4" />
+                      <span>With</span>
+                    </span>
+                    <span class="min-w-0 font-medium text-highlighted sm:ml-auto sm:text-right">{{
+                      link.replace.to
+                    }}</span>
+                  </div>
                 </div>
               </template>
             </div>
@@ -310,15 +308,35 @@
         </ul>
       </UCard>
 
-      <UModal v-model:open="addGuidModalOpen" title="Add Custom GUID" :ui="formModalUi">
+      <UModal
+        :open="addGuidModalOpen"
+        title="Add Custom GUID"
+        :ui="formModalUi"
+        @update:open="handleAddGuidOpenChange"
+      >
         <template #body>
-          <CustomGuidForm @cancel="addGuidModalOpen = false" @saved="handleGuidSaved" />
+          <CustomGuidForm
+            v-if="addGuidModalOpen"
+            @cancel="() => void requestCloseAddGuid()"
+            @saved="handleGuidSaved"
+            @dirty-change="(dirty) => (addGuidDirty = dirty)"
+          />
         </template>
       </UModal>
 
-      <UModal v-model:open="addLinkModalOpen" title="Add Client GUID Link" :ui="formModalUi">
+      <UModal
+        :open="addLinkModalOpen"
+        title="Add Client GUID Link"
+        :ui="formModalUi"
+        @update:open="handleAddLinkOpenChange"
+      >
         <template #body>
-          <CustomLinkForm @cancel="addLinkModalOpen = false" @saved="handleLinkSaved" />
+          <CustomLinkForm
+            v-if="addLinkModalOpen"
+            @cancel="() => void requestCloseAddLink()"
+            @saved="handleLinkSaved"
+            @dirty-change="(dirty) => (addLinkDirty = dirty)"
+          />
         </template>
       </UModal>
     </template>
@@ -331,6 +349,7 @@ import { useHead } from '#app';
 import { useStorage } from '@vueuse/core';
 import CustomGuidForm from '~/components/CustomGuidForm.vue';
 import CustomLinkForm from '~/components/CustomLinkForm.vue';
+import { useDirtyCloseGuard } from '~/composables/useDirtyCloseGuard';
 import { requireTopLevelPageShell } from '~/utils/topLevelNavigation';
 import { request, makeConsoleCommand, notification, parse_api_response, ucFirst } from '~/utils';
 import { useDialog } from '~/composables/useDialog';
@@ -347,6 +366,8 @@ const show_page_tips = useStorage('show_page_tips', true);
 const isLoading = ref<boolean>(false);
 const addGuidModalOpen = ref<boolean>(false);
 const addLinkModalOpen = ref<boolean>(false);
+const addGuidDirty = ref<boolean>(false);
+const addLinkDirty = ref<boolean>(false);
 const dialog = useDialog();
 
 const itemCardUi = {
@@ -363,6 +384,22 @@ const formModalUi = {
   content: 'sm:max-w-4xl',
   body: 'p-4 sm:p-5',
 };
+
+const { handleOpenChange: handleAddGuidOpenChange, requestClose: requestCloseAddGuid } =
+  useDirtyCloseGuard(addGuidModalOpen, {
+    dirty: addGuidDirty,
+    onDiscard: async () => {
+      addGuidDirty.value = false;
+    },
+  });
+
+const { handleOpenChange: handleAddLinkOpenChange, requestClose: requestCloseAddLink } =
+  useDirtyCloseGuard(addLinkModalOpen, {
+    dirty: addLinkDirty,
+    onDiscard: async () => {
+      addLinkDirty.value = false;
+    },
+  });
 
 const loadContent = async (): Promise<void> => {
   isLoading.value = true;
@@ -401,11 +438,13 @@ onMounted(async (): Promise<void> => {
 });
 
 const handleGuidSaved = async (): Promise<void> => {
+  addGuidDirty.value = false;
   addGuidModalOpen.value = false;
   await loadContent();
 };
 
 const handleLinkSaved = async (): Promise<void> => {
+  addLinkDirty.value = false;
   addLinkModalOpen.value = false;
   await loadContent();
 };

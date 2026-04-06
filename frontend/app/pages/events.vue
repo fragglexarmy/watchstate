@@ -35,10 +35,8 @@
           size="sm"
           icon="i-lucide-filter"
           @click="toggleFilter = !toggleFilter"
-        >
-          <span class="hidden sm:inline">Filter</span>
-        </UButton>
-
+          label="Filter"
+        />
         <UTooltip v-if="items.length > 0" text="Remove all non-pending events.">
           <UButton
             color="neutral"
@@ -47,9 +45,8 @@
             icon="i-lucide-trash-2"
             :disabled="isLoading"
             @click="deleteAll"
-          >
-            <span class="hidden sm:inline">Delete All</span>
-          </UButton>
+            label="Delete All"
+          />
         </UTooltip>
 
         <UButton
@@ -60,9 +57,8 @@
           :loading="isLoading"
           :disabled="isLoading"
           @click="() => void loadContent(page, false)"
-        >
-          <span class="hidden sm:inline">Reload</span>
-        </UButton>
+          label="Reload"
+        />
       </div>
     </div>
 
@@ -108,13 +104,15 @@
         <template #header>
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0 flex-1">
-              <button
-                type="button"
-                class="text-left text-base font-semibold text-highlighted hover:text-primary"
-                @click="quick_view = item.id"
-              >
-                #{{ makeEventName(item.id) }}
-              </button>
+              <UTooltip :text="`#${makeEventName(item.id)}`">
+                <button
+                  type="button"
+                  class="block truncate text-left text-base font-semibold text-highlighted hover:text-primary"
+                  @click="quick_view = item.id"
+                >
+                  #{{ makeEventName(item.id) }}
+                </button>
+              </UTooltip>
             </div>
 
             <div class="flex shrink-0 items-center gap-2">
@@ -164,9 +162,11 @@
             </UBadge>
           </div>
 
-          <div class="grid gap-2.5 sm:grid-cols-2">
+          <div class="grid grid-cols-2 gap-2.5">
             <div class="rounded-md border border-default bg-elevated/20 px-3 py-3">
-              <div class="flex min-w-0 items-center justify-between gap-3 text-sm">
+              <div
+                class="flex min-w-0 flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+              >
                 <span
                   class="inline-flex shrink-0 items-center gap-2 text-xs font-medium text-toned"
                 >
@@ -175,7 +175,7 @@
                 </span>
 
                 <UTooltip :text="`Created at: ${moment(item.created_at).format('llll')}`">
-                  <span class="min-w-0 cursor-help text-right text-default">
+                  <span class="min-w-0 cursor-help text-default sm:ml-auto sm:text-right">
                     {{ moment(item.created_at).fromNow() }}
                   </span>
                 </UTooltip>
@@ -183,7 +183,9 @@
             </div>
 
             <div class="rounded-md border border-default bg-elevated/20 px-3 py-3">
-              <div class="flex min-w-0 items-center justify-between gap-3 text-sm">
+              <div
+                class="flex min-w-0 flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+              >
                 <span
                   class="inline-flex shrink-0 items-center gap-2 text-xs font-medium text-toned"
                 >
@@ -201,14 +203,14 @@
                 </span>
 
                 <template v-if="!item.updated_at">
-                  <span class="min-w-0 text-right text-default">
+                  <span class="min-w-0 text-default sm:ml-auto sm:text-right">
                     {{ 0 === item.status ? 'Pending' : 'None' }}
                   </span>
                 </template>
 
                 <template v-else>
                   <UTooltip :text="`Updated at: ${moment(item.updated_at).format('llll')}`">
-                    <span class="min-w-0 cursor-help text-right text-default">
+                    <span class="min-w-0 cursor-help text-default sm:ml-auto sm:text-right">
                       {{ moment(item.updated_at).fromNow() }}
                     </span>
                   </UTooltip>

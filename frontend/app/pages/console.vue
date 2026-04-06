@@ -1,56 +1,89 @@
 <template>
   <main class="w-full min-w-0 max-w-full space-y-4">
-    <div class="space-y-1">
-      <div
-        class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-toned"
-      >
-        <UIcon :name="pageShell.icon" class="size-4" />
-        <span>{{ pageShell.sectionLabel }}</span>
-        <span>/</span>
-        <span>{{ pageShell.pageLabel }}</span>
+    <div class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+      <div class="min-w-0 space-y-1">
+        <div
+          class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-toned"
+        >
+          <UIcon :name="pageShell.icon" class="size-4" />
+          <span>{{ pageShell.sectionLabel }}</span>
+          <span>/</span>
+          <span>{{ pageShell.pageLabel }}</span>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-end gap-2">
+        <UButton
+          color="neutral"
+          variant="outline"
+          size="sm"
+          icon="i-lucide-eraser"
+          aria-label="Clear terminal output"
+          @click="clearOutput"
+        >
+          Clear output
+        </UButton>
       </div>
     </div>
 
-    <UCard class="border border-default/70 bg-default/90 shadow-sm" :ui="consoleCardUi">
-      <template #header>
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div class="min-w-0 flex-1 space-y-2">
-            <div class="flex flex-wrap items-center gap-2">
-              <div class="inline-flex items-center gap-2 text-base font-semibold text-highlighted">
-                <UIcon name="i-lucide-terminal" class="size-4 text-toned" />
-                <span>Terminal</span>
-              </div>
+    <div class="overflow-hidden border border-default bg-neutral-950/95 shadow-sm">
+      <div ref="outputConsole" class="min-h-[55vh] max-h-[55vh] overflow-hidden" />
+    </div>
 
-              <UBadge color="neutral" variant="soft">
-                {{ allEnabled ? 'All commands enabled' : 'Console only' }}
-              </UBadge>
+    <div class="rounded-md border border-default bg-default shadow-sm">
+      <div
+        class="flex flex-col gap-3 border-b border-default bg-muted/10 px-4 py-3 lg:flex-row lg:items-start lg:justify-between"
+      >
+        <div class="min-w-0 flex-1 space-y-1">
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex min-w-0 items-center gap-2 text-sm font-semibold text-highlighted">
+              <UIcon name="i-lucide-send" class="size-4 shrink-0 text-toned" />
+              <span>Command</span>
             </div>
 
-            <p class="text-sm leading-6 text-default">
-              <template v-if="allEnabled">
-                Run non-interactive commands directly. Prefix shell commands with <code>$</code>
-                when needed.
-              </template>
-              <template v-else>
-                Run non-interactive <code>console</code> commands directly.
-              </template>
-            </p>
+            <UButton
+              color="neutral"
+              variant="outline"
+              size="sm"
+              icon="i-lucide-circle-help"
+              class="shrink-0"
+              :disabled="isLoading"
+              @click="showHelp"
+            >
+              Help
+            </UButton>
           </div>
 
-          <UButton
-            color="neutral"
-            variant="outline"
-            size="sm"
-            icon="i-lucide-eraser"
-            aria-label="Clear terminal output"
-            @click="clearOutput"
-          >
-            <span class="hidden sm:inline">Clear</span>
-          </UButton>
+          <div class="flex flex-wrap items-center gap-2 text-xs text-toned">
+            <p>
+              <template v-if="allEnabled">
+                Shell commands are available when prefixed with <code>$</code>.
+              </template>
+              <template v-else>
+                Shell commands stay disabled unless <code>WS_CONSOLE_ENABLE_ALL</code> is enabled.
+              </template>
+            </p>
+            <UBadge :color="isLoading ? 'info' : 'neutral'" variant="soft" size="sm">
+              <span v-if="isLoading" class="inline-flex items-center gap-1.5">
+                <UIcon name="i-lucide-loader-circle" class="size-3.5 animate-spin" />
+                <span>Streaming</span>
+              </span>
+              <span v-else>Idle</span>
+            </UBadge>
+          </div>
         </div>
-      </template>
+      </div>
 
-      <div class="space-y-4">
+      <div class="space-y-3 px-4 py-4">
+        <UAlert
+          v-if="streamState.error"
+          color="error"
+          variant="soft"
+          icon="i-lucide-triangle-alert"
+          title="Command stream failed"
+          :description="streamState.error"
+        />
+
         <UAlert
           v-if="hasPrefix"
           color="warning"
@@ -75,116 +108,137 @@
           </template>
         </UAlert>
 
-        <div class="overflow-hidden rounded-md border border-default bg-neutral-950/95">
-          <div ref="outputConsole" class="min-h-[60vh] max-h-[70vh] overflow-hidden" />
-        </div>
-      </div>
+        <div class="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
+          <UInput
+            ref="commandInput"
+            v-model="command"
+            type="text"
+            size="lg"
+            aria-label="Command"
+            :placeholder="`system:tasks ${allEnabled ? 'or $ ls' : ''}`"
+            autocomplete="off"
+            :disabled="isLoading"
+            :icon="isLoading ? 'i-lucide-loader-circle' : 'i-lucide-terminal'"
+            :ui="isLoading ? { leadingIcon: 'animate-spin' } : undefined"
+            class="ws-console-input w-full"
+            @keydown.enter="RunCommand"
+          />
 
-      <template #footer>
-        <div class="flex flex-col gap-3 xl:flex-row xl:items-end">
-          <UFormField label="Command" name="command" class="flex-1">
-            <UInput
-              ref="commandInput"
-              v-model="command"
-              type="text"
-              :placeholder="`system:view ${allEnabled ? 'or $ ls' : ''}`"
-              list="recent_commands"
-              autocomplete="off"
-              :disabled="isLoading"
-              :icon="isLoading ? 'i-lucide-loader-circle' : 'i-lucide-terminal'"
-              :ui="isLoading ? { leadingIcon: 'animate-spin' } : undefined"
-              class="w-full"
-              @keydown.enter="RunCommand"
-            />
-          </UFormField>
+          <div class="flex flex-wrap items-center justify-end gap-2 xl:self-end">
+            <UPopover :content="{ side: 'top', align: 'end', sideOffset: 8 }">
+              <UButton
+                color="neutral"
+                variant="outline"
+                size="lg"
+                icon="i-lucide-history"
+                trailing-icon="i-lucide-chevron-up"
+                class="flex-1 justify-center sm:flex-none sm:min-w-36"
+              >
+                History
+              </UButton>
 
-          <div class="flex flex-wrap items-center justify-end gap-2">
+              <template #content>
+                <UCard
+                  class="w-[min(92vw,42rem)] border border-default/70 shadow-sm"
+                  :ui="historyCardUi"
+                >
+                  <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-center gap-2 text-sm font-semibold text-highlighted">
+                      <UIcon name="i-lucide-history" class="size-4 text-toned" />
+                      <span>Command history</span>
+                    </div>
+
+                    <UButton
+                      color="neutral"
+                      variant="outline"
+                      size="sm"
+                      icon="i-lucide-trash"
+                      :disabled="commandHistory.length < 1"
+                      @click="clearHistory"
+                    >
+                      Clear history
+                    </UButton>
+                  </div>
+
+                  <UAlert
+                    v-if="commandHistory.length < 1"
+                    color="info"
+                    variant="soft"
+                    icon="i-lucide-clock-3"
+                    title="Command history is empty"
+                  />
+
+                  <div
+                    v-else
+                    class="max-h-96 overflow-auto rounded-lg border border-default bg-default"
+                  >
+                    <table class="w-full text-sm">
+                      <tbody class="divide-y divide-default">
+                        <tr v-for="item in commandHistory" :key="item" class="hover:bg-muted/20">
+                          <td class="px-3 py-3 align-middle">
+                            <button
+                              type="button"
+                              class="block w-full text-left font-mono text-xs text-default hover:text-highlighted"
+                              @click="loadCommand(item)"
+                            >
+                              {{ item }}
+                            </button>
+                          </td>
+
+                          <td class="w-12 px-3 py-3 text-center align-middle whitespace-nowrap">
+                            <UButton
+                              color="neutral"
+                              variant="ghost"
+                              size="xs"
+                              icon="i-lucide-x"
+                              square
+                              @click="removeFromHistory(item)"
+                            />
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </UCard>
+              </template>
+            </UPopover>
+
             <UButton
               v-if="isLoading"
               color="neutral"
               variant="outline"
-              size="sm"
+              size="lg"
               icon="i-lucide-power"
-              @click="finished"
+              class="flex-1 justify-center sm:flex-none sm:min-w-36"
+              @click="closeOutput"
             >
-              <span class="hidden sm:inline">Close</span>
+              Close output
             </UButton>
 
             <UButton
               v-else
               color="primary"
               variant="solid"
-              size="sm"
+              size="lg"
               icon="i-lucide-send"
-              :disabled="hasPrefix"
+              :disabled="hasPrefix || !hasRunnableCommand"
+              class="flex-1 justify-center sm:flex-none sm:min-w-36"
               @click="RunCommand"
             >
-              Execute
+              Run command
             </UButton>
           </div>
         </div>
-      </template>
-    </UCard>
-
-    <UCard class="border border-default/70 bg-default/90 shadow-sm" :ui="tipsCardUi">
-      <template #header>
-        <button
-          type="button"
-          class="flex w-full items-center justify-between gap-3 text-left"
-          @click="show_page_tips = !show_page_tips"
-        >
-          <span class="inline-flex items-center gap-2 text-sm font-semibold text-highlighted">
-            <UIcon name="i-lucide-info" class="size-4 text-toned" />
-            <span>Tips</span>
-          </span>
-
-          <span class="inline-flex items-center gap-1 text-xs font-medium text-toned">
-            <UIcon
-              :name="show_page_tips ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
-              class="size-4"
-            />
-            <span>{{ show_page_tips ? 'Hide' : 'Show' }}</span>
-          </span>
-        </button>
-      </template>
-
-      <ul v-if="show_page_tips" class="list-disc space-y-2 pl-5 text-sm leading-6 text-default">
-        <li>
-          You don’t need to type <code>console</code> or run
-          <code>docker exec -ti watchstate console</code> when using this interface. Just enter the
-          command and options directly. For example: <code>db:list --output yaml</code>.
-        </li>
-        <li>
-          Clicking <strong>Close</strong> only stops the output from being shown. It does
-          <em>not</em> stop the command itself. The command will continue running until it finishes.
-        </li>
-        <li>
-          Most commands won’t display anything unless there’s an error or important message. Use
-          <code>-v</code> to see more details. If you’re debugging, try <code>-vv --context</code>
-          for even more information.
-        </li>
-        <li>
-          There’s an environment variable <code>WS_CONSOLE_ENABLE_ALL</code> that you can set to
-          <code>true</code> to allow all commands to run from the console. It’s turned off by
-          default.
-        </li>
-        <li>To clear the recent command suggestions, use the <code>clear_ac</code> command.</li>
-        <li>
-          The number inside the parentheses is the exit code of the last command. If it’s
-          <code>0</code>, the command ran successfully. Any other value usually means something went
-          wrong.
-        </li>
-        <li>Some commands may</li>
-      </ul>
-    </UCard>
-
-    <datalist id="recent_commands">
-      <option v-for="item in recentCommands" :key="item" :value="item" />
-    </datalist>
+      </div>
+    </div>
   </main>
 </template>
 
 <style scoped>
+.ws-console-input :deep(input) {
+  font-family: 'JetBrains Mono', monospace;
+}
+
 .xterm {
   padding: 0.5rem !important;
 }
@@ -196,16 +250,15 @@
 
 <script setup lang="ts">
 import '@xterm/xterm/css/xterm.css';
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useHead, useRoute, useRouter } from '#app';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import { useStorage } from '@vueuse/core';
 import { requireTopLevelPageShell } from '~/utils/topLevelNavigation';
 import { request, disableOpacity, enableOpacity, notification, parse_api_response } from '~/utils';
-import { fetchEventSource } from '@microsoft/fetch-event-source';
-import type { EnvVar, GenericError, GenericResponse } from '~/types';
+import type { EnvVar } from '~/types';
 import { useDialog } from '~/composables/useDialog';
+import { useConsoleStream } from '~/composables/useConsoleStream';
 
 useHead({ title: 'Console' });
 
@@ -219,44 +272,75 @@ type ConsoleInputRef = {
   inputRef?: HTMLInputElement | null;
 };
 
-let sse: (() => void) | null = null;
+let flushFrame: number | null = null;
 const terminal = ref<Terminal | null>(null);
 const terminalFit = ref<FitAddon | null>(null);
-const response = ref<Array<unknown>>([]);
 const command = ref<string>(fromCommand);
-const isLoading = ref<boolean>(false);
 const outputConsole = ref<HTMLElement | null>(null);
 const commandInput = ref<ConsoleInputRef | null>(null);
-const executedCommands = useStorage<Array<string>>('executedCommands', []);
-const exitCode = ref<number>(0);
+const {
+  commandHistory,
+  state: streamState,
+  unflushedChunks,
+  clearOutput: clearStreamOutput,
+  closeStreamView,
+  markChunkFlushed,
+  resetFlushedOutput,
+  startRun,
+} = useConsoleStream();
+
+const isLoading = computed(
+  () => 'starting' === streamState.value.status || 'streaming' === streamState.value.status,
+);
 
 const hasPrefix = computed(
   () => command.value.startsWith('console') || command.value.startsWith('docker'),
 );
 const hasPlaceholder = computed(() => command.value && command.value.match(/\[.*]/));
-const show_page_tips = useStorage<boolean>('show_page_tips', true);
+const hasRunnableCommand = computed(() => Boolean(command.value.trim()));
 const allEnabled = ref<boolean>(false);
-const ctrl = new AbortController();
 
-const consoleCardUi = {
-  header: 'p-4',
-  body: 'px-4 pb-4 pt-0',
-  footer: 'border-t border-default p-4',
-};
-
-const tipsCardUi = {
-  header: 'p-4',
-  body: 'px-4 pb-4 pt-0',
+const historyCardUi = {
+  body: 'space-y-3 p-4',
 };
 
 const focusCommandInput = (): void => {
   commandInput.value?.inputRef?.focus({ preventScroll: true });
 };
 
-const RunCommand = async (): Promise<void> => {
-  const token = useStorage<string>('token', '');
+const flushTerminal = (): void => {
+  if (!terminal.value || unflushedChunks.value.length < 1) {
+    return;
+  }
 
+  const pending = [...unflushedChunks.value];
+  const text = pending.map((chunk) => chunk.value).join('');
+
+  if (!text) {
+    return;
+  }
+
+  terminal.value.write(text);
+
+  for (const chunk of pending) {
+    markChunkFlushed(chunk.id);
+  }
+};
+
+const scheduleFlush = (): void => {
+  if (flushFrame) {
+    return;
+  }
+
+  flushFrame = window.requestAnimationFrame(() => {
+    flushFrame = null;
+    flushTerminal();
+  });
+};
+
+const RunCommand = async (): Promise<void> => {
   let userCommand: string = command.value;
+  const historyCommand = userCommand;
 
   if (userCommand.startsWith('console') || userCommand.startsWith('docker')) {
     notification('info', 'Warning', 'Removing leading prefix command from the input.', 2000);
@@ -274,18 +358,17 @@ const RunCommand = async (): Promise<void> => {
     }
   }
 
-  response.value = [];
-
   if ('clear' === userCommand) {
     command.value = '';
     if (terminal.value) {
       terminal.value.clear();
     }
+    clearStreamOutput();
     return;
   }
 
   if ('clear_ac' === userCommand) {
-    executedCommands.value = [];
+    commandHistory.value = [];
     command.value = '';
     return;
   }
@@ -303,123 +386,21 @@ const RunCommand = async (): Promise<void> => {
     userCommand = `console ${userCommand}`;
   }
 
-  isLoading.value = true;
-  let commandToken: string;
+  const result = await startRun(commandBody.command, userCommand, historyCommand);
 
-  try {
-    const response = await request('/system/command', {
-      method: 'POST',
-      body: JSON.stringify(commandBody),
-    });
-
-    const json = await parse_api_response<{ token: string }>(response);
-
-    if ('error' in json) {
-      await finished();
-      notification('error', 'Error', `${json.error.code}: ${json.error.message}`, 5000);
-      return;
-    }
-
-    if (201 !== response.status) {
-      await finished();
-      return;
-    }
-
-    commandToken = json.token;
-  } catch (e: unknown) {
-    await finished();
-    const errorMessage = e instanceof Error ? e.message : 'Unknown error occurred';
-    notification('error', 'Error', errorMessage, 5000);
+  if ('error' === result.status) {
+    notification('error', 'Error', result.message, 5000);
+    focusCommandInput();
     return;
   }
 
-  fetchEventSource(`/v1/api/system/command/${commandToken}`, {
-    signal: ctrl.signal,
-    headers: { Authorization: `Token ${token.value}` },
-    onmessage: async (evt: { event: string; data: string }): Promise<void> => {
-      switch (evt.event) {
-        case 'data':
-          if (terminal.value) {
-            const eventData = JSON.parse(evt.data) as { data: string };
-            terminal.value.write(eventData.data);
-          }
-          break;
-        case 'close':
-          await finished();
-          break;
-        case 'exit_code':
-          exitCode.value = parseInt(evt.data);
-          break;
-        default:
-          break;
-      }
-    },
-    onopen: async (response: Response): Promise<void> => {
-      if (response.ok) {
-        return;
-      }
-
-      const json = await parse_api_response<GenericResponse>(response);
-
-      if ('error' in json) {
-        const errorJson = json as GenericError;
-        if (400 === errorJson.error.code) {
-          ctrl.abort();
-          return;
-        }
-        const message = `${errorJson.error.code}: ${errorJson.error.message}`;
-        notification('error', 'Error', message, 3000);
-        await finished();
-        return;
-      }
-
-      if (400 === response.status) {
-        ctrl.abort();
-        return;
-      }
-
-      await finished();
-    },
-    onerror: (e: unknown): void => {
-      console.log(e);
-    },
-  });
-
-  sse = () => ctrl.abort();
-
-  if ('' !== command.value && terminal.value) {
-    terminal.value.writeln(`(${exitCode.value}) ~ ${userCommand}`);
+  if ('blocked' === result.status) {
+    focusCommandInput();
+    return;
   }
-};
-
-const finished = async (): Promise<void> => {
-  if (sse) {
-    sse();
-    sse = null;
-  }
-
-  isLoading.value = false;
-
-  const route = useRoute();
 
   if (route.query?.cmd || route.query?.run) {
-    route.query.cmd = '';
-    route.query.run = '';
-    await useRouter().push({ path: '/console' });
-  }
-
-  if (executedCommands.value.includes(command.value)) {
-    executedCommands.value.splice(executedCommands.value.indexOf(command.value), 1);
-  }
-
-  executedCommands.value.push(command.value);
-
-  if (30 < executedCommands.value.length) {
-    executedCommands.value.shift();
-  }
-
-  if (terminal.value) {
-    terminal.value.writeln(`\n(${exitCode.value}) ~ `);
+    await useRouter().replace({ path: '/console' });
   }
 
   command.value = '';
@@ -427,8 +408,6 @@ const finished = async (): Promise<void> => {
 
   focusCommandInput();
 };
-
-const recentCommands = computed(() => executedCommands.value.slice(-10).reverse());
 
 const reSizeTerminal = (): void => {
   if (!terminal.value || !terminalFit.value) {
@@ -441,13 +420,58 @@ const clearOutput = async (): Promise<void> => {
   if (terminal.value) {
     terminal.value.clear();
   }
+  clearStreamOutput();
   focusCommandInput();
+};
+
+const showHelp = async (): Promise<void> => {
+  if (isLoading.value) {
+    return;
+  }
+
+  command.value = '';
+  await RunCommand();
+};
+
+const closeOutput = (): void => {
+  closeStreamView();
+  focusCommandInput();
+};
+
+const loadCommand = async (value: string): Promise<void> => {
+  command.value = value;
+  await nextTick();
+  focusCommandInput();
+};
+
+const clearHistory = async (): Promise<void> => {
+  if (commandHistory.value.length < 1) {
+    return;
+  }
+
+  const { status } = await useDialog().confirmDialog({
+    title: 'Confirm Action',
+    message: 'Clear saved command history?',
+    confirmColor: 'error',
+  });
+
+  if (true !== status) {
+    return;
+  }
+
+  commandHistory.value = [];
+  focusCommandInput();
+};
+
+const removeFromHistory = (value: string): void => {
+  commandHistory.value = commandHistory.value.filter((item) => item !== value);
 };
 
 onUnmounted(() => {
   window.removeEventListener('resize', reSizeTerminal);
-  if (sse) {
-    sse();
+  if (flushFrame) {
+    window.cancelAnimationFrame(flushFrame);
+    flushFrame = null;
   }
   enableOpacity();
 });
@@ -472,6 +496,15 @@ onMounted(async () => {
     terminal.value.open(outputConsole.value);
     terminal.value.loadAddon(terminalFit.value);
     terminalFit.value.fit();
+    if (streamState.value.chunks.length > 0) {
+      resetFlushedOutput();
+      flushTerminal();
+    }
+  }
+
+  const run: boolean = route.query?.run ? Boolean(route.query.run) : false;
+  if (true === run && command.value) {
+    await RunCommand();
   }
 
   try {
@@ -486,10 +519,29 @@ onMounted(async () => {
   } catch {
     allEnabled.value = false;
   }
-
-  const run: boolean = route.query?.run ? Boolean(route.query.run) : false;
-  if (true === run && command.value) {
-    await RunCommand();
-  }
 });
+
+watch(
+  unflushedChunks,
+  () => {
+    if (!terminal.value || unflushedChunks.value.length < 1) {
+      return;
+    }
+
+    scheduleFlush();
+  },
+  { deep: true },
+);
+
+watch(
+  () => streamState.value.error,
+  (message) => {
+    if (!message) {
+      return;
+    }
+
+    notification('error', 'Error', message, 5000);
+    focusCommandInput();
+  },
+);
 </script>

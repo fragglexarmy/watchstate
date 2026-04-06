@@ -1,6 +1,6 @@
 <template>
   <UPopover
-    mode="hover"
+    :mode="popoverMode"
     :open-delay="150"
     :close-delay="150"
     :arrow="false"
@@ -33,7 +33,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
+import { useBreakpoints } from '@vueuse/core';
 import { awaiter, notification, request } from '~/utils';
 import { useSessionCache } from '~/utils/cache';
 
@@ -49,11 +50,16 @@ const props = defineProps<{
 }>();
 
 const cache = useSessionCache();
+const breakpoints = useBreakpoints({ mobile: 0, desktop: 640 });
 
 const url = ref<string | undefined>();
 const error = ref<boolean>(false);
 const isPreloading = ref<boolean>(false);
 let cancelRequest = new AbortController();
+
+const popoverMode = computed<'click' | 'hover'>(() =>
+  'mobile' === breakpoints.active().value ? 'click' : 'hover',
+);
 
 const defaultLoader = async (): Promise<void> => {
   try {

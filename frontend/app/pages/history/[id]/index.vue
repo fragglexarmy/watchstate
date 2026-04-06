@@ -68,7 +68,7 @@
             :disabled="!data.content_exists"
             @click="navigateTo(`/play/${data.id}`)"
           >
-            <span class="hidden sm:inline">Play</span>
+            Play
           </UButton>
         </UTooltip>
 
@@ -80,7 +80,7 @@
             :icon="data.watched ? 'i-lucide-eye-off' : 'i-lucide-eye'"
             @click="toggleWatched"
           >
-            <span class="hidden sm:inline">{{ data.watched ? 'Unwatched' : 'Watched' }}</span>
+            {{ data.watched ? 'Unwatched' : 'Watched' }}
           </UButton>
         </UTooltip>
 
@@ -94,7 +94,7 @@
             :loading="isDeleting"
             @click="deleteItem"
           >
-            <span class="hidden sm:inline">Delete</span>
+            Delete
           </UButton>
         </UTooltip>
 
@@ -106,7 +106,7 @@
           :loading="isLoading"
           @click="() => void loadContent(id)"
         >
-          <span class="hidden sm:inline">Reload</span>
+          Reload
         </UButton>
       </div>
     </div>
@@ -222,7 +222,7 @@
           <div class="grid gap-4 md:grid-cols-2">
             <div class="rounded-md border border-default bg-elevated/40 px-3 py-3">
               <div
-                class="flex min-w-0 cursor-pointer items-start justify-between gap-3"
+                class="flex min-w-0 cursor-pointer flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
                 @click="expandLocalId = !expandLocalId"
               >
                 <span
@@ -233,7 +233,7 @@
                 </span>
                 <NuxtLink
                   :to="`/history/${data.id}`"
-                  class="block min-w-0 flex-1 text-right hover:text-primary"
+                  class="block min-w-0 flex-1 hover:text-primary sm:text-right"
                   :class="expandableInlineClass(expandLocalId, true)"
                   >{{ data.id }}</NuxtLink
                 >
@@ -241,7 +241,9 @@
             </div>
 
             <div class="rounded-md border border-default bg-elevated/40 px-3 py-3">
-              <div class="flex min-w-0 items-center justify-between gap-3">
+              <div
+                class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+              >
                 <span
                   class="inline-flex shrink-0 items-center gap-2 text-xs font-medium text-toned"
                 >
@@ -251,35 +253,39 @@
                   />
                   <span>Status</span>
                 </span>
-                <span class="min-w-0 flex-1 text-right">{{
+                <span class="min-w-0 flex-1 sm:text-right">{{
                   data.watched ? 'Played' : 'Unplayed'
                 }}</span>
               </div>
             </div>
 
             <div class="rounded-md border border-default bg-elevated/40 px-3 py-3">
-              <div class="flex min-w-0 items-center justify-between gap-3">
+              <div
+                class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+              >
                 <span
                   class="inline-flex shrink-0 items-center gap-2 text-xs font-medium text-toned"
                 >
                   <UIcon name="i-lucide-mail" class="size-4" />
                   <span>Event</span>
                 </span>
-                <span class="min-w-0 flex-1 text-right">{{
+                <span class="min-w-0 flex-1 sm:text-right">{{
                   ag(data.extra, `${data.via}.event`, 'Unknown')
                 }}</span>
               </div>
             </div>
 
             <div class="rounded-md border border-default bg-elevated/40 px-3 py-3">
-              <div class="flex min-w-0 items-center justify-between gap-3">
+              <div
+                class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+              >
                 <span
                   class="inline-flex shrink-0 items-center gap-2 text-xs font-medium text-toned"
                 >
                   <UIcon name="i-lucide-gauge" class="size-4" />
                   <span>Progress</span>
                 </span>
-                <span class="min-w-0 flex-1 text-right">
+                <span class="min-w-0 flex-1 sm:text-right">
                   {{
                     Number(data.progress) > 0 ? formatDuration(Number(data.progress ?? 0)) : 'None'
                   }}
@@ -288,7 +294,9 @@
             </div>
 
             <div class="rounded-md border border-default bg-elevated/40 px-3 py-3">
-              <div class="flex min-w-0 items-center justify-between gap-3">
+              <div
+                class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+              >
                 <span
                   class="inline-flex shrink-0 items-center gap-2 text-xs font-medium text-toned"
                 >
@@ -300,14 +308,16 @@
                 </span>
                 <NuxtLink
                   :to="makeSearchLink('type', data.type)"
-                  class="min-w-0 flex-1 text-right hover:text-primary"
+                  class="min-w-0 flex-1 hover:text-primary sm:text-right"
                   >{{ ucFirst(data.type) }}</NuxtLink
                 >
               </div>
             </div>
 
             <div class="rounded-md border border-default bg-elevated/40 px-3 py-3">
-              <div class="flex min-w-0 items-center justify-between gap-3">
+              <div
+                class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+              >
                 <span
                   class="inline-flex shrink-0 items-center gap-2 text-xs font-medium text-toned"
                 >
@@ -317,7 +327,7 @@
                 <UTooltip
                   :text="`Backend updated this record at: ${moment.unix(Number(data.updated ?? 0)).format(TOOLTIP_DATE_FORMAT)}`"
                 >
-                  <span class="cursor-help text-right">{{
+                  <span class="cursor-help sm:ml-auto sm:text-right">{{
                     moment.unix(Number(data.updated ?? 0)).fromNow()
                   }}</span>
                 </UTooltip>
@@ -328,7 +338,9 @@
               v-if="'episode' === data.type"
               class="rounded-md border border-default bg-elevated/40 px-3 py-3"
             >
-              <div class="flex min-w-0 items-center justify-between gap-3">
+              <div
+                class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+              >
                 <span
                   class="inline-flex shrink-0 items-center gap-2 text-xs font-medium text-toned"
                 >
@@ -337,7 +349,7 @@
                 </span>
                 <NuxtLink
                   :to="makeSearchLink('season', String(data.season ?? ''))"
-                  class="min-w-0 flex-1 text-right hover:text-primary"
+                  class="min-w-0 flex-1 hover:text-primary sm:text-right"
                 >
                   {{ data.season }}
                 </NuxtLink>
@@ -348,7 +360,9 @@
               v-if="'episode' === data.type"
               class="rounded-md border border-default bg-elevated/40 px-3 py-3"
             >
-              <div class="flex min-w-0 items-center justify-between gap-3">
+              <div
+                class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+              >
                 <span
                   class="inline-flex shrink-0 items-center gap-2 text-xs font-medium text-toned"
                 >
@@ -357,7 +371,7 @@
                 </span>
                 <NuxtLink
                   :to="makeSearchLink('episode', String(data.episode ?? ''))"
-                  class="min-w-0 flex-1 text-right hover:text-primary"
+                  class="min-w-0 flex-1 hover:text-primary sm:text-right"
                 >
                   {{ data.episode }}
                 </NuxtLink>
@@ -368,7 +382,9 @@
               v-if="data.created_at"
               class="rounded-md border border-default bg-elevated/40 px-3 py-3"
             >
-              <div class="flex min-w-0 items-center justify-between gap-3">
+              <div
+                class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+              >
                 <span
                   class="inline-flex shrink-0 items-center gap-2 text-xs font-medium text-toned"
                 >
@@ -378,7 +394,7 @@
                 <UTooltip
                   :text="`DB record created at: ${moment.unix(data.created_at).format(TOOLTIP_DATE_FORMAT)}`"
                 >
-                  <span class="cursor-help text-right">{{
+                  <span class="cursor-help sm:ml-auto sm:text-right">{{
                     moment.unix(data.created_at).fromNow()
                   }}</span>
                 </UTooltip>
@@ -389,7 +405,9 @@
               v-if="data.updated_at"
               class="rounded-md border border-default bg-elevated/40 px-3 py-3"
             >
-              <div class="flex min-w-0 items-center justify-between gap-3">
+              <div
+                class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+              >
                 <span
                   class="inline-flex shrink-0 items-center gap-2 text-xs font-medium text-toned"
                 >
@@ -399,7 +417,7 @@
                 <UTooltip
                   :text="`DB record updated at: ${moment.unix(data.updated_at).format(TOOLTIP_DATE_FORMAT)}`"
                 >
-                  <span class="cursor-help text-right">{{
+                  <span class="cursor-help sm:ml-auto sm:text-right">{{
                     moment.unix(data.updated_at).fromNow()
                   }}</span>
                 </UTooltip>
@@ -425,10 +443,25 @@
               v-if="data?.content_title"
               class="rounded-md border border-default bg-elevated/40 px-3 py-3"
             >
-              <div class="mb-1 inline-flex items-center gap-2 text-xs font-medium text-toned">
-                <UIcon name="i-lucide-heading" class="size-4" />
-                <span>Subtitle</span>
+              <div class="mb-2 flex items-center justify-between gap-3">
+                <div class="inline-flex items-center gap-2 text-xs font-medium text-toned">
+                  <UIcon name="i-lucide-heading" class="size-4" />
+                  <span>Subtitle</span>
+                </div>
+
+                <UTooltip text="Copy subtitle">
+                  <UButton
+                    color="neutral"
+                    variant="ghost"
+                    size="sm"
+                    square
+                    icon="i-lucide-copy"
+                    aria-label="Copy subtitle"
+                    @click="() => void copyText(data.content_title ?? '', false)"
+                  />
+                </UTooltip>
               </div>
+
               <div
                 class="min-w-0 cursor-pointer"
                 :class="expandableInlineClass(expandLocalTitle)"
@@ -447,10 +480,25 @@
               v-if="data?.content_path"
               class="rounded-md border border-default bg-elevated/40 px-3 py-3"
             >
-              <div class="mb-1 inline-flex items-center gap-2 text-xs font-medium text-toned">
-                <UIcon name="i-lucide-file-text" class="size-4" />
-                <span>File Path</span>
+              <div class="mb-2 flex items-center justify-between gap-3">
+                <div class="inline-flex items-center gap-2 text-xs font-medium text-toned">
+                  <UIcon name="i-lucide-file-text" class="size-4" />
+                  <span>File Path</span>
+                </div>
+
+                <UTooltip text="Copy file path">
+                  <UButton
+                    color="neutral"
+                    variant="ghost"
+                    size="sm"
+                    square
+                    icon="i-lucide-copy"
+                    aria-label="Copy file path"
+                    @click="() => void copyText(data.content_path ?? '', false)"
+                  />
+                </UTooltip>
               </div>
+
               <div
                 class="min-w-0 cursor-pointer"
                 :class="expandableInlineClass(expandLocalPath, true)"
@@ -727,7 +775,9 @@
               </div>
 
               <div class="rounded-md border border-default bg-elevated/40 px-3 py-3">
-                <div class="flex min-w-0 items-center justify-between gap-3">
+                <div
+                  class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+                >
                   <span
                     class="inline-flex shrink-0 items-center gap-2 text-xs font-medium text-toned"
                   >
@@ -737,35 +787,39 @@
                     />
                     <span>Status</span>
                   </span>
-                  <span class="min-w-0 flex-1 text-right">{{
+                  <span class="min-w-0 flex-1 sm:text-right">{{
                     Number(item.watched) ? 'Played' : 'Unplayed'
                   }}</span>
                 </div>
               </div>
 
               <div class="rounded-md border border-default bg-elevated/40 px-3 py-3">
-                <div class="flex min-w-0 items-center justify-between gap-3">
+                <div
+                  class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+                >
                   <span
                     class="inline-flex shrink-0 items-center gap-2 text-xs font-medium text-toned"
                   >
                     <UIcon name="i-lucide-mail" class="size-4" />
                     <span>Event</span>
                   </span>
-                  <span class="min-w-0 flex-1 text-right">{{
+                  <span class="min-w-0 flex-1 sm:text-right">{{
                     ag(data.extra, `${key}.event`, 'Unknown')
                   }}</span>
                 </div>
               </div>
 
               <div class="rounded-md border border-default bg-elevated/40 px-3 py-3">
-                <div class="flex min-w-0 items-center justify-between gap-3">
+                <div
+                  class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+                >
                   <span
                     class="inline-flex shrink-0 items-center gap-2 text-xs font-medium text-toned"
                   >
                     <UIcon name="i-lucide-gauge" class="size-4" />
                     <span>Progress</span>
                   </span>
-                  <span class="min-w-0 flex-1 text-right">
+                  <span class="min-w-0 flex-1 sm:text-right">
                     {{
                       Number(item?.progress) > 0
                         ? formatDuration(Number(item?.progress ?? 0))
@@ -776,7 +830,9 @@
               </div>
 
               <div class="rounded-md border border-default bg-elevated/40 px-3 py-3">
-                <div class="flex min-w-0 items-center justify-between gap-3">
+                <div
+                  class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+                >
                   <span
                     class="inline-flex shrink-0 items-center gap-2 text-xs font-medium text-toned"
                   >
@@ -786,7 +842,7 @@
                   <UTooltip
                     :text="`Backend last activity: ${getMoment(ag(data.extra, `${key}.received_at`, data.updated)).format(TOOLTIP_DATE_FORMAT)}`"
                   >
-                    <span class="cursor-help text-right">{{
+                    <span class="cursor-help sm:ml-auto sm:text-right">{{
                       getMoment(ag(data.extra, `${key}.received_at`, data.updated)).fromNow()
                     }}</span>
                   </UTooltip>
@@ -794,7 +850,9 @@
               </div>
 
               <div class="rounded-md border border-default bg-elevated/40 px-3 py-3">
-                <div class="flex min-w-0 items-center justify-between gap-3">
+                <div
+                  class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+                >
                   <span
                     class="inline-flex shrink-0 items-center gap-2 text-xs font-medium text-toned"
                   >
@@ -806,7 +864,7 @@
                   </span>
                   <NuxtLink
                     :to="makeSearchLink('type', item.type)"
-                    class="min-w-0 flex-1 text-right hover:text-primary"
+                    class="min-w-0 flex-1 hover:text-primary sm:text-right"
                     >{{ ucFirst(item.type) }}</NuxtLink
                   >
                 </div>
@@ -816,7 +874,9 @@
                 v-if="'episode' === item.type"
                 class="rounded-md border border-default bg-elevated/40 px-3 py-3"
               >
-                <div class="flex min-w-0 items-center justify-between gap-3">
+                <div
+                  class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+                >
                   <span
                     class="inline-flex shrink-0 items-center gap-2 text-xs font-medium text-toned"
                   >
@@ -825,7 +885,7 @@
                   </span>
                   <NuxtLink
                     :to="makeSearchLink('season', String(item.season ?? ''))"
-                    class="min-w-0 flex-1 text-right hover:text-primary"
+                    class="min-w-0 flex-1 hover:text-primary sm:text-right"
                   >
                     {{ item.season }}
                   </NuxtLink>
@@ -836,7 +896,9 @@
                 v-if="'episode' === item.type"
                 class="rounded-md border border-default bg-elevated/40 px-3 py-3"
               >
-                <div class="flex min-w-0 items-center justify-between gap-3">
+                <div
+                  class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+                >
                   <span
                     class="inline-flex shrink-0 items-center gap-2 text-xs font-medium text-toned"
                   >
@@ -845,7 +907,7 @@
                   </span>
                   <NuxtLink
                     :to="makeSearchLink('episode', String(item.episode ?? ''))"
-                    class="min-w-0 flex-1 text-right hover:text-primary"
+                    class="min-w-0 flex-1 hover:text-primary sm:text-right"
                   >
                     {{ item.episode }}
                   </NuxtLink>
@@ -871,10 +933,25 @@
                 v-if="item?.extra?.title"
                 class="rounded-md border border-default bg-elevated/40 px-3 py-3"
               >
-                <div class="mb-1 inline-flex items-center gap-2 text-xs font-medium text-toned">
-                  <UIcon name="i-lucide-heading" class="size-4" />
-                  <span>Subtitle</span>
+                <div class="mb-2 flex items-center justify-between gap-3">
+                  <div class="inline-flex items-center gap-2 text-xs font-medium text-toned">
+                    <UIcon name="i-lucide-heading" class="size-4" />
+                    <span>Subtitle</span>
+                  </div>
+
+                  <UTooltip text="Copy subtitle">
+                    <UButton
+                      color="neutral"
+                      variant="ghost"
+                      size="sm"
+                      square
+                      icon="i-lucide-copy"
+                      aria-label="Copy subtitle"
+                      @click="() => void copyText(item.extra?.title ?? '', false)"
+                    />
+                  </UTooltip>
                 </div>
+
                 <div
                   class="min-w-0 cursor-pointer"
                   :class="expandableInlineClass(item.expandTitle)"
@@ -893,10 +970,25 @@
                 v-if="item?.path"
                 class="rounded-md border border-default bg-elevated/40 px-3 py-3"
               >
-                <div class="mb-1 inline-flex items-center gap-2 text-xs font-medium text-toned">
-                  <UIcon name="i-lucide-file-text" class="size-4" />
-                  <span>File Path</span>
+                <div class="mb-2 flex items-center justify-between gap-3">
+                  <div class="inline-flex items-center gap-2 text-xs font-medium text-toned">
+                    <UIcon name="i-lucide-file-text" class="size-4" />
+                    <span>File Path</span>
+                  </div>
+
+                  <UTooltip text="Copy file path">
+                    <UButton
+                      color="neutral"
+                      variant="ghost"
+                      size="sm"
+                      square
+                      icon="i-lucide-copy"
+                      aria-label="Copy file path"
+                      @click="() => void copyText(item.path ?? '', false)"
+                    />
+                  </UTooltip>
                 </div>
+
                 <div
                   class="min-w-0 cursor-pointer"
                   :class="expandableInlineClass(item.expandPath, true)"

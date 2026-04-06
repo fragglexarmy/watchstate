@@ -69,13 +69,15 @@
                   class="flex min-w-0 items-start gap-2 text-base font-semibold leading-6 text-highlighted"
                 >
                   <UIcon name="i-lucide-user" class="mt-0.5 size-4 shrink-0 text-toned" />
-                  <span class="truncate">{{ item.name }}</span>
+                  <UTooltip :text="String(item.name)">
+                    <span class="block truncate">{{ item.name }}</span>
+                  </UTooltip>
                 </div>
               </div>
             </div>
           </template>
 
-          <div class="grid gap-3 sm:grid-cols-2">
+          <div class="grid grid-cols-2 gap-3">
             <div
               class="rounded-md border border-default bg-elevated/40 px-3 py-2.5 text-sm text-default"
             >

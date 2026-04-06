@@ -268,26 +268,34 @@
                       v-if="poster_enable"
                       :image="`/history/${item.id}/images/poster`"
                     >
+                      <UTooltip
+                        :text="String(item.full_title || makeName(item as unknown as JsonObject))"
+                      >
+                        <NuxtLink
+                          :to="`/history/${item.id}`"
+                          class="block truncate text-highlighted hover:text-primary"
+                        >
+                          {{ item.full_title || makeName(item as unknown as JsonObject) }}
+                        </NuxtLink>
+                      </UTooltip>
+                    </FloatingImage>
+
+                    <UTooltip
+                      v-else
+                      :text="String(item.full_title || makeName(item as unknown as JsonObject))"
+                    >
                       <NuxtLink
                         :to="`/history/${item.id}`"
-                        class="text-highlighted hover:text-primary"
+                        class="block truncate text-highlighted hover:text-primary"
                       >
                         {{ item.full_title || makeName(item as unknown as JsonObject) }}
                       </NuxtLink>
-                    </FloatingImage>
-
-                    <NuxtLink
-                      v-else
-                      :to="`/history/${item.id}`"
-                      class="text-highlighted hover:text-primary"
-                    >
-                      {{ item.full_title || makeName(item as unknown as JsonObject) }}
-                    </NuxtLink>
+                    </UTooltip>
                   </div>
                 </div>
               </div>
 
-              <div class="flex shrink-0 items-start">
+              <div class="flex shrink-0 items-center gap-2">
                 <UTooltip :text="selected_ids.includes(item.id) ? 'Unselect item' : 'Select item'">
                   <UCheckbox
                     color="primary"
@@ -365,18 +373,15 @@
                 />
               </UTooltip>
             </div>
-
-            <div
-              v-if="item.progress"
-              class="flex items-center justify-center gap-2 rounded-md border border-default bg-elevated/40 px-3 py-2.5 text-sm font-medium text-default"
-            >
-              <UIcon name="i-lucide-gauge" class="size-4 shrink-0 text-toned" />
-              <span>{{ formatDuration(item.progress as number) }}</span>
-            </div>
           </div>
 
           <template #footer>
-            <div class="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+            <div
+              :class="[
+                'grid grid-cols-2 gap-2.5',
+                item.progress ? 'xl:grid-cols-4' : 'xl:grid-cols-3',
+              ]"
+            >
               <div
                 class="flex items-center justify-center gap-2 rounded-md border border-default bg-elevated/40 px-3 py-2 text-center text-sm font-medium text-default"
               >
@@ -410,10 +415,24 @@
               </div>
 
               <div
-                class="flex items-center justify-center gap-2 rounded-md border border-default bg-elevated/40 px-3 py-2 text-center text-sm font-medium text-default sm:col-span-2 xl:col-span-1"
+                :class="[
+                  'flex items-center justify-center gap-2 rounded-md border border-default bg-elevated/40 px-3 py-2 text-center text-sm font-medium text-default',
+                  item.updated_at && !item.progress ? 'col-span-2 xl:col-span-1' : '',
+                ]"
               >
                 <UIcon name="i-lucide-mail" class="size-4 shrink-0 text-toned" />
                 <span>{{ item.event ?? '-' }}</span>
+              </div>
+
+              <div
+                v-if="item.progress"
+                :class="[
+                  'flex items-center justify-center gap-2 rounded-md border border-default bg-elevated/40 px-3 py-2 text-center text-sm font-medium text-default',
+                  !item.updated_at ? 'col-span-2 xl:col-span-1' : '',
+                ]"
+              >
+                <UIcon name="i-lucide-gauge" class="size-4 shrink-0 text-toned" />
+                <span>{{ formatDuration(item.progress as number) }}</span>
               </div>
             </div>
           </template>
@@ -881,6 +900,41 @@ watch(filter, (value: string) => {
     },
   });
 });
+
+watch(
+  () => route.fullPath,
+  async () => {
+    if ('history' !== route.name) {
+      return;
+    }
+
+    const nextPage = parseInt(route.query.page as string) || 1;
+    const nextPerPage = parseInt(route.query.perpage as string) || 50;
+    const nextQuery = (route.query.q as string) || '';
+    const nextSearchField = (route.query.key as string) || 'title';
+    const nextFilter = (route.query.filter as string) || '';
+
+    const shouldReload =
+      nextPage !== page.value ||
+      nextPerPage !== perpage.value ||
+      nextQuery !== query.value ||
+      nextSearchField !== searchField.value;
+
+    page.value = nextPage;
+    perpage.value = nextPerPage;
+    query.value = nextQuery;
+    searchField.value = nextSearchField;
+    filter.value = nextFilter;
+    showFilter.value = Boolean(nextFilter);
+    searchForm.value = Boolean(nextQuery);
+
+    if (!shouldReload) {
+      return;
+    }
+
+    await loadContent(nextPage, true);
+  },
+);
 
 onMounted(async (): Promise<void> => {
   if (query.value) {

@@ -107,13 +107,15 @@
                   />
 
                   <div class="min-w-0 flex-1">
-                    <NuxtLink
-                      target="_blank"
-                      :to="item.webUrl ?? item.url"
-                      class="block truncate text-highlighted hover:text-primary"
-                    >
-                      {{ item.title }}
-                    </NuxtLink>
+                    <UTooltip :text="String(item.title)">
+                      <NuxtLink
+                        target="_blank"
+                        :to="item.webUrl ?? item.url"
+                        class="block truncate text-highlighted hover:text-primary"
+                      >
+                        {{ item.title }}
+                      </NuxtLink>
+                    </UTooltip>
                   </div>
                 </div>
               </div>
@@ -121,86 +123,73 @@
           </template>
 
           <div class="space-y-3">
-            <div class="grid gap-2.5 sm:grid-cols-2">
+            <div class="grid grid-cols-2 gap-2.5">
               <div
                 class="rounded-md border border-default bg-elevated/40 px-3 py-2.5 text-sm text-default"
               >
                 <div
-                  class="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
+                  class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
                 >
-                  <UIcon name="i-lucide-library-big" class="size-3.5" />
-                  <span>Library</span>
+                  <div
+                    class="inline-flex min-w-0 items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
+                  >
+                    <UIcon name="i-lucide-library-big" class="size-3.5 shrink-0" />
+                    <span>Library</span>
+                  </div>
+
+                  <div class="min-w-0 font-medium text-highlighted sm:ml-auto sm:text-right">
+                    {{ item.library ?? 'Unknown' }}
+                  </div>
                 </div>
-                <div class="mt-1 font-medium text-highlighted">{{ item.library ?? 'Unknown' }}</div>
               </div>
 
               <div
                 class="rounded-md border border-default bg-elevated/40 px-3 py-2.5 text-sm text-default"
               >
                 <div
-                  class="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
+                  class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
                 >
-                  <UIcon name="i-lucide-calendar" class="size-3.5" />
-                  <span>Year</span>
-                </div>
-                <div class="mt-1 font-medium text-highlighted">
-                  {{ 0 !== item.year && item.year ? item.year : 'Unknown' }}
+                  <div
+                    class="inline-flex min-w-0 items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
+                  >
+                    <UIcon name="i-lucide-calendar" class="size-3.5 shrink-0" />
+                    <span>Year</span>
+                  </div>
+
+                  <div class="min-w-0 font-medium text-highlighted sm:ml-auto sm:text-right">
+                    {{ 0 !== item.year && item.year ? item.year : 'Unknown' }}
+                  </div>
                 </div>
               </div>
             </div>
 
             <div
               v-if="item.path"
-              class="cursor-pointer rounded-md border border-default bg-elevated/40 px-3 py-2.5"
+              class="col-span-2 cursor-pointer rounded-md border border-default bg-elevated/40 px-3 py-2.5 text-sm text-default"
               @click="toggleFirstChildOverflow"
             >
               <div
-                class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium text-default"
+                class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
               >
-                <span class="inline-flex items-center gap-2">
-                  <UIcon name="i-lucide-file-text" class="size-4 shrink-0 text-toned" />
+                <div
+                  class="inline-flex min-w-0 items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
+                >
+                  <UIcon name="i-lucide-file-text" class="size-3.5 shrink-0" />
+                  <span>Path</span>
+                </div>
+                <div
+                  class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap font-medium text-highlighted sm:text-right"
+                >
                   <NuxtLink :to="makeSearchLink('path', item.path)" class="hover:text-primary">
                     {{ item.path }}
                   </NuxtLink>
-                </span>
+                </div>
               </div>
-            </div>
-
-            <div
-              v-if="item.showItem"
-              class="relative overflow-hidden rounded-md border border-default bg-elevated/60"
-            >
-              <code class="ws-terminal ws-terminal-panel ws-terminal-panel-md whitespace-pre-wrap">
-                {{ JSON.stringify(item, null, 2) }}
-              </code>
-
-              <UTooltip text="Copy text">
-                <UButton
-                  color="neutral"
-                  variant="soft"
-                  size="sm"
-                  icon="i-lucide-copy"
-                  class="absolute right-3 top-3"
-                  @click="() => void copyText(JSON.stringify(item, null, 2))"
-                />
-              </UTooltip>
             </div>
           </div>
 
           <template #footer>
             <div class="flex flex-wrap items-center justify-end gap-2">
-              <UTooltip :text="item.showItem ? 'Hide raw data' : 'Show raw data'">
-                <UButton
-                  color="neutral"
-                  variant="ghost"
-                  size="sm"
-                  square
-                  :icon="item.showItem ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
-                  :aria-label="item.showItem ? 'Hide raw data' : 'Show raw data'"
-                  @click="item.showItem = !item.showItem"
-                />
-              </UTooltip>
-
               <UButton
                 color="neutral"
                 variant="outline"
@@ -245,7 +234,7 @@
 import { ref } from 'vue';
 import { useRoute, useHead } from '#app';
 import { requireTopLevelPageShell } from '~/utils/topLevelNavigation';
-import { makeSearchLink, notification, copyText, request, parse_api_response } from '~/utils';
+import { makeSearchLink, notification, request, parse_api_response } from '~/utils';
 import { useSessionCache } from '~/utils/cache';
 import type { UnmatchedItem } from '~/types';
 

@@ -98,6 +98,7 @@
                       variant="ghost"
                       size="sm"
                       :color-mode="undefined"
+                      class="hidden sm:inline-flex"
                       @click="showScheduler = !showScheduler"
                     >
                       <UIcon
@@ -136,7 +137,7 @@
                     <span class="hidden xl:inline">{{ apiUser }}</span>
                   </UButton>
 
-                  <UDashboardSearchButton class="shrink-0" />
+                  <UDashboardSearchButton class="hidden shrink-0 sm:inline-flex" />
 
                   <UColorModeButton
                     color="neutral"

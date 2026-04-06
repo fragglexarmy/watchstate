@@ -20,9 +20,8 @@
           icon="i-lucide-plus"
           :disabled="isLoading"
           @click="openAddUserForm"
-        >
-          Add User
-        </UButton>
+          label="Add User"
+        />
 
         <UButton
           color="neutral"
@@ -32,9 +31,8 @@
           :loading="isLoading"
           :disabled="isLoading"
           @click="loadContent"
-        >
-          <span class="hidden sm:inline">Reload</span>
-        </UButton>
+          label="Reload"
+        />
       </div>
     </div>
 
@@ -158,9 +156,11 @@
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0 flex items-center gap-2">
               <UIcon name="i-lucide-user" class="size-4 shrink-0 text-toned" />
-              <h2 class="truncate text-base font-semibold">
-                {{ ucFirst(user.user) }}
-              </h2>
+              <UTooltip :text="String(ucFirst(user.user))">
+                <h2 class="truncate text-base font-semibold">
+                  {{ ucFirst(user.user) }}
+                </h2>
+              </UTooltip>
             </div>
 
             <div class="flex items-center gap-2">
@@ -170,9 +170,8 @@
                 size="sm"
                 icon="i-lucide-settings"
                 @click="openEditUser(user.user)"
-              >
-                <span class="hidden sm:inline">Edit</span>
-              </UButton>
+                label="Edit"
+              />
 
               <UButton
                 v-if="user.user !== 'main'"
@@ -181,9 +180,8 @@
                 size="sm"
                 icon="i-lucide-trash-2"
                 :to="`/users/${user.user}/delete?redirect=/users`"
-              >
-                <span class="hidden sm:inline">Delete</span>
-              </UButton>
+                label="Delete"
+              />
             </div>
           </div>
         </template>

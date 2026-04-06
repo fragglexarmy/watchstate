@@ -21,19 +21,16 @@
           </div>
         </div>
 
-        <UTooltip text="Reload libraries">
-          <UButton
-            color="neutral"
-            variant="outline"
-            icon="i-lucide-refresh-cw"
-            :loading="isLoading"
-            :disabled="isLoading"
-            aria-label="Reload libraries"
-            @click="loadContent"
-          >
-            <span class="hidden sm:inline">Reload</span>
-          </UButton>
-        </UTooltip>
+        <UButton
+          color="neutral"
+          variant="outline"
+          icon="i-lucide-refresh-cw"
+          :loading="isLoading"
+          :disabled="isLoading"
+          aria-label="Reload libraries"
+          @click="loadContent"
+          label="Reload"
+        />
       </div>
 
       <UAlert
@@ -63,7 +60,7 @@
           :ui="cardUi"
         >
           <template #header>
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div class="flex items-start justify-between gap-3">
               <div class="min-w-0 flex-1">
                 <div
                   class="flex min-w-0 items-start gap-2 text-base font-semibold leading-6 text-highlighted"
@@ -74,17 +71,20 @@
                   />
 
                   <div class="min-w-0 flex-1">
-                    <NuxtLink
-                      v-if="item?.webUrl"
-                      target="_blank"
-                      :to="item.webUrl"
-                      class="block truncate text-highlighted hover:text-primary"
-                    >
-                      {{ item.title }}
-                    </NuxtLink>
-                    <span v-else class="block truncate text-highlighted">
-                      {{ item.title }}
-                    </span>
+                    <UTooltip v-if="item?.webUrl" :text="String(item.title)">
+                      <NuxtLink
+                        target="_blank"
+                        :to="item.webUrl"
+                        class="block truncate text-highlighted hover:text-primary"
+                      >
+                        {{ item.title }}
+                      </NuxtLink>
+                    </UTooltip>
+                    <UTooltip v-else :text="String(item.title)">
+                      <span class="block truncate text-highlighted">
+                        {{ item.title }}
+                      </span>
+                    </UTooltip>
                   </div>
                 </div>
               </div>
@@ -100,11 +100,13 @@
             </div>
           </template>
 
-          <div class="grid gap-3 sm:grid-cols-2">
+          <div class="grid grid-cols-2 gap-3">
             <div
               class="rounded-md border border-default bg-elevated/40 px-3 py-2.5 text-sm text-default"
             >
-              <div class="flex items-start justify-between gap-3">
+              <div
+                class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
+              >
                 <div
                   class="inline-flex min-w-0 items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
                 >
@@ -112,14 +114,18 @@
                   <span>Type</span>
                 </div>
 
-                <div class="min-w-0 text-right font-medium text-highlighted">{{ item.type }}</div>
+                <div class="min-w-0 font-medium text-highlighted sm:ml-auto sm:text-right">
+                  {{ item.type }}
+                </div>
               </div>
             </div>
 
             <div
               class="rounded-md border border-default bg-elevated/40 px-3 py-2.5 text-sm text-default"
             >
-              <div class="flex items-start justify-between gap-3">
+              <div
+                class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
+              >
                 <div
                   class="inline-flex min-w-0 items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
                 >
@@ -127,7 +133,7 @@
                   <span>Supported</span>
                 </div>
 
-                <div class="min-w-0 text-right">
+                <div class="min-w-0 sm:ml-auto sm:text-right">
                   <UBadge :color="item.supported ? 'success' : 'warning'" variant="soft">
                     {{ item.supported ? 'Yes' : 'No' }}
                   </UBadge>
@@ -140,12 +146,20 @@
               class="rounded-md border border-default bg-elevated/40 px-3 py-2.5 text-sm text-default"
             >
               <div
-                class="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
+                class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
               >
-                <UIcon name="i-lucide-clapperboard" class="size-3.5" />
-                <span>Agent</span>
+                <div
+                  class="inline-flex min-w-0 items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
+                >
+                  <UIcon name="i-lucide-clapperboard" class="size-3.5 shrink-0" />
+                  <span>Agent</span>
+                </div>
+                <div
+                  class="min-w-0 wrap-break-word font-medium text-highlighted sm:ml-auto sm:text-right"
+                >
+                  {{ item.agent }}
+                </div>
               </div>
-              <div class="mt-1 wrap-break-word font-medium text-highlighted">{{ item.agent }}</div>
             </div>
 
             <div
@@ -153,13 +167,19 @@
               class="rounded-md border border-default bg-elevated/40 px-3 py-2.5 text-sm text-default"
             >
               <div
-                class="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
+                class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
               >
-                <UIcon name="i-lucide-cpu" class="size-3.5" />
-                <span>Scanner</span>
-              </div>
-              <div class="mt-1 wrap-break-word font-medium text-highlighted">
-                {{ item.scanner }}
+                <div
+                  class="inline-flex min-w-0 items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
+                >
+                  <UIcon name="i-lucide-cpu" class="size-3.5 shrink-0" />
+                  <span>Scanner</span>
+                </div>
+                <div
+                  class="min-w-0 wrap-break-word font-medium text-highlighted sm:ml-auto sm:text-right"
+                >
+                  {{ item.scanner }}
+                </div>
               </div>
             </div>
           </div>

@@ -91,40 +91,44 @@
         :ui="taskCardUi"
       >
         <template #header>
-          <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div class="min-w-0 flex-1 space-y-2">
-              <div class="flex flex-wrap items-center gap-2">
-                <div
-                  class="inline-flex items-center gap-2 text-base font-semibold capitalize text-highlighted"
-                >
-                  <UIcon name="i-lucide-list-checks" class="size-4 text-toned" />
-                  <span class="truncate">{{ task.name }}</span>
-                </div>
+          <div class="space-y-2">
+            <div class="flex min-w-0 items-start justify-between gap-3">
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2">
+                  <div
+                    class="inline-flex min-w-0 items-center gap-2 text-base font-semibold capitalize text-highlighted"
+                  >
+                    <UIcon name="i-lucide-list-checks" class="size-4 text-toned" />
+                    <UTooltip :text="String(task.name)">
+                      <span class="block min-w-0 truncate">{{ task.name }}</span>
+                    </UTooltip>
+                  </div>
 
-                <UBadge v-if="task.queued" color="neutral" variant="soft">Queued</UBadge>
+                  <UBadge v-if="task.queued" color="neutral" variant="soft">Queued</UBadge>
+                </div>
               </div>
 
-              <p v-if="task.description" class="text-sm leading-6 text-default">
-                {{ task.description }}
-              </p>
+              <div v-if="task.allow_disable" class="flex shrink-0 items-center justify-end">
+                <USwitch
+                  :model-value="task.enabled"
+                  :color="task.enabled ? 'success' : 'neutral'"
+                  label="Enabled"
+                  @update:model-value="() => void toggleTask(task)"
+                />
+              </div>
             </div>
 
-            <div v-if="task.allow_disable" class="flex shrink-0 items-center justify-end">
-              <USwitch
-                :model-value="task.enabled"
-                :color="task.enabled ? 'success' : 'neutral'"
-                label="Enabled"
-                @update:model-value="() => void toggleTask(task)"
-              />
-            </div>
+            <p v-if="task.description" class="text-sm leading-6 text-default">
+              {{ task.description }}
+            </p>
           </div>
         </template>
 
-        <div class="grid gap-3 sm:grid-cols-2">
+        <div class="grid grid-cols-2 gap-3">
           <div
-            class="rounded-md border border-default bg-elevated/40 px-3 py-2.5 text-sm text-default sm:col-span-2"
+            class="col-span-2 rounded-md border border-default bg-elevated/40 px-3 py-2.5 text-sm text-default"
           >
-            <div class="flex items-start justify-between gap-3">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
               <div
                 class="inline-flex min-w-0 items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
               >
@@ -132,9 +136,9 @@
                 <span>Runs</span>
               </div>
 
-              <div class="min-w-0 text-right">
+              <div class="min-w-0 sm:ml-auto sm:text-right">
                 <NuxtLink
-                  class="font-medium text-primary underline underline-offset-2"
+                  class="block font-medium text-primary underline underline-offset-2"
                   target="_blank"
                   :to="`https://crontab.guru/#${task.timer.replace(/ /g, '_')}`"
                 >
@@ -147,7 +151,7 @@
           <div
             class="rounded-md border border-default bg-elevated/40 px-3 py-2.5 text-sm text-default"
           >
-            <div class="flex items-start justify-between gap-3">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
               <div
                 class="inline-flex min-w-0 items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
               >
@@ -155,10 +159,10 @@
                 <span>Timer</span>
               </div>
 
-              <div class="min-w-0 text-right">
+              <div class="min-w-0 sm:ml-auto sm:text-right">
                 <UTooltip text="Edit cron timer.">
                   <NuxtLink
-                    class="break-all font-mono text-primary underline underline-offset-2"
+                    class="block break-all font-mono text-primary underline underline-offset-2"
                     :to="makeEnvLink(`WS_CRON_${task.name.toUpperCase()}_AT`, task.timer)"
                   >
                     {{ task.timer }}
@@ -171,7 +175,7 @@
           <div
             class="rounded-md border border-default bg-elevated/40 px-3 py-2.5 text-sm text-default"
           >
-            <div class="flex items-start justify-between gap-3">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
               <div
                 class="inline-flex min-w-0 items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
               >
@@ -180,10 +184,10 @@
               </div>
 
               <template v-if="task.args">
-                <div class="min-w-0 text-right">
+                <div class="min-w-0 sm:ml-auto sm:text-right">
                   <UTooltip text="Edit task arguments.">
                     <NuxtLink
-                      class="break-all font-mono text-primary underline underline-offset-2"
+                      class="block break-all font-mono text-primary underline underline-offset-2"
                       :to="makeEnvLink(`WS_CRON_${task.name.toUpperCase()}_ARGS`, task.args)"
                     >
                       {{ task.args }}
@@ -191,14 +195,14 @@
                   </UTooltip>
                 </div>
               </template>
-              <div v-else class="min-w-0 text-right text-toned">None</div>
+              <div v-else class="min-w-0 text-toned sm:ml-auto sm:text-right">None</div>
             </div>
           </div>
 
           <div
             class="rounded-md border border-default bg-elevated/40 px-3 py-2.5 text-sm text-default"
           >
-            <div class="flex items-start justify-between gap-3">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
               <div
                 class="inline-flex min-w-0 items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
               >
@@ -206,7 +210,7 @@
                 <span>Prev Run</span>
               </div>
 
-              <div class="min-w-0 text-right">
+              <div class="min-w-0 sm:ml-auto sm:text-right">
                 <template v-if="task.enabled">
                   <UTooltip
                     v-if="task.prev_run"
@@ -224,7 +228,7 @@
           <div
             class="rounded-md border border-default bg-elevated/40 px-3 py-2.5 text-sm text-default"
           >
-            <div class="flex items-start justify-between gap-3">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
               <div
                 class="inline-flex min-w-0 items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-toned"
               >
@@ -232,7 +236,7 @@
                 <span>Next Run</span>
               </div>
 
-              <div class="min-w-0 text-right">
+              <div class="min-w-0 sm:ml-auto sm:text-right">
                 <template v-if="task.enabled">
                   <UTooltip
                     v-if="task.next_run"

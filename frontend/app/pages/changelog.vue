@@ -16,7 +16,7 @@
         <UInput
           v-if="showFilter || query"
           id="filter"
-          v-model="query"
+          v-model.lazy="query"
           type="search"
           placeholder="Filter changelog entries"
           icon="i-lucide-filter"
@@ -24,17 +24,14 @@
           class="w-full sm:w-72"
         />
 
-        <UTooltip text="Filter changelog entries.">
-          <UButton
-            color="neutral"
-            :variant="showFilter ? 'soft' : 'outline'"
-            size="sm"
-            icon="i-lucide-filter"
-            @click="toggleFilter"
-          >
-            <span class="hidden sm:inline">Filter</span>
-          </UButton>
-        </UTooltip>
+        <UButton
+          color="neutral"
+          :variant="showFilter ? 'soft' : 'outline'"
+          size="sm"
+          icon="i-lucide-filter"
+          @click="toggleFilter"
+          label="Filter"
+        />
       </div>
     </div>
 
@@ -79,7 +76,9 @@
               class="inline-flex min-w-0 items-center gap-2 text-base font-semibold text-highlighted"
             >
               <UIcon name="i-lucide-git-branch" class="size-4 shrink-0 text-toned" />
-              <span class="truncate">{{ log.tag }}</span>
+              <UTooltip :text="String(log.tag)">
+                <span class="truncate">{{ log.tag }}</span>
+              </UTooltip>
             </div>
 
             <UBadge v-if="isInstalled(log)" color="success" variant="soft" label="Installed" />
