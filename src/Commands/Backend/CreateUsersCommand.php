@@ -598,7 +598,7 @@ class CreateUsersCommand extends Command
                 }
             }
 
-            $dbFile = $subUserPath . '/user.db';
+            $dbFile = get_user_db($userName);
             self::$logger?->notice(
                 file_exists(
                     $dbFile,

@@ -229,9 +229,7 @@ final class BenchmarkDirectMapperCommand extends Command
             $mapper->reset();
 
             $total = $userContext->db->getTotal();
-            $dbFile = 'main' === $userName
-                ? Config::get('database.file', 'unknown')
-                : fix_path(r('{path}/users/{user}/user.db', ['path' => Config::get('path'), 'user' => $userName]));
+            $dbFile = 'main' === $userName ? Config::get('database.file', 'unknown') : get_user_db($userName);
 
             $loadTime = 0.0;
             $loadMem = 0.0;

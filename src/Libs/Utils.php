@@ -1366,6 +1366,38 @@ if (!function_exists('read_file_from_archive')) {
         return [Stream::make($stream, 'r'), $zip];
     }
 }
+if (!function_exists('get_user_db')) {
+    /**
+     * Get User Database file.
+     *
+     * @param string $user The username.
+     *
+     * @return string The path to the user's database file.
+     */
+    function get_user_db(string $user): string
+    {
+        $path = fix_path(r('{path}/users/{user}', ['path' => Config::get('path'), 'user' => $user]));
+
+        if (false === file_exists($path)) {
+            if (false === @mkdir($path, 0o755, true) && false === is_dir($path)) {
+                throw new RuntimeException(r("Unable to create '{path}' directory.", ['path' => $path]));
+            }
+        }
+
+        $dbFileOld = fix_path(r('{path}/user.db', ['path' => $path]));
+        $dbFile = fix_path(r('{path}/user_{version}.db', ['path' => $path, 'version' => Config::get('database.version')]));
+        if (file_exists($dbFileOld)) {
+            if (false === @rename($dbFileOld, $dbFile)) {
+                throw new RuntimeException(r("Unable to rename '{old}' to '{new}'.", [
+                    'old' => $dbFileOld,
+                    'new' => $dbFile,
+                ]));
+            }
+        }
+
+        return $dbFile;
+    }
+}
 
 if (!function_exists('per_user_db')) {
     /**
@@ -1377,15 +1409,8 @@ if (!function_exists('per_user_db')) {
      */
     function per_user_db(string $user): iDB
     {
-        $path = fix_path(r('{path}/users/{user}', ['path' => Config::get('path'), 'user' => $user]));
+        $dbFile = get_user_db($user);
 
-        if (false === file_exists($path)) {
-            if (false === @mkdir($path, 0o755, true) && false === is_dir($path)) {
-                throw new RuntimeException(r("Unable to create '{path}' directory.", ['path' => $path]));
-            }
-        }
-
-        $dbFile = fix_path(r('{path}/user.db', ['path' => $path]));
         $inTestMode = true === (defined('IN_TEST_MODE') && true === IN_TEST_MODE);
         $dsn = r('sqlite:{src}', ['src' => $inTestMode ? ':memory:' : $dbFile]);
 
