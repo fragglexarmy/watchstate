@@ -1424,7 +1424,7 @@ if (!function_exists('per_user_db')) {
             @chmod($dbFile, 0o644);
         }
 
-        foreach (Config::get('database.exec', []) as $cmd) {
+        foreach (Config::get('database.exec.' . $pdo->getAttribute(PDO::ATTR_DRIVER_NAME), []) as $cmd) {
             $pdo->exec($cmd);
         }
 

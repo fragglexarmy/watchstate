@@ -22,6 +22,11 @@ use App\Libs\Mappers\ImportInterface as iImport;
 use App\Libs\QueueRequests;
 use App\Libs\Uri;
 use App\Libs\UserContext;
+use arabcoders\database\Connection as DatabaseConnection;
+use arabcoders\database\ConnectionManager;
+use arabcoders\database\Dialect\DialectFactory;
+use arabcoders\database\Dialect\DialectInterface;
+use arabcoders\database\Orm\OrmManager;
 use Monolog\Logger;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\UriInterface;
@@ -43,7 +48,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 return (function (): array {
     return [
         iLogger::class => [
-            'class' => fn() => new Logger(name: 'logger', processors: [new LogMessageProcessor()])
+            'class' => fn() => new Logger(name: 'logger', processors: [new LogMessageProcessor()]),
         ],
 
         HttpClientInterface::class => [
@@ -53,7 +58,7 @@ return (function (): array {
                         defaultOptions: Config::get('http.default.options', []),
                         maxHostConnections: Config::get('http.default.maxHostConnections', 25),
                         maxPendingPushes: Config::get('http.default.maxPendingPushes', 50),
-                    )
+                    ),
                 );
                 $instance->setLogger($logger);
                 return $instance;
@@ -67,7 +72,7 @@ return (function (): array {
             'class' => function (HttpClientInterface $client, iLogger $logger): RetryableHttpClient {
                 return new RetryableHttpClient(
                     client: $client,
-                    maxRetries: (int)Config::get('http.default.maxRetries', 3),
+                    maxRetries: (int) Config::get('http.default.maxRetries', 3),
                     logger: $logger,
                 );
             },
@@ -91,11 +96,11 @@ return (function (): array {
         ],
 
         StateInterface::class => [
-            'class' => fn() => new StateEntity([])
+            'class' => fn() => new StateEntity([]),
         ],
 
         QueueRequests::class => [
-            'class' => fn() => new QueueRequests()
+            'class' => fn() => new QueueRequests(),
         ],
 
         Redis::class => [
@@ -126,16 +131,16 @@ return (function (): array {
                 }
 
                 if (null !== ag($params, 'db')) {
-                    $redis->select((int)ag($params, 'db'));
+                    $redis->select((int) ag($params, 'db'));
                 }
 
                 return $redis;
-            }
+            },
         ],
 
         iCache::class => [
             'class' => function () {
-                if (true === (bool)env('WS_CACHE_NULL', false)) {
+                if (true === (bool) env('WS_CACHE_NULL', false)) {
                     return new Psr16Cache(new NullAdapter());
                 }
 
@@ -176,7 +181,7 @@ return (function (): array {
                     }
 
                     if (null !== ag($params, 'db')) {
-                        $redis->select((int)ag($params, 'db'));
+                        $redis->select((int) ag($params, 'db'));
                     }
 
                     $backend = new RedisAdapter(redis: $redis, namespace: $ns);
@@ -186,7 +191,7 @@ return (function (): array {
                 }
 
                 return new Psr16Cache($backend);
-            }
+            },
         ],
 
         UriInterface::class => [
@@ -195,11 +200,11 @@ return (function (): array {
         ],
 
         InputInterface::class => [
-            'class' => fn(): InputInterface => new ArgvInput()
+            'class' => fn(): InputInterface => new ArgvInput(),
         ],
 
         OutputInterface::class => [
-            'class' => fn(): OutputInterface => new ConsoleOutput()
+            'class' => fn(): OutputInterface => new ConsoleOutput(),
         ],
 
         PDO::class => [
@@ -212,18 +217,72 @@ return (function (): array {
                     $changePerm = !file_exists($dbFile);
                 }
 
-                $pdo = new PDO(dsn: $dsn, options: Config::get('database.options', []));
-
-                if (!$inTestMode && $changePerm && in_container() && 777 !== (int)(decoct(fileperms($dbFile) & 0777))) {
-                    @chmod($dbFile, 0777);
+                $args = [
+                    'dsn' => $dsn,
+                ];
+                if (null !== ($username = Config::get('database.username'))) {
+                    $args['username'] = $username;
+                }
+                if (null !== ($password = Config::get('database.password'))) {
+                    $args['password'] = $password;
                 }
 
-                foreach (Config::get('database.exec', []) as $cmd) {
+                $args['options'] = Config::get('database.options', []);
+
+                $pdo = new PDO(...$args);
+
+                if (str_starts_with($dsn, 'sqlite:') && false === $inTestMode) {
+                    $dir = dirname($dbFile);
+                    if (!is_dir($dir)) {
+                        mkdir($dir, 0755, true);
+                    }
+
+                    if (!$inTestMode && $changePerm && in_container() && 777 !== (int) decoct(fileperms($dbFile) & 0777)) {
+                        @chmod($dbFile, 0777);
+                    }
+                }
+
+                foreach (Config::get('database.exec.' . $pdo->getAttribute(PDO::ATTR_DRIVER_NAME), []) as $cmd) {
                     $pdo->exec($cmd);
                 }
 
                 return $pdo;
             },
+        ],
+
+        DialectInterface::class => [
+            'class' => fn(PDO $pdo) => DialectFactory::fromPdo($pdo),
+            'args' => [
+                PDO::class,
+            ],
+        ],
+
+        DatabaseConnection::class => [
+            'class' => fn(PDO $pdo, DialectInterface $dialect) => new DatabaseConnection($pdo, $dialect),
+            'args' => [
+                PDO::class,
+                DialectInterface::class,
+            ],
+        ],
+
+        ConnectionManager::class => [
+            'class' => static function (DatabaseConnection $connection): ConnectionManager {
+                $manager = new ConnectionManager();
+                $manager->register('default', $connection);
+
+                return $manager;
+            },
+            'args' => [
+                DatabaseConnection::class,
+            ],
+        ],
+
+        OrmManager::class => [
+            'class' => fn(ConnectionManager $connections, EventDispatcherInterface $ed) => new OrmManager($connections, dispatcher: $ed),
+            'args' => [
+                ConnectionManager::class,
+                EventDispatcherInterface::class,
+            ],
         ],
 
         DBLayer::class => [
@@ -242,7 +301,7 @@ return (function (): array {
                     $adapter->ensureIndex();
                     $adapter->migrateData(
                         Config::get('database.version'),
-                        Container::get(iLogger::class)
+                        Container::get(iLogger::class),
                     );
                 }
 
@@ -262,7 +321,7 @@ return (function (): array {
             'args' => [
                 iLogger::class,
                 iDB::class,
-                iCache::class
+                iCache::class,
             ],
         ],
 
@@ -274,7 +333,7 @@ return (function (): array {
             'args' => [
                 iLogger::class,
                 iDB::class,
-                iCache::class
+                iCache::class,
             ],
         ],
 
@@ -291,16 +350,16 @@ return (function (): array {
             'class' => fn(iCache $cache, iImport $mapper, iDB $db): UserContext => new UserContext(
                 name: 'main',
                 config: new ConfigFile(
-                    file: (string)Config::get('backends_file'),
+                    file: (string) Config::get('backends_file'),
                     type: 'yaml',
                     autoSave: false,
-                    autoCreate: true
+                    autoCreate: true,
                 ),
                 mapper: $mapper,
                 cache: $cache,
-                db: $db
+                db: $db,
             ),
-            'args' => [iCache::class, iImport::class, iDB::class]
+            'args' => [iCache::class, iImport::class, iDB::class],
         ],
     ];
 })();
