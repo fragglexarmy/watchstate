@@ -61,7 +61,7 @@ class DBLayerTest extends TestCase
         $this->db = new DBLayer(new PDO(dsn: 'sqlite::memory:', options: Config::get('database.options', [])));
         $this->createDB($this->db->getBackend());
 
-        foreach (Config::get('database.exec', []) as $cmd) {
+        foreach (Config::get('database.exec.sqlite', []) as $cmd) {
             $this->db->exec($cmd);
         }
     }
@@ -115,7 +115,7 @@ class DBLayerTest extends TestCase
                 $pdo = new PDO(dsn: 'sqlite::memory:', options: $options);
                 $db = new DBLayer($pdo);
 
-                foreach (Config::get('database.exec', []) as $cmd) {
+                foreach (Config::get('database.exec.sqlite', []) as $cmd) {
                     $this->db->exec($cmd);
                 }
 

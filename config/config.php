@@ -135,9 +135,9 @@ return (function () {
 
     $config['database'] += [
         'file' => $dbFile,
-        'dsn' => 'sqlite:' . $dbFile,
-        'username' => null,
-        'password' => null,
+        'dsn' => env('WS_DATABASE_DSN', 'sqlite:' . $dbFile),
+        'username' => env('WS_DATABASE_USERNAME', null),
+        'password' => env('WS_DATABASE_PASSWORD', null),
         'options' => [
             PDO::ATTR_EMULATE_PREPARES => false,
             PDO::ATTR_STRINGIFY_FETCHES => false,
