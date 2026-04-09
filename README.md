@@ -149,3 +149,8 @@ time. I’m based in the `UTC+3` timezone.
 If you’d like to show appreciation for my work, please note that I don’t accept donations. Instead, I encourage you to
 donate to a children’s charity of your choice. For
 example, [The International Make-A-Wish foundation](https://worldwish.org).
+
+# Disclaimer
+
+AI-based tools may have been used to assist with parts of this project. Regardless of how a change is produced, every 
+change is reviewed and approved by the human maintainer before it is included.
