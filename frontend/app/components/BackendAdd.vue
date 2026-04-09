@@ -28,20 +28,19 @@
             to learn more.
           </li>
           <li v-if="api_user === 'main'">
-            Do not add sub-users backends manually, after finishing the main user backends setup.
+            Do not add identity backends manually after finishing the main identity backend setup.
             Visit
             <NuxtLink
               target="_blank"
-              to="/tools/sub_users"
+              to="/identities/provision"
               class="inline-flex items-center gap-1 text-primary"
             >
-              <UIcon name="i-lucide-wrench" class="size-4" />
-              <span>Tools</span>
-              <span>&gt;</span>
               <UIcon name="i-lucide-users" class="size-4" />
-              <span>Sub-users</span>
+              <span>Identities</span>
+              <span>&gt;</span>
+              <span>Match &amp; Provision</span>
             </NuxtLink>
-            page to create their own user and backends automatically.
+            page to create their own identities and backends automatically.
           </li>
         </ul>
       </template>
@@ -152,7 +151,7 @@
                   to learn how to get the token.
                 </p>
                 <p class="font-semibold text-warning">
-                  If you plan to add sub-users, YOU MUST use admin level token.
+                  If you plan to provision identities, YOU MUST use an admin level token.
                 </p>
               </template>
 
@@ -167,7 +166,8 @@
                   should be used as last resort, and it's mostly untested.
                 </p>
                 <p class="font-semibold text-error">
-                  If you plan to add sub-users, YOU MUST use API KEY and not username:password.
+                  If you plan to provision identities, YOU MUST use API KEY and not
+                  username:password.
                 </p>
               </template>
             </div>

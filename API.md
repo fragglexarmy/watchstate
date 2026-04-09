@@ -22,8 +22,6 @@ WatchState HTTP API reference. Examples use the default `/v1/api` prefix.
       - [POST /v1/api/backends/validate/token/{type}](#post-v1apibackendsvalidatetokentype)
       - [POST /v1/api/backends/plex/generate](#post-v1apibackendsplexgenerate)
       - [POST /v1/api/backends/plex/check](#post-v1apibackendsplexcheck)
-      - [GET /v1/api/backends/mapper](#get-v1apibackendsmapper)
-      - [PUT /v1/api/backends/mapper](#put-v1apibackendsmapper)
     - [Configured Backend Endpoints](#configured-backend-endpoints)
       - [GET /v1/api/backend/{name}](#get-v1apibackendname)
       - [PUT /v1/api/backend/{name}](#put-v1apibackendname)
@@ -73,7 +71,6 @@ WatchState HTTP API reference. Examples use the default `/v1/api` prefix.
       - [GET /v1/api/system/healthcheck](#get-v1apisystemhealthcheck)
       - [GET /v1/api/system/version](#get-v1apisystemversion)
       - [GET /v1/api/system/supported](#get-v1apisystemsupported)
-      - [GET /v1/api/system/users](#get-v1apisystemusers)
       - [GET /v1/api/system/auth/test](#get-v1apisystemauthtest)
       - [GET /v1/api/system/auth/has\_user](#get-v1apisystemauthhas_user)
       - [GET /v1/api/system/auth/user](#get-v1apisystemauthuser)
@@ -132,12 +129,16 @@ WatchState HTTP API reference. Examples use the default `/v1/api` prefix.
       - [GET /v1/api/tasks](#get-v1apitasks)
       - [GET /v1/api/tasks/{id}](#get-v1apitasksid)
       - [GET|POST|DELETE /v1/api/tasks/{id}/queue](#getpostdelete-v1apitasksidqueue)
-    - [Users](#users)
-      - [GET /v1/api/users](#get-v1apiusers)
-      - [POST /v1/api/users](#post-v1apiusers)
-      - [DELETE /v1/api/users/{user}](#delete-v1apiusersuser)
-      - [GET /v1/api/users/{user}](#get-v1apiusersuser)
-      - [PUT /v1/api/users/{user}](#put-v1apiusersuser)
+    - [Identities](#identities)
+      - [GET /v1/api/identities](#get-v1apiidentities)
+      - [POST /v1/api/identities](#post-v1apiidentities)
+      - [DELETE /v1/api/identities/{identity}](#delete-v1apiidentitiesidentity)
+      - [GET /v1/api/identities/{identity}](#get-v1apiidentitiesidentity)
+      - [PUT /v1/api/identities/{identity}](#put-v1apiidentitiesidentity)
+      - [GET /v1/api/identities/provision](#get-v1apiidentitiesprovision)
+      - [PUT /v1/api/identities/provision/mapping](#put-v1apiidentitiesprovisionmapping)
+      - [POST /v1/api/identities/provision](#post-v1apiidentitiesprovision)
+      - [POST /v1/api/identities/provision/sync-backends](#post-v1apiidentitiesprovisionsync-backends)
     - [Webhook](#webhook)
       - [POST|PUT /v1/api/webhook](#postput-v1apiwebhook)
   - [Error Responses](#error-responses)
@@ -186,10 +187,10 @@ Most routes require either an API key or a signed user token.
   - Send `Content-Type: application/json` for JSON request bodies.
   - JSON auto-parsing only happens for `application/json` and `application/*+json`.
 
-- **User Context**
-  - Many endpoints operate on a per-user config/database.
+- **Identity Context**
+  - Many endpoints operate on a per-identity config/database.
   - Those routes accept `X-User: <name>` or `?user=<name>`.
-  - If omitted, WatchState uses the `main` user context.
+  - If omitted, WatchState uses the `main` identity context.
 
 - **Response Format**
   - Successful endpoints usually return a JSON object or JSON array.
@@ -526,135 +527,6 @@ Polls the Plex PIN flow and returns the current PIN state.
 **Errors**:
 - `400 Bad Request` if `id` or `code` is missing.
 - Returns the upstream Plex status when the check fails.
-
----
-
-#### GET /v1/api/backends/mapper
-Returns the cross-backend user mapper state.
-
-**Query**:
-- `force` (optional) - Bypass the 5 minute cache and rebuild the mapping view.
-
-**Response**:
-```json
-{
-  "has_users": true,
-  "has_mapper": true,
-  "backends": ["plex_main", "jellyfin_main"],
-  "matched": [
-    {
-      "user": "User group #1",
-      "matched": [
-        {
-          "id": "123",
-          "username": "alice",
-          "backend": "plex_main",
-          "real_name": "Alice",
-          "type": "plex",
-          "protected": false,
-          "options": {}
-        },
-        {
-          "id": "456",
-          "username": "alice",
-          "backend": "jellyfin_main",
-          "real_name": "Alice Smith",
-          "type": "jellyfin",
-          "protected": false,
-          "options": {}
-        }
-      ]
-    }
-  ],
-  "unmatched": [
-    {
-      "id": "789",
-      "username": "bob",
-      "backend": "plex_main",
-      "real_name": "Bob",
-      "type": "plex",
-      "protected": true,
-      "options": {}
-    }
-  ],
-  "expires": "2026-03-28T12:05:00+00:00"
-}
-```
-
-**Notes**:
-- The response is built from live backend user discovery plus the mapper file.
-- `has_users` means generated user YAML files already exist under `users/*/*.yaml`.
-- `has_mapper` means a non-empty mapper file was loaded.
-- `matched`, `unmatched`, `backends`, and `expires` only appear when backend discovery produced usable rows.
-- Matching can still happen with `has_mapper=false` through direct normalized username matching.
-- `username` is the normalized internal name. `real_name` is the original backend-reported name.
-- `user` labels such as `User group #1` are generated by the API, not stored in the mapper file.
-
----
-
-#### PUT /v1/api/backends/mapper
-Creates or replaces the cross-backend user mapper file.
-
-**Body**:
-```json
-{
-  "version": "1.6",
-  "map": [
-    {
-      "plex_main": {
-        "name": "mike_jones"
-      },
-      "jellyfin_main": {
-        "name": "jones_mike",
-        "options": {}
-      },
-      "emby_main": {
-        "name": "mikejones",
-        "replace_with": "mike_jones"
-      }
-    }
-  ]
-}
-```
-
-**Response**:
-```json
-{
-  "info": {
-    "code": 200,
-    "message": "Mapper file successfully updated."
-  },
-  "version": "1.6",
-  "map": [
-    {
-      "plex_main": {
-        "name": "mike_jones"
-      },
-      "jellyfin_main": {
-        "name": "jones_mike",
-        "options": {}
-      },
-      "emby_main": {
-        "name": "mikejones",
-        "replace_with": "mike_jones"
-      }
-    }
-  ]
-}
-```
-
-**Errors**:
-- `400 Bad Request` if `map` is missing, empty, not an array, or if `version` is lower than `1.5`.
-
-**Notes**:
-- `map` rows are keyed by configured backend names from `servers.yaml`, such as `plex_main`.
-- Each backend entry usually contains `name`, and may also contain `options` and `replace_with`.
-- `name` is matched against normalized usernames, not raw backend display names.
-- The route only validates the top-level shape. Invalid nested mapper rows can still be written.
-- The request body is parsed API data, and WatchState persists it to the mapper file as YAML.
-- Existing mapper files are overwritten.
-- The cached mapper overview is cleared after a successful write.
-- The route returns `201 Created` with `Mapper file successfully created.` when the mapper file did not exist yet, otherwise `200 OK` with `Mapper file successfully updated.`.
 
 ---
 
@@ -1980,23 +1852,6 @@ Returns the list of supported backend types.
   "jellyfin",
   "emby"
 ]
-```
-
----
-
-#### GET /v1/api/system/users
-Lists configured WatchState users and the backends each one owns.
-
-**Response**:
-```json
-{
-  "users": [
-    {
-      "user": "main",
-      "backends": ["plex_main", "jellyfin_main"]
-    }
-  ]
-}
 ```
 
 ---
@@ -3403,17 +3258,17 @@ Gets queue state, queues a run, or cancels a queued run.
 
 ---
 
-### Users
+### Identities
 
-#### GET /v1/api/users
-Lists configured WatchState users and each user's backend names.
+#### GET /v1/api/identities
+Lists configured WatchState identities and each identity's backend names.
 
 **Response**:
 ```json
 {
-  "users": [
+  "identities": [
     {
-      "user": "main",
+      "identity": "main",
       "backends": ["plex_main", "jellyfin_main"]
     }
   ]
@@ -3422,13 +3277,13 @@ Lists configured WatchState users and each user's backend names.
 
 ---
 
-#### POST /v1/api/users
-Creates a new WatchState user configuration set.
+#### POST /v1/api/identities
+Creates a new WatchState identity configuration set.
 
 **Body**:
 ```json
 {
-  "user": "family"
+  "identity": "family"
 }
 ```
 
@@ -3436,37 +3291,37 @@ Creates a new WatchState user configuration set.
 - `201 Created` with an empty body.
 
 **Errors**:
-- `400 Bad Request` if `user` is missing or invalid.
-- `409 Conflict` if the user already exists.
+- `400 Bad Request` if `identity` is missing or invalid.
+- `409 Conflict` if the identity already exists.
 - `500 Internal Server Error` if creation fails.
 
 **Notes**:
-- Usernames are normalized to lowercase.
+- Identity names are normalized to lowercase.
 
 ---
 
-#### DELETE /v1/api/users/{user}
-Deletes one WatchState user configuration set.
+#### DELETE /v1/api/identities/{identity}
+Deletes one WatchState identity configuration set.
 
 **Path**:
-- `user`: Username.
+- `identity`: Identity name.
 
 **Response**:
 - `200 OK` with an empty body.
 
 **Errors**:
-- `400 Bad Request` if the username is missing or invalid.
-- `403 Forbidden` if the user is `main`.
-- `404 Not Found` if the user does not exist.
+- `400 Bad Request` if the identity name is missing or invalid.
+- `403 Forbidden` if the identity is `main`.
+- `404 Not Found` if the identity does not exist.
 - `500 Internal Server Error` if deletion fails.
 
 ---
 
-#### GET /v1/api/users/{user}
-Returns the full backend config object for one user.
+#### GET /v1/api/identities/{identity}
+Returns the full backend config object for one identity.
 
 **Path**:
-- `user`: Username.
+- `identity`: Identity name.
 
 **Response**:
 ```json
@@ -3480,16 +3335,16 @@ Returns the full backend config object for one user.
 ```
 
 **Errors**:
-- `400 Bad Request` if the username is missing or invalid.
-- `404 Not Found` if the user does not exist.
+- `400 Bad Request` if the identity name is missing or invalid.
+- `404 Not Found` if the identity does not exist.
 
 ---
 
-#### PUT /v1/api/users/{user}
-Replaces the full backend config object for one user.
+#### PUT /v1/api/identities/{identity}
+Replaces the full backend config object for one identity.
 
 **Path**:
-- `user`: Username.
+- `identity`: Identity name.
 
 **Body**:
 - JSON object or YAML document describing the entire backend config file.
@@ -3517,13 +3372,245 @@ Replaces the full backend config object for one user.
 ```
 
 **Errors**:
-- `400 Bad Request` if the username is invalid, the body cannot be parsed, the body is not an object, or validation fails.
-- `404 Not Found` if the user does not exist.
+- `400 Bad Request` if the identity name is invalid, the body cannot be parsed, the body is not an object, or validation fails.
+- `404 Not Found` if the identity does not exist.
 
 **Notes**:
 - Accepts JSON and YAML request bodies.
 - Requests with `application/json` are parsed as JSON; other request bodies are parsed as YAML.
 - Validation errors include an `errors` array in the response body.
+
+---
+
+#### GET /v1/api/identities/provision
+Returns the current identity provisioning preview built from live backend member discovery and the saved mapper file.
+
+**Query**:
+- `force` (optional) - Bypass the 5 minute cache and rebuild the preview.
+
+**Response**:
+```json
+{
+  "has_identities": true,
+  "has_mapping": true,
+  "backends": ["plex_main", "jellyfin_main"],
+  "matched": [
+    {
+      "identity": "alice",
+      "members": [
+        {
+          "id": "123",
+          "username": "alice",
+          "backend": "plex_main",
+          "real_name": "Alice",
+          "type": "plex",
+          "protected": false,
+          "options": {}
+        }
+      ]
+    }
+  ],
+  "unmatched": [
+    {
+      "id": "789",
+      "username": "bob",
+      "backend": "plex_main",
+      "real_name": "Bob",
+      "type": "plex",
+      "protected": true,
+      "options": {}
+    }
+  ],
+  "expires": "2026-03-28T12:05:00+00:00"
+}
+```
+
+**Notes**:
+- `has_identities` means generated identity YAML files already exist under `users/*/*.yaml`.
+- `has_mapping` means a non-empty mapper file was loaded.
+- Matching can still happen with `has_mapping=false` through direct normalized username matching.
+- `username` is the normalized internal name. `real_name` is the original backend-reported name.
+
+---
+
+#### PUT /v1/api/identities/provision/mapping
+Creates or replaces the saved cross-backend identity mapping file.
+
+**Body**:
+```json
+{
+  "version": "1.6",
+  "identities": [
+    {
+      "identity": "alice",
+      "members": [
+        {
+          "backend": "plex_main",
+          "username": "alice",
+          "options": {}
+        },
+        {
+          "backend": "jellyfin_main",
+          "username": "alice",
+          "options": {}
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Response**:
+```json
+{
+  "info": {
+    "code": 200,
+    "message": "Identity mapping successfully updated."
+  },
+  "version": "1.6",
+  "identities": [
+    {
+      "identity": "alice",
+      "members": [
+        {
+          "backend": "plex_main",
+          "username": "alice",
+          "options": {}
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Errors**:
+- `400 Bad Request` if `identities` is missing, empty, not an array, or if `version` is lower than `1.5`.
+
+---
+
+#### POST /v1/api/identities/provision
+Creates, updates, or recreates identities directly through the API.
+
+**Body**:
+```json
+{
+  "mode": "update",
+  "dry_run": false,
+  "generate_backup": true,
+  "regenerate_tokens": false,
+  "allow_single_backend_identities": false,
+  "save_mapping": true,
+  "mapping": {
+    "version": "1.6",
+    "identities": [
+      {
+        "identity": "alice",
+        "members": [
+          {
+            "backend": "plex_main",
+            "username": "alice",
+            "options": {}
+          },
+          {
+            "backend": "jellyfin_main",
+            "username": "alice",
+            "options": {}
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Response**:
+```json
+{
+  "info": {
+    "code": 200,
+    "message": "Identities updated successfully."
+  },
+  "mode": "update",
+  "dry_run": false,
+  "save_mapping": true,
+  "allow_single_backend_identities": false,
+  "count": 1,
+  "identities": [
+    {
+      "identity": "alice",
+      "backends": ["plex_main", "jellyfin_main"],
+      "members": [
+        {
+          "backend": "plex_main",
+          "username": "alice"
+        },
+        {
+          "backend": "jellyfin_main",
+          "username": "alice"
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Errors**:
+- `400 Bad Request` if `mode` is invalid or provisioning cannot produce identities.
+- `409 Conflict` if `mode=create` is requested while local identities already exist.
+- `500 Internal Server Error` if provisioning fails unexpectedly.
+
+**Notes**:
+- `mode` accepts `create`, `update`, or `recreate`.
+- `save_mapping=true` persists the provided mapping before provisioning.
+- `allow_single_backend_identities=true` requires exactly one configured backend and allows one-member identity groups.
+
+---
+
+#### POST /v1/api/identities/provision/sync-backends
+Safely syncs already-linked identity backends from the current main backend configuration.
+
+This route does not create, delete, or rematch identities. It only updates existing linked backend configs.
+
+**Body**:
+```json
+{
+  "dry_run": false
+}
+```
+
+**Response**:
+```json
+{
+  "info": {
+    "code": 200,
+    "message": "Synced 4 identity backend(s) successfully."
+  },
+  "dry_run": false,
+  "updated_count": 4,
+  "skipped_count": 2,
+  "failed_count": 0,
+  "updated": [
+    {
+      "identity": "alice",
+      "backend": "plex_alice",
+      "source_backend": "plex_main"
+    }
+  ],
+  "skipped": [
+    {
+      "identity": "manual_profile",
+      "backend": "custom_backend",
+      "reason": "Backend is not linked to a source backend."
+    }
+  ],
+  "failed": []
+}
+```
+
+**Notes**:
+- This is the safe maintenance path for propagating changes like backend URL, shared tokens, UUID, import/export settings, and shared backend options.
+- Per-identity values such as backend user IDs, Plex child tokens, Plex user UUID/name, and protected user PINs are preserved.
+- `dry_run=true` reports what would change without writing any identity config files.
 
 ---
 

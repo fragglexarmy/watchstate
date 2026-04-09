@@ -1,10 +1,10 @@
 <template>
   <div class="space-y-4">
-    <UFormField label="Browse as" name="user">
+    <UFormField label="Browse as" name="identity">
       <USelect
-        id="user"
+        id="identity"
         v-model="api_user"
-        :items="users"
+        :items="identities"
         icon="i-lucide-user"
         class="w-full"
         :disabled="isLoading"
@@ -15,7 +15,7 @@
       color="warning"
       variant="soft"
       icon="i-lucide-triangle-alert"
-      description="Browse the WebUI as the selected user. Not all API endpoints support non-main user."
+      description="Browse the WebUI as the selected identity. Not all API endpoints support non-main identity."
     />
 
     <div class="flex flex-col justify-end gap-2 sm:flex-row">
@@ -37,10 +37,11 @@
 import { onMounted, ref } from 'vue';
 import { navigateTo, useRoute } from '#app';
 import { useStorage } from '@vueuse/core';
-import { notification, request } from '~/utils';
+import { notification, parse_api_response, request } from '~/utils';
+import type { IdentityListItem } from '~/types';
 
 const api_user = useStorage<string>('api_user', 'main');
-const users = ref<Array<string>>(['main']);
+const identities = ref<Array<string>>(['main']);
 const isLoading = ref<boolean>(true);
 
 const emitter = defineEmits<{
@@ -49,23 +50,24 @@ const emitter = defineEmits<{
 
 onMounted(async (): Promise<void> => {
   try {
-    const response = await request('/system/users');
-    if (!response.ok) {
-      notification('error', 'Error', 'Failed to fetch users.');
-      users.value = [api_user.value];
+    const response = await request('/identities');
+    const json = await parse_api_response<{ identities: Array<IdentityListItem> }>(response);
+
+    if ('error' in json) {
+      notification('error', 'Error', `Failed to fetch identities. ${json.error.message}`);
+      identities.value = [api_user.value];
       return;
     }
-    const json = await response.json();
-    if ('users' in json) {
-      (json.users as Array<{ user: string }>).forEach((user) => {
-        const username = user.user;
-        if (!users.value.includes(username)) {
-          users.value.push(username);
-        }
-      });
-    }
-  } catch (e) {
-    notification('error', 'Error', `Failed to fetch users. ${e}`);
+
+    json.identities.forEach((identity) => {
+      const name = identity.identity;
+      if (!identities.value.includes(name)) {
+        identities.value.push(name);
+      }
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unexpected error';
+    notification('error', 'Error', `Failed to fetch identities. ${message}`);
   } finally {
     isLoading.value = false;
   }

@@ -482,8 +482,8 @@ const goto_history_item = async (item: HistoryLogItem): Promise<void> => {
   if (log_user !== api_user.value) {
     const dialog = useDialog();
     const { status } = await dialog.confirmDialog({
-      title: 'Switch User',
-      message: `This item is related to '${item.user}' user. And you are currently using '${api_user.value}' Do you want to switch to view the item?`,
+      title: 'Switch Identity',
+      message: `This item is related to identity '${item.user}'. You are currently using '${api_user.value}'. Do you want to switch to view it?`,
     });
 
     if (true !== status) {

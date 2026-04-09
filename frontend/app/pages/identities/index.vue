@@ -14,13 +14,34 @@
 
       <div class="flex flex-wrap items-center justify-end gap-2">
         <UButton
+          v-if="identities.length > 0"
+          color="neutral"
+          variant="outline"
+          size="sm"
+          icon="i-lucide-refresh-cw"
+          :loading="isSyncing"
+          :disabled="isLoading || isSyncing"
+          @click="syncBackends"
+          label="Sync Backends"
+        />
+
+        <UButton
+          color="neutral"
+          variant="outline"
+          size="sm"
+          icon="i-lucide-users-round"
+          to="/identities/provision"
+          label="Match & Provision"
+        />
+
+        <UButton
           color="neutral"
           variant="outline"
           size="sm"
           icon="i-lucide-plus"
           :disabled="isLoading"
-          @click="openAddUserForm"
-          label="Add User"
+          @click="openAddIdentityForm"
+          label="Add Identity"
         />
 
         <UButton
@@ -38,12 +59,12 @@
 
     <UModal
       :open="toggleForm"
-      title="Add User"
-      :ui="addUserModalUi"
-      @update:open="handleAddUserOpenChange"
+      title="Add Identity"
+      :ui="addIdentityModalUi"
+      @update:open="handleAddIdentityOpenChange"
     >
       <template #body>
-        <form v-if="toggleForm" class="space-y-4" @submit.prevent="addUser">
+        <form v-if="toggleForm" class="space-y-4" @submit.prevent="addIdentity">
           <UAlert
             v-if="formError"
             color="error"
@@ -59,17 +80,17 @@
           />
 
           <UFormField
-            label="Username"
-            name="username"
-            description="Username must be unique and only contain lowercase letters (a-z), numbers (0-9), and underscores (_)."
+            label="Identity name"
+            name="identity"
+            description="Identity name must be unique and only contain lowercase letters (a-z), numbers (0-9), and underscores (_)."
           >
             <UInput
-              v-model="newUsername"
+              v-model="newIdentityName"
               type="text"
               required
               icon="i-lucide-user"
               class="w-full"
-              placeholder="Enter username (lowercase a-z, 0-9, _)"
+              placeholder="Enter identity name (lowercase a-z, 0-9, _)"
             />
           </UFormField>
 
@@ -80,7 +101,7 @@
               variant="outline"
               size="sm"
               icon="i-lucide-x"
-              @click="() => void cancelAddUser()"
+              @click="() => void cancelAddIdentity()"
             >
               Cancel
             </UButton>
@@ -94,7 +115,7 @@
               :loading="isAdding"
               :disabled="isAdding"
             >
-              Add User
+              Add Identity
             </UButton>
           </div>
         </form>
@@ -102,44 +123,50 @@
     </UModal>
 
     <UModal
-      :open="editUserOpen"
-      :title="editUserId ? `Edit User: ${ucFirst(editUserId)}` : 'Edit User'"
-      :ui="editUserModalUi"
-      @update:open="handleEditUserOpenChange"
+      :open="editIdentityOpen"
+      :title="editIdentityId ? `Edit Identity: ${ucFirst(editIdentityId)}` : 'Edit Identity'"
+      :ui="editIdentityModalUi"
+      @update:open="handleEditIdentityOpenChange"
     >
       <template #body>
-        <UserEditForm
-          v-if="editUserOpen && editUserId"
-          :user-id="editUserId"
-          @close="() => void requestCloseEditUser()"
-          @saved="() => void handleUserEdited()"
-          @dirty-change="(dirty) => (editUserDirty = dirty)"
+        <IdentityEditForm
+          v-if="editIdentityOpen && editIdentityId"
+          :identity-id="editIdentityId"
+          @close="() => void requestCloseEditIdentity()"
+          @saved="() => void handleIdentityEdited()"
+          @dirty-change="(dirty) => (editIdentityDirty = dirty)"
         />
       </template>
     </UModal>
 
     <UAlert
-      v-if="users.length < 1 && isLoading"
+      v-if="identities.length < 1 && isLoading"
       color="info"
       variant="soft"
       icon="i-lucide-loader-circle"
       title="Loading"
-      description="Loading users. Please wait..."
+      description="Loading identities. Please wait..."
       :ui="{ icon: 'animate-spin' }"
     />
 
     <UAlert
-      v-else-if="users.length < 1"
+      v-else-if="identities.length < 1"
       color="warning"
       variant="soft"
       icon="i-lucide-info"
-      title="No Users Found"
+      title="No Identities Found"
     >
       <template #description>
         <div class="flex flex-wrap items-center gap-2 text-sm text-default">
-          <span>No users found.</span>
-          <UButton color="primary" variant="link" size="sm" class="px-0" @click="openAddUserForm">
-            Add a new user
+          <span>No identities found.</span>
+          <UButton
+            color="primary"
+            variant="link"
+            size="sm"
+            class="px-0"
+            @click="openAddIdentityForm"
+          >
+            Add a new identity
           </UButton>
         </div>
       </template>
@@ -147,18 +174,18 @@
 
     <div v-else class="grid gap-4 xl:grid-cols-2">
       <UCard
-        v-for="user in users"
-        :key="user.user"
+        v-for="identity in identities"
+        :key="identity.identity"
         class="h-full border border-default/70 shadow-sm"
-        :ui="userCardUi"
+        :ui="identityCardUi"
       >
         <template #header>
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0 flex items-center gap-2">
               <UIcon name="i-lucide-user" class="size-4 shrink-0 text-toned" />
-              <UTooltip :text="String(ucFirst(user.user))">
+              <UTooltip :text="String(ucFirst(identity.identity))">
                 <h2 class="truncate text-base font-semibold">
-                  {{ ucFirst(user.user) }}
+                  {{ ucFirst(identity.identity) }}
                 </h2>
               </UTooltip>
             </div>
@@ -169,17 +196,17 @@
                 variant="outline"
                 size="sm"
                 icon="i-lucide-settings"
-                @click="openEditUser(user.user)"
+                @click="openEditIdentity(identity.identity)"
                 label="Edit"
               />
 
               <UButton
-                v-if="user.user !== 'main'"
+                v-if="identity.identity !== 'main'"
                 color="neutral"
                 variant="outline"
                 size="sm"
                 icon="i-lucide-trash-2"
-                :to="`/users/${user.user}/delete?redirect=/users`"
+                :to="`/identities/${identity.identity}/delete?redirect=/identities`"
                 label="Delete"
               />
             </div>
@@ -187,13 +214,13 @@
         </template>
 
         <div class="space-y-3 text-sm text-default">
-          <div v-if="user.backends.length > 0" class="flex flex-wrap gap-2">
+          <div v-if="identity.backends.length > 0" class="flex flex-wrap gap-2">
             <button
-              v-for="backend in user.backends"
+              v-for="backend in identity.backends"
               :key="backend"
               type="button"
               class="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/15"
-              @click="user_link(user.user, `/backend/${backend}`)"
+              @click="identityLink(identity.identity, `/backend/${backend}`)"
             >
               <UIcon name="i-lucide-server" class="size-3.5 shrink-0 text-toned" />
               {{ backend }}
@@ -205,7 +232,7 @@
       </UCard>
     </div>
 
-    <UCard v-if="users.length > 0" :ui="tipsCardUi">
+    <UCard v-if="identities.length > 0" :ui="tipsCardUi">
       <template #header>
         <button
           type="button"
@@ -228,8 +255,12 @@
       </template>
 
       <ul v-if="show_page_tips" class="list-disc space-y-2 pl-5 text-sm leading-6 text-default">
-        <li>The <strong>main</strong> user is the primary user and cannot be deleted.</li>
-        <li>Each user can have their own set of backends configured independently.</li>
+        <li>The <strong>main</strong> identity is the primary identity and cannot be deleted.</li>
+        <li>Each identity can have their own set of backends configured independently.</li>
+        <li>
+          Use <code>Sync Backends</code> here to safely propagate shared backend configuration
+          changes from the main identity without creating, deleting, or rematching identities.
+        </li>
         <li>
           Server configurations are validated against the system specification before saving. While
           this may help prevent misconfigurations, it's recommended to double-check configurations
@@ -244,44 +275,46 @@
 import { computed, nextTick, onMounted, ref } from 'vue';
 import { navigateTo, useHead, useRoute } from '#app';
 import { useStorage } from '@vueuse/core';
-import UserEditForm from '~/components/UserEditForm.vue';
+import IdentityEditForm from '~/components/IdentityEditForm.vue';
 import { useDirtyCloseGuard } from '~/composables/useDirtyCloseGuard';
 import { useDirtyState } from '~/composables/useDirtyState';
 import { requireTopLevelPageShell } from '~/utils/topLevelNavigation';
 import { notification, parse_api_response, request, ucFirst } from '~/utils';
-import type { GenericResponse, UserListItem } from '~/types';
+import type { GenericResponse, IdentityListItem } from '~/types';
 
-useHead({ title: 'Users Management' });
+useHead({ title: 'Identity Management' });
 
-const pageShell = requireTopLevelPageShell('users');
+const pageShell = requireTopLevelPageShell('identities');
 
 const route = useRoute();
-const users = ref<Array<UserListItem>>([]);
+const identities = ref<Array<IdentityListItem>>([]);
 const toggleForm = ref<boolean>(false);
-const editUserOpen = ref<boolean>(false);
-const editUserId = ref<string>('');
-const editUserDirty = ref<boolean>(false);
+const editIdentityOpen = ref<boolean>(false);
+const editIdentityId = ref<string>('');
+const editIdentityDirty = ref<boolean>(false);
 const isLoading = ref<boolean>(false);
+const isSyncing = ref<boolean>(false);
 const isAdding = ref<boolean>(false);
-const newUsername = ref<string>('');
+const newIdentityName = ref<string>('');
 const formError = ref<string | null>(null);
 const show_page_tips = useStorage('show_page_tips', true);
-const addUserDirtySource = computed(() => ({
-  username: newUsername.value.trim().toLowerCase(),
+const addIdentityDirtySource = computed(() => ({
+  identity: newIdentityName.value.trim().toLowerCase(),
 }));
-const { isDirty: isAddUserDirty, markClean: markAddUserClean } = useDirtyState(addUserDirtySource);
+const { isDirty: isAddIdentityDirty, markClean: markAddIdentityClean } =
+  useDirtyState(addIdentityDirtySource);
 
-const addUserModalUi = {
+const addIdentityModalUi = {
   content: 'max-w-xl',
   body: 'p-4 sm:p-5',
 };
 
-const editUserModalUi = {
+const editIdentityModalUi = {
   content: 'max-w-6xl',
   body: 'p-4 sm:p-5',
 };
 
-const userCardUi = {
+const identityCardUi = {
   header: 'p-4',
   body: 'p-4',
 };
@@ -291,125 +324,169 @@ const tipsCardUi = {
   body: 'px-4 pb-4 pt-0',
 };
 
-const resetAddUserForm = (): void => {
-  newUsername.value = '';
+const resetAddIdentityForm = (): void => {
+  newIdentityName.value = '';
   formError.value = null;
-  markAddUserClean();
+  markAddIdentityClean();
 };
 
-const { handleOpenChange: handleAddUserOpenChange, requestClose: requestCloseAddUser } =
+const { handleOpenChange: handleAddIdentityOpenChange, requestClose: requestCloseAddIdentity } =
   useDirtyCloseGuard(toggleForm, {
-    dirty: isAddUserDirty,
+    dirty: isAddIdentityDirty,
     onDiscard: async () => {
-      resetAddUserForm();
+      resetAddIdentityForm();
     },
   });
 
-const { handleOpenChange: handleEditUserOpenChange, requestClose: requestCloseEditUser } =
-  useDirtyCloseGuard(editUserOpen, {
-    dirty: editUserDirty,
+const { handleOpenChange: handleEditIdentityOpenChange, requestClose: requestCloseEditIdentity } =
+  useDirtyCloseGuard(editIdentityOpen, {
+    dirty: editIdentityDirty,
     onDiscard: async () => {
-      editUserDirty.value = false;
-      editUserId.value = '';
+      editIdentityDirty.value = false;
+      editIdentityId.value = '';
     },
   });
 
-const openAddUserForm = (): void => {
-  resetAddUserForm();
+const openAddIdentityForm = (): void => {
+  resetAddIdentityForm();
   toggleForm.value = true;
 };
 
-const openEditUser = (userId: string): void => {
-  editUserDirty.value = false;
-  editUserId.value = userId;
-  editUserOpen.value = true;
+const openEditIdentity = (identityId: string): void => {
+  editIdentityDirty.value = false;
+  editIdentityId.value = identityId;
+  editIdentityOpen.value = true;
 };
 
 const loadContent = async (): Promise<void> => {
-  users.value = [];
+  identities.value = [];
   isLoading.value = true;
 
   try {
-    const response = await request('/users');
-    const json = await parse_api_response<{ users: Array<UserListItem> }>(response);
+    const response = await request('/identities');
+    const json = await parse_api_response<{ identities: Array<IdentityListItem> }>(response);
 
-    if ('users' !== route.name) {
+    if ('identities' !== route.name) {
       return;
     }
 
     if ('error' in json) {
-      notification('error', 'Error', `Failed to load users. ${json.error.message}`);
+      notification('error', 'Error', `Failed to load identities. ${json.error.message}`);
       return;
     }
 
-    users.value = json.users || [];
-    useHead({ title: 'Users Management' });
+    identities.value = json.identities || [];
+    useHead({ title: 'Identity Management' });
   } catch (e: unknown) {
     const error = e as Error;
-    notification('error', 'Error', `Failed to load users. ${error.message}`);
+    notification('error', 'Error', `Failed to load identities. ${error.message}`);
   } finally {
     isLoading.value = false;
   }
 };
 
-const addUser = async (): Promise<void> => {
+const addIdentity = async (): Promise<void> => {
   if (true === isAdding.value) {
     return;
   }
 
   formError.value = null;
-  const username = newUsername.value.trim().toLowerCase();
+  const identity = newIdentityName.value.trim().toLowerCase();
 
-  if (0 === username.length) {
-    formError.value = 'Please enter a username';
+  if (0 === identity.length) {
+    formError.value = 'Please enter an identity name';
     return;
   }
 
   isAdding.value = true;
 
   try {
-    const response = await request('/users', {
+    const response = await request('/identities', {
       method: 'POST',
-      body: JSON.stringify({ user: username }),
+      body: JSON.stringify({ identity }),
     });
     const result = await parse_api_response<GenericResponse>(response);
 
     if ('error' in result) {
-      formError.value = result.error?.message || 'Failed to create user';
+      formError.value = result.error?.message || 'Failed to create identity';
       return;
     }
 
-    notification('success', 'Success', `User '${username}' created successfully`);
-    resetAddUserForm();
+    notification('success', 'Success', `Identity '${identity}' created successfully`);
+    resetAddIdentityForm();
     toggleForm.value = false;
     await loadContent();
   } catch (e: unknown) {
     const error = e as Error;
-    formError.value = `Failed to create user. ${error.message}`;
+    formError.value = `Failed to create identity. ${error.message}`;
   } finally {
     isAdding.value = false;
   }
 };
 
-const cancelAddUser = async (): Promise<void> => {
-  await requestCloseAddUser();
+const cancelAddIdentity = async (): Promise<void> => {
+  await requestCloseAddIdentity();
 };
 
-const handleUserEdited = async (): Promise<void> => {
-  editUserDirty.value = false;
-  editUserOpen.value = false;
-  editUserId.value = '';
+const handleIdentityEdited = async (): Promise<void> => {
+  editIdentityDirty.value = false;
+  editIdentityOpen.value = false;
+  editIdentityId.value = '';
   await loadContent();
 };
 
-const user_link = async (user: string, url: string): Promise<void> => {
+const identityLink = async (identity: string, url: string): Promise<void> => {
   const api_user = useStorage('api_user', 'main');
-  api_user.value = user || 'main';
+  api_user.value = identity || 'main';
   await nextTick();
   await navigateTo(url);
 };
 
-markAddUserClean();
+const syncBackends = async (): Promise<void> => {
+  if (true === isSyncing.value) {
+    return;
+  }
+
+  isSyncing.value = true;
+
+  try {
+    const response = await request('/identities/provision/sync-backends', {
+      method: 'POST',
+      body: JSON.stringify({ dry_run: false }),
+    });
+    const result = await parse_api_response<
+      GenericResponse & {
+        updated_count?: number;
+        skipped_count?: number;
+        failed_count?: number;
+      }
+    >(response);
+
+    if ('error' in result) {
+      notification('error', 'Error', `Failed to sync backends. ${result.error.message}`);
+      return;
+    }
+
+    const failedCount = Number(result.failed_count ?? 0);
+    const level = failedCount > 0 ? 'warning' : 'success';
+    const title = failedCount > 0 ? 'Warning' : 'Success';
+    const details = [
+      result.info.message,
+      `Updated: ${Number(result.updated_count ?? 0)}`,
+      `Skipped: ${Number(result.skipped_count ?? 0)}`,
+      `Failed: ${failedCount}`,
+    ].join(' ');
+
+    notification(level, title, details);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unexpected error';
+    notification('error', 'Error', `Failed to sync backends. ${message}`);
+  } finally {
+    isSyncing.value = false;
+  }
+};
+
+markAddIdentityClean();
 
 onMounted(() => loadContent());
 </script>

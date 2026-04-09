@@ -7,7 +7,7 @@
         <UIcon :name="pageShell.icon" class="size-4" />
         <span>{{ pageShell.sectionLabel }}</span>
         <span>/</span>
-        <NuxtLink to="/users" class="hover:text-primary">{{ pageShell.pageLabel }}</NuxtLink>
+        <NuxtLink to="/identities" class="hover:text-primary">{{ pageShell.pageLabel }}</NuxtLink>
         <span>/</span>
         <span class="normal-case tracking-normal">{{ id }}</span>
         <span>/</span>
@@ -15,8 +15,8 @@
       </div>
 
       <div class="space-y-1">
-        <h1 class="text-2xl font-semibold text-highlighted">Delete user</h1>
-        <p class="text-sm text-toned">Delete user and all their backend configurations.</p>
+        <h1 class="text-2xl font-semibold text-highlighted">Delete identity</h1>
+        <p class="text-sm text-toned">Delete identity and all their backend configurations.</p>
       </div>
     </div>
 
@@ -48,7 +48,7 @@
         icon="i-lucide-triangle-alert"
         title="Error"
         :description="`${error.error.code}: ${error.error.message}`"
-        :close="{ onClick: () => void navigateTo('/users') }"
+        :close="{ onClick: () => void navigateTo('/identities') }"
       />
 
       <UAlert
@@ -57,11 +57,11 @@
         variant="soft"
         icon="i-lucide-triangle-alert"
         title="Action is not permitted"
-        :close="{ onClick: () => void navigateTo('/users') }"
+        :close="{ onClick: () => void navigateTo('/identities') }"
       >
         <template #description>
           <p class="text-sm text-default">
-            The <strong>main</strong> user cannot be deleted as it is the primary user.
+            The <strong>main</strong> identity cannot be deleted as it is the primary identity.
           </p>
         </template>
       </UAlert>
@@ -76,8 +76,8 @@
           <template #description>
             <div class="space-y-3 text-sm text-default">
               <p>
-                Are you sure you want to delete the user <code>{{ id }}</code> and all their backend
-                configurations?
+                Are you sure you want to delete the identity <code>{{ id }}</code> and all their
+                backend configurations?
               </p>
 
               <div>
@@ -85,7 +85,7 @@
                   This operation will do the following
                 </div>
                 <ul class="list-disc space-y-1 pl-5">
-                  <li>Remove all user data.</li>
+                  <li>Remove all identity data.</li>
                   <li v-if="backends.length > 0">
                     Delete <strong>{{ backends.length }}</strong> backend{{
                       backends.length > 1 ? 's' : ''
@@ -111,7 +111,7 @@
             variant="soft"
             size="sm"
             icon="i-lucide-arrow-left"
-            @click="navigateTo('/users')"
+            @click="navigateTo('/identities')"
           >
             Back
           </UButton>
@@ -123,9 +123,9 @@
             icon="i-lucide-trash-2"
             :loading="isDeleting"
             :disabled="isDeleting"
-            @click="deleteUser()"
+            @click="deleteIdentity()"
           >
-            Delete user
+            Delete identity
           </UButton>
         </div>
       </template>
@@ -140,33 +140,33 @@ import { useStorage } from '@vueuse/core';
 import { requireTopLevelPageShell } from '~/utils/topLevelNavigation';
 import { notification, parse_api_response, request } from '~/utils';
 import { useDialog } from '~/composables/useDialog';
-import type { GenericError, UserListItem } from '~/types';
+import type { GenericError, IdentityListItem } from '~/types';
 
-const id = useRoute().params.user as string;
-const pageShell = requireTopLevelPageShell('users');
+const id = useRoute().params.identity as string;
+const pageShell = requireTopLevelPageShell('identities');
 const error = ref<GenericError | null>(null);
 const backends = ref<Array<string>>([]);
 const isLoading = ref<boolean>(false);
 const isDeleting = ref<boolean>(false);
 
-const loadUser = async (): Promise<void> => {
+const loadIdentity = async (): Promise<void> => {
   try {
     isLoading.value = true;
 
-    const response = await request('/users');
-    const data = await parse_api_response<{ users: Array<UserListItem> }>(response);
+    const response = await request('/identities');
+    const data = await parse_api_response<{ identities: Array<IdentityListItem> }>(response);
 
     if ('error' in data) {
       error.value = data;
       return;
     }
 
-    const user = data.users.find((u) => u.user === id);
-    if (user) {
-      backends.value = user.backends;
+    const identity = data.identities.find((entry) => entry.identity === id);
+    if (identity) {
+      backends.value = identity.backends;
     } else {
       error.value = {
-        error: { code: 404, message: 'User not found' },
+        error: { code: 404, message: 'Identity not found' },
       } as GenericError;
     }
   } catch (e: unknown) {
@@ -178,10 +178,10 @@ const loadUser = async (): Promise<void> => {
   }
 };
 
-const deleteUser = async (): Promise<void> => {
+const deleteIdentity = async (): Promise<void> => {
   const { status: confirmStatus } = await useDialog().confirmDialog({
     title: 'Last Chance!',
-    message: `This action is irreversible. Delete '${id}' data?`,
+    message: `This action is irreversible. Delete identity '${id}' data?`,
     confirmColor: 'error',
   });
 
@@ -192,14 +192,14 @@ const deleteUser = async (): Promise<void> => {
   try {
     isDeleting.value = true;
 
-    const response = await request(`/users/${id}`, { method: 'DELETE' });
+    const response = await request(`/identities/${id}`, { method: 'DELETE' });
 
     if (200 !== response.status) {
       error.value = await parse_api_response(response);
       return;
     }
 
-    notification('success', 'Success', `User '${id}' has been deleted successfully`);
+    notification('success', 'Success', `Identity '${id}' has been deleted successfully`);
 
     const api_user = useStorage('api_user', 'main');
     if (api_user.value === id) {
@@ -207,7 +207,7 @@ const deleteUser = async (): Promise<void> => {
       await nextTick();
     }
 
-    await navigateTo('/users');
+    await navigateTo('/identities');
   } catch (e: unknown) {
     error.value = {
       error: { code: 500, message: e instanceof Error ? e.message : 'Unknown error occurred' },
@@ -217,5 +217,5 @@ const deleteUser = async (): Promise<void> => {
   }
 };
 
-onMounted(async (): Promise<void> => await loadUser());
+onMounted(async (): Promise<void> => await loadIdentity());
 </script>

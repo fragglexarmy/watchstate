@@ -21,6 +21,25 @@
     </UAlert>
 
     <UAlert
+      v-if="showIdentitySyncWarning"
+      color="warning"
+      variant="soft"
+      icon="i-lucide-refresh-cw"
+      title="Sync identities after saving"
+    >
+      <template #description>
+        <div class="space-y-2 text-sm text-default">
+          <p>You are editing a main identity backend while additional identities exist.</p>
+          <p>
+            After saving shared backend changes like URL, API key, UUID, or import/export settings,
+            go to <NuxtLink to="/identities" class="text-primary">Identities</NuxtLink> and use
+            <strong>Sync Backends</strong> to propagate those changes safely.
+          </p>
+        </div>
+      </template>
+    </UAlert>
+
+    <UAlert
       v-if="isLoading"
       color="info"
       variant="soft"
@@ -633,7 +652,14 @@ import { useBackendSetup } from '~/composables/useBackendSetup';
 import { useDialog } from '~/composables/useDialog';
 import { useDirtyState } from '~/composables/useDirtyState';
 import { notification, parse_api_response, request, ucFirst } from '~/utils';
-import type { Backend, BackendSpecOption, GenericResponse, JsonObject, JsonValue } from '~/types';
+import type {
+  Backend,
+  BackendSpecOption,
+  GenericResponse,
+  IdentityListItem,
+  JsonObject,
+  JsonValue,
+} from '~/types';
 
 type BackendOptionMap = Record<string, JsonValue>;
 
@@ -672,6 +698,7 @@ const backend = ref<Backend>(createEmptyBackend());
 const api_user = useStorage('api_user', 'main');
 const isLoading = ref<boolean>(true);
 const isSaving = ref<boolean>(false);
+const hasAdditionalIdentities = ref<boolean>(false);
 const showOptions = ref<boolean>(false);
 const optionsList = ref<Array<BackendSpecOption>>([]);
 const selectedOption = ref<string>('');
@@ -703,6 +730,9 @@ const {
 const id = computed<string>(() => props.backendName);
 const isPlex = computed<boolean>(() => 'plex' === backend.value.type);
 const hasPlexOauth = computed<boolean>(() => null !== plexOauth.value);
+const showIdentitySyncWarning = computed<boolean>(
+  () => 'main' === api_user.value && true === hasAdditionalIdentities.value,
+);
 const dirtySource = computed(() => ({
   backend: backend.value,
   selectedOption: selectedOption.value,
@@ -882,6 +912,24 @@ const resetEditorState = (): void => {
   selectedOption.value = '';
   newOptions.value = {};
   optionsVersion.value = 0;
+  hasAdditionalIdentities.value = false;
+};
+
+const loadIdentityWarningState = async (): Promise<void> => {
+  if ('main' !== api_user.value) {
+    hasAdditionalIdentities.value = false;
+    return;
+  }
+
+  const response = await request('/identities');
+  const json = await parse_api_response<{ identities: Array<IdentityListItem> }>(response);
+
+  if ('error' in json) {
+    hasAdditionalIdentities.value = false;
+    return;
+  }
+
+  hasAdditionalIdentities.value = json.identities.some((identity) => 'main' !== identity.identity);
 };
 
 const loadContent = async (): Promise<void> => {
@@ -906,6 +954,7 @@ const loadContent = async (): Promise<void> => {
     }
 
     backend.value = json;
+    await loadIdentityWarningState();
 
     if (isPlex.value) {
       await getServers();

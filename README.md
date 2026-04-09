@@ -21,7 +21,7 @@ Please refer to [NEWS](/NEWS.md) for the latest updates and changes.
 
 # Features
 
-* **Sub-users** support. `Multi-users`.
+* **Multi-users** support via `identities`.
 * Sync backends play state (`many-to-many` or `one-way`).
 * Backup your backends play state into `portable` format.
 * Receive [webhook](guides/webhooks.md) events from media backends.

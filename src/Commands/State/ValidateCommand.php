@@ -39,7 +39,7 @@ class ValidateCommand extends Command
     public const string TASK_NAME = 'validate';
 
     /**
-     * @var array<array-key,array<string,bool>> Store the status of item from backend in-case we have multiple sub-users.
+     * @var array<array-key,array<string,bool>> Store the status of item from backend in-case we have multiple identities.
      */
     private array $cache = [];
 

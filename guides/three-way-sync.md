@@ -32,7 +32,7 @@ folder to prevent conflicts:
 For each individual account (yours and your spouse's)
 
 > [!NOTE]
-> you can switch via the <!--i:i-lucide-users--> user dropdown in the top-right corner of the interface.
+> you can switch via the <!--i:i-lucide-users--> identity button in the top-right corner of the interface.
 
 1. Go to <!--i:i-lucide-server--> **Backends** and click on the <!--i:i-lucide-plus--> **Add Backend** button
 2. Follow the usual add backend process to add the share account.

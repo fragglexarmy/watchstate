@@ -248,7 +248,7 @@ import { navigateTo, useHead, useRoute } from '#app';
 import { useStorage } from '@vueuse/core';
 import moment from 'moment';
 import { useDialog } from '~/composables/useDialog';
-import type { BackupItem, GenericResponse, UILoadingState, UserBackends } from '~/types';
+import type { BackupItem, GenericResponse, UILoadingState, IdentityBackends } from '~/types';
 import { requireTopLevelPageShell } from '~/utils/topLevelNavigation';
 import {
   humanFileSize,
@@ -289,7 +289,7 @@ const items = ref<Array<BackItemWithUI>>([]);
 const isLoading = ref<boolean>(false);
 const queued = ref<boolean>(false);
 const show_page_tips = useStorage('show_page_tips', true);
-const users = ref<Array<UserBackends>>([]);
+const identities = ref<Array<IdentityBackends>>([]);
 const query = ref<string>((route.query.filter as string) ?? '');
 const toggleFilter = ref<boolean>(false);
 const dialog = useDialog();
@@ -306,11 +306,11 @@ const tipsCardUi = {
 };
 
 const restoreTargetItems = computed<Array<Array<RestoreTargetItem>>>(() =>
-  users.value.map((user) => [
-    { label: `User: ${user.user}`, type: 'label' },
-    ...user.backends.map((backend) => ({
+  identities.value.map((identity) => [
+    { label: `Identity: ${identity.identity}`, type: 'label' },
+    ...identity.backends.map((backend) => ({
       label: backend,
-      value: `${user.user}@${backend}`,
+      value: `${identity.identity}@${backend}`,
       type: 'item' as const,
     })),
   ]),
@@ -486,13 +486,15 @@ const isQueued = async (): Promise<boolean> => {
 };
 
 onMounted(async (): Promise<void> => {
-  const response = await request('/system/users');
-  const usersData = await parse_api_response<{ users: Array<UserBackends> }>(response);
+  const response = await request('/identities');
+  const identitiesData = await parse_api_response<{ identities: Array<IdentityBackends> }>(
+    response,
+  );
 
-  if ('error' in usersData) {
-    notification('error', 'Error', `Failed to load users. ${usersData.error.message}`);
+  if ('error' in identitiesData) {
+    notification('error', 'Error', `Failed to load identities. ${identitiesData.error.message}`);
   } else {
-    users.value = usersData.users;
+    identities.value = identitiesData.identities;
   }
 
   await loadContent();
@@ -500,13 +502,13 @@ onMounted(async (): Promise<void> => {
 
 const generateCommand = async (item: BackItemWithUI): Promise<void> => {
   const selected = item.selected.split('@');
-  const user = selected[0] || '';
+  const identity = selected[0] || '';
   const backend = selected[1] || '';
   const file = item.filename;
 
   const { status } = await dialog.confirmDialog({
     title: 'Confirm restore',
-    message: `Are you sure you want to restore '${user}@${backend}' using '${file}'?`,
+    message: `Are you sure you want to restore '${identity}@${backend}' using '${file}'?`,
     confirmColor: 'error',
   });
 
@@ -516,7 +518,7 @@ const generateCommand = async (item: BackItemWithUI): Promise<void> => {
 
   await navigateTo(
     makeConsoleCommand(
-      `backend:restore --assume-yes --execute -v --user '${user}' --select-backend '${backend}' -- '${file}'`,
+      `backend:restore --assume-yes --execute -v --user '${identity}' --select-backend '${backend}' -- '${file}'`,
     ),
   );
 };
