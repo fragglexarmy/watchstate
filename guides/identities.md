@@ -1,6 +1,6 @@
-# Multi-User Setup Guide
+# Identity Setup Guide
 
-This guide provides a step-by-step overview of how to configure and use the multi-user (sub-user) functionality. While
+This guide provides a step-by-step overview of how to configure and use the identity functionality. While
 the tool is primarily designed for single-user environments, multi-user support is available and works well in most
 scenarios. However, due to the foundational single-user architecture, occasional limitations may arise.
 
@@ -8,14 +8,14 @@ scenarios. However, due to the foundational single-user architecture, occasional
 
 ## Overview
 
-Multi-user support allows you to manage and configure separate configurations for multiple users, such as family members
-or users on a shared server. Sub-users inherit the base setup from the primary user and can be customized as needed.
+Identity support allows you to manage and configure separate configurations for multiple users, such as family members
+or users on a shared server. Identities inherit the base setup from the primary identity and can be customized as needed.
 
 ---
 
 ## Single Backend Mode vs. Multi-Backend Mode
 
-WatchState supports two modes for sub-user creation:
+WatchState supports two modes for identity creation:
 
 ### Multi-Backend Mode (Default)
 
@@ -38,10 +38,10 @@ This mode is available when you have **exactly 1 backend** configured. In this m
 
 To enable single backend mode:
 
-1. Navigate to **Configuration** > <!--i:i-lucide-users-round--> **Sub Users**.
-2. If you have exactly 1 backend configured, you'll see an **"Allow single backend users"** switch.
+1. Navigate to **Configuration** > <!--i:i-lucide-users--> **Identities** > **Match & Provision**.
+2. If you have exactly 1 backend configured, you'll see an **"Allow single backend identities"** switch.
 3. Check this option to enable single backend mode.
-4. All users from that backend (except the main user) will be created as individual sub-users.
+4. All users from that backend (except the main identity) will be created as individual identities.
 
 > [!NOTE]
 > Single backend mode still respects PIN settings for protected Plex users. You can set PINs by clicking the lock icon
@@ -49,14 +49,14 @@ To enable single backend mode:
 
 ---
 
-## Step-by-Step Guide to Multi-User Setup
+## Step-by-Step Guide to Identity Setup
 
 ### 1. Add Your Backends
 
 Begin by configuring your media server backends as you normally would for a single user.
 
-* Ensure that **all backends used by the main user** are correctly added and operational.
-* These backends will serve as the foundation for sub-user configurations.
+* Ensure that **all backends used by the main identity** are correctly added and operational.
+* These backends will serve as the foundation for identity configurations.
 
 ---
 
@@ -64,7 +64,7 @@ Begin by configuring your media server backends as you normally would for a sing
 
 If you're using Plex:
 
-* You **must** provide an **Admin-level `X-Plex-Token`** to access the user list required for sub-user grouping.
+* You **must** provide an **Admin-level `X-Plex-Token`** to access the user list required for identity grouping.
 * To verify your token:
 
     * Navigate to **Diagnostics** > <!--i:i-lucide-key-round--> **Plex Token**.
@@ -87,18 +87,18 @@ If you're using Jellyfin or Emby:
 
 ---
 
-### 4. Access the Sub-Users Management Tool
+### 4. Access the Identity Match & Provision Tool
 
 After verifying all backends are properly configured:
 
-1. Navigate to **Configuration** > <!--i:i-lucide-users-round--> **Sub Users**.
+1. Navigate to **Configuration** > <!--i:i-lucide-users--> **Identities** > **Match & Provision**.
 2. **If you have multiple backends:**
     * The system will attempt to **automatically group users** based on matching names across the backends.
     * **Manual adjustment may be necessary**:
         * Use drag-and-drop functionality to reassign or organize users into the appropriate groups.
         * This is helpful when naming conventions differ across services.
 3. **If you have a single backend:**
-    * Enable the **"Allow single backend users"** switch.
+    * Enable the **"Allow single backend identities"** switch.
     * All users will be listed in the unmatched section and will be created individually.
     * No grouping or matching is required.
 
@@ -108,48 +108,57 @@ After verifying all backends are properly configured:
 
 If you have Plex users with managed user accounts (protected users):
 
-* **These users require a PIN** to be set before sub-user creation can proceed.
+* **These users require a PIN** to be set before identity creation can proceed.
 * Click the **lock icon** (<!--i:i-lucide-lock-open-->) next to each protected user to set their 4-digit PIN.
 * The PIN will be stored in the mapper and used when generating access tokens.
 * In **single backend mode**, you can set PINs for unmatched users directly in the unmatched users section.
 
 > [!IMPORTANT]
-> You cannot proceed with sub-user creation if any protected users are missing PINs. The system will display a warning
+> You cannot proceed with identity creation if any protected users are missing PINs. The system will display a warning
 > message and disable the creation buttons until all PINs are set.
 
 ---
 
-### 6. Create Sub-Users
+### 6. Create Identities
 
 Once users are properly grouped (in multi-backend mode) or configured (in single backend mode):
 
-* Click the `Create Sub-users` button.
-* The system will generate configurations for each sub-user, based on the main user's settings.
+* Click the `Create identities` button.
+* The system will generate configurations for each identity, based on the main identity's settings.
 * In **single backend mode**, each user gets their own independent configuration.
 
 ---
 
-## Managing Sub-Users Configurations
+## Managing Identity Configurations
 
-If you make changes to the main user configuration (e.g., change backend URLs, tokens, etc.), you must also update
-sub-user configurations.
+If you make changes to the main identity configuration (e.g., change backend URLs, tokens, etc.), you must also update
+identity configurations.
 
-You can do this in one of two ways:
+You can do this in one of three ways:
 
-1. **Manually Update Each Sub-User**
-    * Select `Change User` in the top right of the WebUI.
-    * `Browse as` a sub-user.
-    * Configure settings for each sub-user.
+1. **Manually Update Each Identity**
+    * Select `Change Identity` in the top right of the WebUI.
+    * `Browse as` an identity.
+    * Configure settings for each identity.
 
-3. **Click `Update Sub-users`**
+2. **Click `Sync backends`**
+
+    This will:
+
+     * Run from the main <!--i:i-lucide-users--> **Identities** page.
+     * Safely propagate shared backend configuration changes from the main identity.
+     * **Not** create, delete, or rematch identities.
+     * Preserve identity-specific values like backend user IDs, Plex child tokens, and protected user PINs.
+
+3. **Click `Update identities`**
    
    This will:
 
-    * Attempt to propagate changes from the main configuration.
-    * **Create new sub-users** for any users that do not yet exist in the system.
+     * Attempt to propagate changes from the main configuration.
+     * **Create new identities** for any users that do not yet exist in the system.
 
 > [!IMPORTANT]
-> **Caution:** The `Update Sub-users` feature can result in the creation of new sub-users. Use it only when you are
+> **Caution:** The `Update identities` feature can result in the creation of new identities. Use it only when you are
 > certain of the impact.
 
 ---
@@ -178,8 +187,8 @@ The system enforces a strict naming convention for both **backend names** and **
 
 ## Conclusion
 
-Multi-user support enables effective user management within a single instance, even though the system was originally
+Identity support enables effective user management within a single instance, even though the system was originally
 built for single-user operation. By following the setup instructions and observing naming conventions, you can
-confidently configure and manage sub-users with minimal issues. Be mindful of changes to the main configuration and
-always validate backend permissions before generating or updating sub-users. It's helpful to read the extra information
-provides in the sub-users page.
+confidently configure and manage identities with minimal issues. Be mindful of changes to the main configuration and
+always validate backend permissions before generating or updating identities. It's helpful to read the extra information
+provided in the identities provision page.

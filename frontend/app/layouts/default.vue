@@ -127,15 +127,17 @@
                     <UIcon v-else name="i-lucide-loader-circle" class="size-4 animate-spin" />
                   </UButton>
 
-                  <UButton
-                    color="neutral"
-                    variant="ghost"
-                    size="sm"
-                    icon="i-lucide-users"
-                    @click="showUserSelection = true"
-                  >
-                    <span class="hidden xl:inline">{{ apiUser }}</span>
-                  </UButton>
+                  <UTooltip text="Change Identity" placement="bottom">
+                    <UButton
+                      color="neutral"
+                      variant="ghost"
+                      size="sm"
+                      icon="i-lucide-users"
+                      @click="showIdentitySelection = true"
+                    >
+                      <span class="hidden xl:inline">{{ apiUser }}</span>
+                    </UButton>
+                  </UTooltip>
 
                   <UDashboardSearchButton class="hidden shrink-0 sm:inline-flex" />
 
@@ -193,9 +195,13 @@
               <Dialog />
             </ClientOnly>
 
-            <UModal v-model:open="showUserSelection" title="Change User" :ui="userSelectionModalUi">
+            <UModal
+              v-model:open="showIdentitySelection"
+              title="Change Identity"
+              :ui="identitySelectionModalUi"
+            >
               <template #body>
-                <UserSelection @close="() => (showUserSelection = false)" />
+                <IdentitySelection @close="() => (showIdentitySelection = false)" />
               </template>
             </UModal>
 
@@ -236,7 +242,7 @@ import NewVersion from '~/components/NewVersion.vue';
 import Dialog from '~/components/Dialog.vue';
 import SettingsPanel from '~/components/SettingsPanel.vue';
 import StatusDots from '~/components/StatusDots.vue';
-import UserSelection from '~/components/UserSelection.vue';
+import IdentitySelection from '~/components/IdentitySelection.vue';
 import useEventsStats from '~/composables/useEventsStats';
 
 type NavEntry = {
@@ -297,13 +303,13 @@ const bgEnable = useStorage<boolean>('bg_enable', true);
 const bgOpacity = useStorage<number>('bg_opacity', 0.95);
 const apiUser = useStorage<string>('api_user', 'main');
 
-const showUserSelection = ref(false);
+const showIdentitySelection = ref(false);
 const showSettings = ref(false);
 const inContainer = ref(false);
 const showScheduler = ref(false);
 const showRouteSearch = ref(false);
 
-const userSelectionModalUi = {
+const identitySelectionModalUi = {
   content: 'sm:max-w-lg',
   body: 'p-4 sm:p-5',
 };
@@ -467,13 +473,13 @@ const routeSearchGroups = computed<Array<SearchGroup>>(() => {
 
   const actionItems: Array<SearchItem> = [
     {
-      label: 'Change User',
-      description: 'Open the user switcher.',
+      label: 'Change Identity',
+      description: 'Open the identity switcher.',
       icon: 'i-lucide-users',
       suffix: 'Action',
       onSelect: async () => {
         await closeRouteSearch();
-        showUserSelection.value = true;
+        showIdentitySelection.value = true;
       },
     },
     {

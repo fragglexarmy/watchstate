@@ -80,14 +80,14 @@ const choices: Array<{ number: number; title: string; text: string; url: string 
   {
     number: 3,
     title: 'Webhooks',
-    text: 'How to enable webhooks for your backends and for sub-users.',
+    text: 'How to enable webhooks for your backends and identities.',
     url: '/help/webhooks',
   },
   {
     number: 4,
-    title: 'Creating Sub-users',
-    text: 'Guide on how to create and use sub-users.',
-    url: '/help/sub-users',
+    title: 'Creating Identities',
+    text: 'Guide on how to create and use identities (multi-users).',
+    url: '/help/identities',
   },
   {
     number: 5,
@@ -110,7 +110,7 @@ const choices: Array<{ number: number; title: string; text: string; url: string 
   {
     number: 8,
     title: 'API Reference',
-    text: 'Full HTTP API documentation for every current WatchState endpoint.',
+    text: 'API documentation current version.',
     url: '/help/api',
   },
 ];

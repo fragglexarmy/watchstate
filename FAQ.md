@@ -168,9 +168,9 @@ This will sync your local database state to the backend, ignoring date compariso
 
 # Is there support for Multi-user setup?
 
-The tool is primarily designed for single-user use, The Multi-user/sub-users functionality is built on top of that.
-From our testing, sub-users functionality works well right now and behave as expected in the majority of cases. Please
-refer to [sub users](/guides/sub-users.md) guide for more information on how to set it up correctly.
+The tool is primarily designed for single-user use. Identity support is built on top of that.
+From our testing, identity provisioning works well right now and behaves as expected in the majority of cases. Please
+refer to the [identities](/guides/identities.md) guide for more information on how to set it up correctly.
 
 ----
 
@@ -607,7 +607,7 @@ from the trusted sources will be granted access without further authentication.
 # Failing due to duplicate UUID
 
 If you clone your media backend instance, your UUID might be duplicated as well. Unfortunately we cannot add a check
-against that as it would break `3-way sync`. Duplicate UUID may lead to unforeseen issues such as automatic sub users
+against that as it would break `3-way sync`. Duplicate UUID may lead to unforeseen issues such as automatic identity
 creation failing to load. To fix the issue it's recommended to change the backend UUID to do so,
 
 * For jellyfin: `config/data/device.txt`

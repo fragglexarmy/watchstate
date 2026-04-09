@@ -41,12 +41,12 @@ export type EnvConfigValue =
   | Record<string, string | number | boolean | null>;
 
 /**
- * User list item from /api/users endpoint.
+ * Identity list item from /api/identities endpoint.
  */
-export interface UserListItem {
-  /** Username */
-  user: string;
-  /** List of backend names for this user */
+export interface IdentityListItem {
+  /** Identity name */
+  identity: string;
+  /** List of backend names for this identity */
   backends: Array<string>;
 }
 
@@ -287,7 +287,7 @@ export interface Backend {
 }
 
 /**
- * Represents a user for the user dropdown.
+ * Represents a backend member option for backend user selection.
  */
 export interface BackendUser {
   /** User ID */
@@ -441,12 +441,12 @@ export interface BackupItem {
 }
 
 /**
- * Represents a backends available for a specific user.
+ * Represents the backends available for a specific identity.
  */
-export interface UserBackends {
-  /** Username */
-  user: string;
-  /** Array of backend names available for this user */
+export interface IdentityBackends {
+  /** Identity name */
+  identity: string;
+  /** Array of backend names available for this identity */
   backends: Array<string>;
 }
 
@@ -568,9 +568,9 @@ export interface SuppressionItem {
 }
 
 /**
- * Represents a sub-user in the user mapping system.
+ * Represents a backend member in the identity provisioning UI.
  */
-export interface SubUser {
+export interface IdentityProvisionMember {
   /** Unique identifier for the user */
   id: string;
   /** Backend name this user belongs to */

@@ -27,8 +27,7 @@ type TopLevelEntryId =
   | 'custom'
   | 'ignore'
   | 'suppression'
-  | 'users'
-  | 'sub-users'
+  | 'identities'
   | 'purge-cache'
   | 'reset'
   | 'help'
@@ -149,26 +148,14 @@ const TOP_LEVEL_NAVIGATION: Array<TopLevelNavigationDefinition> = [
     matchPath: '/ignore',
   },
   {
-    id: 'users',
+    id: 'identities',
     section: 'configuration',
-    label: 'Users',
-    pageLabel: 'Users',
+    label: 'Identities',
+    pageLabel: 'Identities',
     breadcrumbSectionLabel: 'Configuration',
     icon: 'i-lucide-users',
-    to: '/users',
-    matchPath: '/users',
-    visible: (context: TopLevelNavigationContext) => 'main' === (context.apiUser ?? 'main'),
-  },
-  {
-    id: 'sub-users',
-    section: 'configuration',
-    label: 'Sub Users',
-    pageLabel: 'Sub Users',
-    breadcrumbSectionLabel: 'Configuration',
-    icon: 'i-lucide-users-round',
-    to: '/tools/sub_users',
-    matchPath: '/tools/sub_users',
-    visible: (context: TopLevelNavigationContext) => 'main' === (context.apiUser ?? 'main'),
+    to: '/identities',
+    matchPath: '/identities',
   },
   {
     id: 'tasks',

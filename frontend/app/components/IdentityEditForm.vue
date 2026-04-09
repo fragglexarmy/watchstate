@@ -6,12 +6,12 @@
       variant="soft"
       icon="i-lucide-loader-circle"
       title="Loading"
-      description="Loading user configuration. Please wait..."
+      description="Loading identity configuration. Please wait..."
       :ui="{ icon: 'animate-spin' }"
     />
 
     <template v-else>
-      <form id="user_edit_form" class="space-y-6" @submit.prevent="saveContent">
+      <form id="identity_edit_form" class="space-y-6" @submit.prevent="saveContent">
         <UCard class="border border-default/70 shadow-sm" :ui="cardUi">
           <div class="space-y-5">
             <UFormField
@@ -124,7 +124,7 @@
           </li>
           <li class="text-error">
             Directly editing the config must only be done as last resort. Making mistakes may break
-            the user's backend configurations, or lead to data loss.
+            the identity backend configurations, or lead to data loss.
           </li>
         </ul>
       </UCard>
@@ -141,7 +141,7 @@ import type { GenericError, GenericResponse, JsonObject } from '~/types';
 
 const props = withDefaults(
   defineProps<{
-    userId: string;
+    identityId: string;
   }>(),
   {},
 );
@@ -165,7 +165,7 @@ const errorForm = ref<{
 const commandInput = ref<string>('');
 const commandError = ref<string>('');
 
-const id = computed<string>(() => props.userId);
+const id = computed<string>(() => props.identityId);
 const dirtySource = computed(() => ({
   configContent: configContent.value,
   commandInput: commandInput.value,
@@ -181,11 +181,11 @@ const tipsCardUi = {
   body: 'p-5',
 };
 
-type UserSaveError = GenericError & {
+type IdentitySaveError = GenericError & {
   errors?: Array<string>;
 };
 
-type UserSaveResponse = GenericResponse & {
+type IdentitySaveResponse = GenericResponse & {
   errors?: Array<string>;
 };
 
@@ -208,7 +208,7 @@ const loadContent = async (): Promise<void> => {
   isLoading.value = true;
 
   try {
-    const response = await request(`/users/${id.value}`);
+    const response = await request(`/identities/${id.value}`);
     const data = await parse_api_response<JsonObject>(response);
 
     if ('error' in data) {
@@ -223,7 +223,7 @@ const loadContent = async (): Promise<void> => {
     emit('dirty-change', false);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unexpected error';
-    notification('error', 'Error', `Failed to load user configuration. ${message}`);
+    notification('error', 'Error', `Failed to load identity configuration. ${message}`);
     errorForm.value.message = message;
   } finally {
     isLoading.value = false;
@@ -289,7 +289,7 @@ const saveContent = async (): Promise<void> => {
       return;
     }
 
-    const response = await request(`/users/${id.value}`, {
+    const response = await request(`/identities/${id.value}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -297,10 +297,10 @@ const saveContent = async (): Promise<void> => {
       body: JSON.stringify(data),
     });
 
-    const result = await parse_api_response<UserSaveResponse>(response);
+    const result = await parse_api_response<IdentitySaveResponse>(response);
 
     if ('error' in result) {
-      const errorResult = result as UserSaveError;
+      const errorResult = result as IdentitySaveError;
       errorForm.value.message = errorResult.error.message;
       if (errorResult.errors && Array.isArray(errorResult.errors)) {
         errorForm.value.details = errorResult.errors;
@@ -308,7 +308,7 @@ const saveContent = async (): Promise<void> => {
       return;
     }
 
-    notification('success', 'Success', `Server configuration updated for user '${id.value}'`);
+    notification('success', 'Success', `Backend configuration updated for identity '${id.value}'`);
     markClean();
     emit('dirty-change', false);
     emit('saved');
@@ -342,7 +342,7 @@ const handleClose = (): void => {
 watch(isDirty, (value: boolean) => emit('dirty-change', value));
 
 watch(
-  () => props.userId,
+  () => props.identityId,
   async (value: string, oldValue: string | undefined) => {
     if (!value || value === oldValue) {
       return;

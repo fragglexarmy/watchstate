@@ -8,12 +8,14 @@
           <UIcon :name="pageShell.icon" class="size-4" />
           <span>{{ pageShell.sectionLabel }}</span>
           <span>/</span>
-          <span>{{ pageShell.pageLabel }}</span>
+          <NuxtLink to="/identities" class="hover:text-primary">{{ pageShell.pageLabel }}</NuxtLink>
+          <span>/</span>
+          <span class="text-highlighted normal-case tracking-normal">Match &amp; Provision</span>
         </div>
 
         <div>
           <p class="mt-1 text-sm text-toned">
-            Drag and drop backend users into groups to build sub-user associations.
+            Drag and drop backend members into groups to build identity associations.
             <template v-if="expires">
               Cached results expire {{ moment(expires).fromNow() }}.
             </template>
@@ -27,7 +29,7 @@
           variant="outline"
           size="sm"
           icon="i-lucide-file-output"
-          :disabled="userWithNoPin.length > 0"
+          :disabled="membersWithNoPin.length > 0"
           @click="generateFile"
           label="Export"
         />
@@ -37,8 +39,8 @@
           variant="outline"
           size="sm"
           icon="i-lucide-plus"
-          @click="addNewUser"
-          label="Add group"
+          @click="addNewIdentity"
+          label="Add identity"
         />
 
         <UButton
@@ -65,27 +67,27 @@
     />
 
     <UAlert
-      v-if="!isLoading && userWithNoPin.length > 0"
+      v-if="!isLoading && membersWithNoPin.length > 0"
       color="warning"
       variant="soft"
       icon="i-lucide-triangle-alert"
-      title="User/s missing PIN"
+      title="Members missing PIN"
     >
       <template #description>
         <div class="space-y-2 text-sm text-default">
           <p>
-            The following users are missing a PIN. Click on
+            The following members are missing a PIN. Click on
             <UIcon name="i-lucide-lock-open" class="inline size-4 align-text-bottom" /> to set the
-            user PIN. Otherwise you will not be able to proceed.
+            member PIN. Otherwise you will not be able to proceed.
           </p>
           <div class="flex flex-wrap gap-2">
             <UBadge
-              v-for="(user, index) in userWithNoPin"
+              v-for="(member, index) in membersWithNoPin"
               :key="index"
               color="warning"
               variant="soft"
             >
-              {{ user }}
+              {{ member }}
             </UBadge>
           </div>
         </div>
@@ -93,12 +95,12 @@
     </UAlert>
 
     <UAlert
-      v-if="matched?.length < 1 && !isLoading && !allowSingleBackendUsers"
+      v-if="matched?.length < 1 && !isLoading && !allowSingleBackendIdentities"
       color="error"
       variant="soft"
       icon="i-lucide-triangle-alert"
-      title="No matched users."
-      description="Click on the add button to user group"
+      title="No matched identities."
+      description="Click on the add button to add an identity group."
     />
 
     <div v-if="matched.length > 0" class="grid gap-4 xl:grid-cols-2">
@@ -106,19 +108,21 @@
         v-for="(group, index) in matched"
         :key="index"
         class="h-full border shadow-sm"
-        :class="group.matched.length >= 2 ? 'border-success/50' : 'border-warning/50'"
+        :class="group.members.length >= 2 ? 'border-success/50' : 'border-warning/50'"
         :ui="groupCardUi"
       >
         <template #header>
           <div class="flex items-center justify-between gap-3">
             <div class="min-w-0 flex-1">
-              <UTooltip :text="String(group.user)">
-                <h2 class="truncate text-base font-semibold text-highlighted">{{ group.user }}</h2>
+              <UTooltip :text="String(group.identity)">
+                <h2 class="truncate text-base font-semibold text-highlighted">
+                  {{ group.identity }}
+                </h2>
               </UTooltip>
             </div>
 
             <div class="flex shrink-0 items-center gap-2">
-              <UBadge color="neutral" variant="soft" size="sm">{{ group.matched.length }}</UBadge>
+              <UBadge color="neutral" variant="soft" size="sm">{{ group.members.length }}</UBadge>
 
               <UButton
                 color="neutral"
@@ -134,7 +138,7 @@
         </template>
 
         <draggable
-          v-model="group.matched"
+          v-model="group.members"
           :group="{ name: 'shared', pull: true, put: true }"
           animation="150"
           :move="checkBackend"
@@ -142,12 +146,12 @@
           class="flex min-h-20 flex-wrap gap-2 rounded-md border border-dashed border-default bg-elevated/20 p-2"
         >
           <template #item="{ element }">
-            <div class="ws-sub-user-chip" :class="setClass(element)">
+            <div class="ws-identity-chip" :class="setClass(element)">
               <button
                 v-if="element?.protected"
                 type="button"
                 class="inline-flex items-center text-toned hover:text-primary"
-                @click="setUserPin(element)"
+                @click="setMemberPin(element)"
               >
                 <UTooltip text="Click to set/view user PIN">
                   <UIcon
@@ -171,10 +175,10 @@
 
           <template #footer>
             <div
-              v-if="group.matched.length < 1"
-              class="ws-sub-user-chip ws-sub-user-chip-placeholder"
+              v-if="group.members.length < 1"
+              class="ws-identity-chip ws-identity-chip-placeholder"
             >
-              <span class="font-medium text-toned">Drop users here.</span>
+              <span class="font-medium text-toned">Drop members here.</span>
             </div>
           </template>
         </draggable>
@@ -184,21 +188,21 @@
     <UCard
       v-if="!isLoading"
       class="border shadow-sm"
-      :class="allowSingleBackendUsers ? 'border-info/50' : 'border-error/50'"
+      :class="allowSingleBackendIdentities ? 'border-info/50' : 'border-error/50'"
       :ui="groupCardUi"
     >
       <template #header>
         <div class="flex items-center justify-between gap-3">
           <div
             class="flex min-w-0 items-center gap-2 text-base font-semibold"
-            :class="allowSingleBackendUsers ? 'text-highlighted' : 'text-error'"
+            :class="allowSingleBackendIdentities ? 'text-highlighted' : 'text-error'"
           >
             <UIcon
-              :name="allowSingleBackendUsers ? 'i-lucide-info' : 'i-lucide-triangle-alert'"
+              :name="allowSingleBackendIdentities ? 'i-lucide-info' : 'i-lucide-triangle-alert'"
               class="size-4 shrink-0"
             />
             <span class="truncate">{{
-              allowSingleBackendUsers ? 'Single Backend Mode Enabled' : 'Unmatched Users'
+              allowSingleBackendIdentities ? 'Single Backend Mode Enabled' : 'Unmatched Members'
             }}</span>
           </div>
 
@@ -217,12 +221,12 @@
           class="flex min-h-20 flex-wrap gap-2 rounded-md border border-dashed border-default bg-elevated/20 p-2"
         >
           <template #item="{ element }">
-            <div class="ws-sub-user-chip" :class="setClass(element)">
+            <div class="ws-identity-chip" :class="setClass(element)">
               <button
-                v-if="element?.protected && allowSingleBackendUsers"
+                v-if="element?.protected && allowSingleBackendIdentities"
                 type="button"
                 class="inline-flex items-center text-toned hover:text-primary"
-                @click="setUserPin(element)"
+                @click="setMemberPin(element)"
               >
                 <UTooltip text="Click to set/view user PIN">
                   <UIcon
@@ -233,7 +237,7 @@
               </button>
 
               <UIcon
-                v-else-if="element?.protected && !allowSingleBackendUsers"
+                v-else-if="element?.protected && !allowSingleBackendIdentities"
                 :name="element?.options?.PLEX_USER_PIN ? 'i-lucide-lock' : 'i-lucide-lock-open'"
                 class="size-4 text-toned"
               />
@@ -256,7 +260,7 @@
           color="success"
           variant="soft"
           icon="i-lucide-circle-check"
-          description="All users are associated."
+          description="All members are associated."
           class="mt-4"
         />
       </template>
@@ -269,12 +273,15 @@
 
       <div class="space-y-4">
         <div class="space-y-3">
-          <div v-if="hasUsers" class="rounded-md border border-default bg-elevated/20 px-3 py-3">
+          <div
+            v-if="hasIdentities"
+            class="rounded-md border border-default bg-elevated/20 px-3 py-3"
+          >
             <div class="flex items-center justify-between gap-3">
               <div class="min-w-0">
-                <div class="text-sm font-medium text-highlighted">Re-create local sub-users</div>
+                <div class="text-sm font-medium text-highlighted">Re-create local identities</div>
                 <p class="mt-1 text-sm text-toned">
-                  Delete current local sub-user data before creating the new set.
+                  Delete current local identity data before creating the new set.
                 </p>
               </div>
 
@@ -287,7 +294,7 @@
               <div class="min-w-0">
                 <div class="text-sm font-medium text-highlighted">Generate remote backups</div>
                 <p class="mt-1 text-sm text-toned">
-                  Create an initial backup for each sub-user remote backend dataset.
+                  Create an initial backup for each identity remote backend dataset.
                 </p>
               </div>
 
@@ -311,17 +318,6 @@
           <div class="rounded-md border border-default bg-elevated/20 px-3 py-3">
             <div class="flex items-center justify-between gap-3">
               <div class="min-w-0">
-                <div class="text-sm font-medium text-highlighted">Verbose logs</div>
-                <p class="mt-1 text-sm text-toned">Show more detailed output in the console run.</p>
-              </div>
-
-              <USwitch v-model="verbose" color="neutral" />
-            </div>
-          </div>
-
-          <div class="rounded-md border border-default bg-elevated/20 px-3 py-3">
-            <div class="flex items-center justify-between gap-3">
-              <div class="min-w-0">
                 <div class="text-sm font-medium text-highlighted">Dry run</div>
                 <p class="mt-1 text-sm text-toned">Preview the operation without making changes.</p>
               </div>
@@ -336,20 +332,22 @@
           >
             <div class="flex items-center justify-between gap-3">
               <div class="min-w-0">
-                <div class="text-sm font-medium text-highlighted">Allow single backend users</div>
+                <div class="text-sm font-medium text-highlighted">
+                  Allow single backend identities
+                </div>
                 <p class="mt-1 text-sm text-toned">
-                  Create sub-users from the single configured backend without requiring user
+                  Create identities from the single configured backend without requiring member
                   mapping.
                 </p>
               </div>
 
-              <USwitch v-model="allowSingleBackendUsers" color="neutral" />
+              <USwitch v-model="allowSingleBackendIdentities" color="neutral" />
             </div>
           </div>
         </div>
 
         <UAlert
-          v-if="allowSingleBackendUsers && 1 === backendCount"
+          v-if="allowSingleBackendIdentities && 1 === backendCount"
           color="success"
           variant="soft"
           icon="i-lucide-info"
@@ -358,8 +356,8 @@
           <template #description>
             <p class="text-sm text-default">
               You are in <strong>single backend mode</strong>. The system will create individual
-              sub-users from your single configured backend without requiring user mapping. Each
-              user will be set up independently.
+              identities from your single configured backend without requiring member mapping. Each
+              identity will be set up independently.
             </p>
           </template>
         </UAlert>
@@ -372,7 +370,7 @@
             variant="outline"
             size="sm"
             icon="i-lucide-save"
-            :disabled="userWithNoPin.length > 0"
+            :disabled="membersWithNoPin.length > 0"
             @click="
               () => {
                 void saveMap();
@@ -386,16 +384,18 @@
             variant="outline"
             size="sm"
             icon="i-lucide-users"
-            :disabled="userWithNoPin.length > 0"
-            @click="createUsers"
+            :disabled="membersWithNoPin.length > 0"
+            @click="provisionIdentities"
           >
             <span v-if="!dryRun">
-              <span v-if="recreate || !hasUsers"
-                >{{ recreate ? 'Re-create' : 'Create' }} sub-users</span
+              <span v-if="recreate || !hasIdentities"
+                >{{ recreate ? 'Re-create' : 'Create' }} identities</span
               >
-              <span v-else>Update sub-users</span>
+              <span v-else>Update identities</span>
             </span>
-            <span v-else>Test create sub-users<span v-if="hasUsers"> (Safe operation)</span></span>
+            <span v-else
+              >Test create identities<span v-if="hasIdentities"> (Safe operation)</span></span
+            >
           </UButton>
         </div>
       </template>
@@ -425,21 +425,21 @@
 
       <ul v-if="show_page_tips" class="list-disc space-y-2 pl-5 text-sm leading-6 text-default">
         <li>
-          This page lets you guide the system in matching sub-users across different backends.
+          This page lets you guide the system in matching identities across different backends.
         </li>
         <li>
-          When you click <code>Create sub-users</code>, your mapping will be uploaded unless you’ve
+          When you click <code>Create identities</code>, your mapping will be uploaded unless you’ve
           selected <code>Do not save mapper</code>. Based on your choice, the system will either
-          delete and recreate the local sub-users, or try to update the existing ones.
+          delete and recreate the local identities, or try to update the existing ones.
         </li>
         <li class="font-semibold text-error">
-          Warning: If you choose not to delete the existing local sub-users and the matching changes
-          for any reason, you may end up with duplicate users. We strongly recommend deleting the
-          current local sub-users.
+          Warning: If you choose not to delete the existing local identities and the matching
+          changes for any reason, you may end up with duplicate identities. We strongly recommend
+          deleting the current local identities.
         </li>
         <li>
           Clicking <code>Save mapping</code> will only save your current mapping to the system. It
-          will <strong>not</strong> create any sub-users.
+          will <strong>not</strong> create any identities.
         </li>
         <li>
           Clicking the
@@ -448,17 +448,17 @@
           system later if needed.
         </li>
         <li>
-          Users in the <b>Not matched</b> group aren’t currently linked to any others and likely
+          Members in the <b>Not matched</b> group aren’t currently linked to any others and likely
           won’t be matched automatically.
         </li>
-        <li>Each user group must have at least two users to be considered a valid group.</li>
+        <li>Each identity group must have at least two members to be considered a valid group.</li>
         <li>
-          You can drag and drop users from the <b>Not matched</b> group into any other group to
+          You can drag and drop members from the <b>Not matched</b> group into any other group to
           manually associate them.
         </li>
         <li>
-          A user group can only include <b>one</b> user from <b>each</b> backend. If you try to add
-          a second user from the same backend, an error will be shown.
+          An identity group can only include <b>one</b> member from <b>each</b> backend. If you try
+          to add a second member from the same backend, an error will be shown.
         </li>
         <li>
           The display name format is: <code>backend_name@normalized_name (real_username)</code>. The
@@ -466,11 +466,11 @@
           <code>normalized_name</code>.
         </li>
         <li>
-          There is a 5-minute cache when retrieving users from the API, so the data you see might be
-          slightly out of date.
+          There is a 5-minute cache when retrieving members from the API, so the data you see might
+          be slightly out of date.
         </li>
         <li>
-          Users backends with red border and icon of
+          Backend members with red border and icon of
           <UIcon name="i-lucide-lock-open" class="inline size-4 align-text-bottom" /> are protected
           by PIN, and you need to click on the icon to set the PIN. Otherwise, you will not be able
           to proceed.
@@ -484,49 +484,49 @@
 import { computed, nextTick, onMounted, ref, toRaw } from 'vue';
 import { useStorage } from '@vueuse/core';
 import { navigateTo, useRoute } from '#app';
+import { NuxtLink } from '#components';
 import moment from 'moment';
 import draggable from 'vuedraggable';
 import { requireTopLevelPageShell } from '~/utils/topLevelNavigation';
-import { makeConsoleCommand, notification, parse_api_response, request } from '~/utils';
+import { notification, parse_api_response, request } from '~/utils';
 import { useDialog } from '~/composables/useDialog';
 import type { GenericResponse } from '~/types';
 
-const pageShell = requireTopLevelPageShell('sub-users');
+const pageShell = requireTopLevelPageShell('identities');
 
-type SubUserOptions = {
+type IdentityOptions = {
   PLEX_USER_PIN?: string;
 };
 
-type SubUserEntry = {
+type IdentityMember = {
   id: string;
   backend: string;
   username: string;
   real_name: string;
   protected?: boolean;
-  options?: SubUserOptions;
+  options?: IdentityOptions;
 };
 
-type SubUserMappingData = {
+type IdentityMappingData = {
   version: string;
-  map: Array<Record<string, { name: string; options: SubUserOptions }>>;
+  identities: Array<IdentityGroup>;
 };
 
-type SubUserGroup = {
-  user: string;
-  matched: Array<SubUserEntry>;
+type IdentityGroup = {
+  identity: string;
+  members: Array<IdentityMember>;
 };
 
-const matched = ref<Array<SubUserGroup>>([]);
-const unmatched = ref<Array<SubUserEntry>>([]);
+const matched = ref<Array<IdentityGroup>>([]);
+const unmatched = ref<Array<IdentityMember>>([]);
 const isLoading = ref<boolean>(false);
 const toastIsVisible = ref<boolean>(false);
 const recreate = ref<boolean>(false);
 const backup = ref<boolean>(false);
 const noSave = ref<boolean>(false);
 const dryRun = ref<boolean>(false);
-const hasUsers = ref<boolean>(false);
-const verbose = ref<boolean>(false);
-const allowSingleBackendUsers = ref<boolean>(false);
+const hasIdentities = ref<boolean>(false);
+const allowSingleBackendIdentities = ref<boolean>(false);
 const backendCount = ref<number>(0);
 const expires = ref<string | undefined>();
 const api_user = useStorage('api_user', 'main');
@@ -556,9 +556,9 @@ const tipsCardUi = {
   body: 'px-4 pb-4 pt-0',
 };
 
-const addNewUser = (): void => {
-  const newUserName = `User group #${matched.value.length + 1}`;
-  matched.value.push({ user: newUserName, matched: [] });
+const addNewIdentity = (): void => {
+  const newIdentityName = `Identity group #${matched.value.length + 1}`;
+  matched.value.push({ identity: newIdentityName, members: [] });
 };
 
 const loadContent = async (force?: boolean): Promise<void> => {
@@ -579,19 +579,19 @@ const loadContent = async (force?: boolean): Promise<void> => {
   isLoading.value = true;
 
   try {
-    const response = await request(`/backends/mapper${force ? '?force=1' : ''}`, {
+    const response = await request(`/identities/provision${force ? '?force=1' : ''}`, {
       method: 'GET',
       headers: { Accept: 'application/json' },
     });
     const json = await parse_api_response<{
-      matched: Array<SubUserGroup>;
-      unmatched: Array<SubUserEntry>;
-      has_users: boolean;
+      matched: Array<IdentityGroup>;
+      unmatched: Array<IdentityMember>;
+      has_identities: boolean;
       expires?: string;
       backends?: Array<string>;
     }>(response);
 
-    if ('tools-sub_users' !== useRoute().name) {
+    if ('identities-provision' !== useRoute().name) {
       return;
     }
 
@@ -602,9 +602,9 @@ const loadContent = async (force?: boolean): Promise<void> => {
 
     matched.value = json.matched;
     unmatched.value = json.unmatched;
-    recreate.value = json.has_users;
-    backup.value = !json.has_users;
-    hasUsers.value = json.has_users;
+    recreate.value = json.has_identities;
+    backup.value = !json.has_identities;
+    hasIdentities.value = json.has_identities;
     backendCount.value = json.backends?.length || 0;
     expires.value = json?.expires;
   } catch (error: unknown) {
@@ -619,7 +619,7 @@ const generateFile = async (): Promise<void> => {
   const filename = 'mapper.yaml';
   const data = formatData();
 
-  if (!data.map.length) {
+  if (!data.identities.length) {
     notification('error', 'Error', 'No data to export.');
     return;
   }
@@ -662,11 +662,11 @@ const generateFile = async (): Promise<void> => {
 
 interface DragEvent {
   draggedContext: {
-    list: Array<SubUserEntry>;
-    element: SubUserEntry;
+    list: Array<IdentityMember>;
+    element: IdentityMember;
   };
   relatedContext: {
-    list: Array<SubUserEntry>;
+    list: Array<IdentityMember>;
   };
 }
 
@@ -675,14 +675,16 @@ const checkBackend = (e: DragEvent): boolean => {
     return true;
   }
 
-  const isMatchedContainer = matched.value.some((group) => group.matched === e.relatedContext.list);
+  const isMatchedContainer = matched.value.some((group) => group.members === e.relatedContext.list);
 
   if (false === isMatchedContainer) {
     return true;
   }
 
-  const draggedUser = e.draggedContext.element;
-  const alreadyExists = e.relatedContext.list.some((item) => item.backend === draggedUser.backend);
+  const draggedMember = e.draggedContext.element;
+  const alreadyExists = e.relatedContext.list.some(
+    (item) => item.backend === draggedMember.backend,
+  );
 
   if (true === alreadyExists) {
     if (!toastIsVisible.value) {
@@ -691,7 +693,7 @@ const checkBackend = (e: DragEvent): boolean => {
         notification(
           'error',
           'error',
-          `A user from '${draggedUser.backend}' backend, already mapped in this group.`,
+          `A member from '${draggedMember.backend}' backend is already mapped in this identity.`,
           3001,
           {
             onClose: () => (toastIsVisible.value = false),
@@ -707,10 +709,10 @@ const checkBackend = (e: DragEvent): boolean => {
 
 const deleteGroup = async (i: number) => {
   const group = matched.value[i];
-  if (group && group.matched && group.matched.length) {
+  if (group && group.members && group.members.length) {
     const { status } = await useDialog().confirmDialog({
       title: 'Delete group',
-      message: `Delete user group #${i + 1}?, Users will be moved to unmatched`,
+      message: `Delete identity group #${i + 1}? Members will be moved to unmatched.`,
       confirmColor: 'error',
     });
 
@@ -718,7 +720,7 @@ const deleteGroup = async (i: number) => {
       return;
     }
 
-    unmatched.value.push(...group.matched);
+    unmatched.value.push(...group.members);
   }
 
   nextTick(() => matched.value.splice(i, 1));
@@ -727,7 +729,7 @@ const deleteGroup = async (i: number) => {
 const saveMap = async (no_toast: boolean = false): Promise<boolean> => {
   const data = formatData();
 
-  if (!data.map.length) {
+  if (!data.identities.length) {
     if (!no_toast) {
       notification('error', 'Error', 'No mapping data to save.');
     }
@@ -735,7 +737,7 @@ const saveMap = async (no_toast: boolean = false): Promise<boolean> => {
   }
 
   try {
-    const req = await request('/backends/mapper', {
+    const req = await request('/identities/provision/mapping', {
       method: 'PUT',
       body: JSON.stringify(data),
     });
@@ -768,27 +770,35 @@ const saveMap = async (no_toast: boolean = false): Promise<boolean> => {
   return false;
 };
 
-const formatData = (): SubUserMappingData => {
-  const data: SubUserMappingData = { version: '1.6', map: [] };
+const formatData = (): IdentityMappingData => {
+  const data: IdentityMappingData = { version: '1.6', identities: [] };
 
   matched.value.forEach((group) => {
-    const users: Record<string, { name: string; options: SubUserOptions }> = {};
-    group?.matched.forEach((u) => {
-      const options: SubUserOptions = u.options ? toRaw(u.options) : {};
-      users[u.backend] = { name: u.username, options };
-    });
+    const members = group.members.map((member) => ({
+      ...member,
+      options: member.options ? toRaw(member.options) : {},
+    }));
 
-    if (Object.keys(users).length < 2) {
+    if (members.length < 2) {
       return;
     }
 
-    data.map.push(users);
+    data.identities.push({
+      identity: group.identity,
+      members,
+    });
   });
 
-  if (allowSingleBackendUsers.value) {
+  if (allowSingleBackendIdentities.value) {
     unmatched.value.forEach((u) =>
-      data.map.push({
-        [u.backend]: { name: u.username, options: u.options ? toRaw(u.options) : {} },
+      data.identities.push({
+        identity: `${u.backend}_${u.username}`,
+        members: [
+          {
+            ...u,
+            options: u.options ? toRaw(u.options) : {},
+          },
+        ],
       }),
     );
   }
@@ -796,46 +806,54 @@ const formatData = (): SubUserMappingData => {
   return toRaw(data);
 };
 
-const createUsers = async (): Promise<void> => {
-  if (!noSave.value) {
-    const state = await saveMap(true);
-    if (false === state) {
+const provisionIdentities = async (): Promise<void> => {
+  const data = formatData();
+
+  if (!allowSingleBackendIdentities.value && 0 === data.identities.length) {
+    notification('error', 'Error', 'No identity mapping data to provision.');
+    return;
+  }
+
+  try {
+    const req = await request('/identities/provision', {
+      method: 'POST',
+      body: JSON.stringify({
+        mode:
+          recreate.value || !hasIdentities.value
+            ? recreate.value
+              ? 'recreate'
+              : 'create'
+            : 'update',
+        dry_run: dryRun.value,
+        generate_backup: backup.value,
+        allow_single_backend_identities: allowSingleBackendIdentities.value,
+        save_mapping: !noSave.value,
+        mapping: data,
+      }),
+    });
+
+    const response = await parse_api_response<GenericResponse>(req);
+
+    if ('error' in response) {
+      notification('error', 'Error', `${req.status}: ${response.error.message}`);
       return;
     }
-  }
 
-  const command = ['backend:create'];
+    notification('success', 'Success', response.info.message);
 
-  command.push(verbose.value ? '-vvv' : '-vv');
-
-  if (allowSingleBackendUsers.value) {
-    command.push('--allow-single-backend-users');
-    if (!recreate.value && hasUsers.value) {
-      command.push('--run --update');
-    } else if (recreate.value) {
-      command.push('--re-create');
-    } else {
-      command.push('--run');
+    if (false === dryRun.value) {
+      await navigateTo('/identities');
     }
-  } else {
-    command.push(recreate.value ? '--re-create' : '--run --update');
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unexpected error';
+    notification('error', 'Error', `Error: ${message}`);
   }
-
-  if (backup.value) {
-    command.push('--generate-backup');
-  }
-
-  if (dryRun.value) {
-    command.push('--dry-run');
-  }
-
-  await navigateTo(makeConsoleCommand(command.join(' '), true));
 };
 
 const isSameName = (name1: string, name2: string): boolean =>
   name1.toLowerCase() === name2.toLowerCase();
 
-const setUserPin = async (user: SubUserEntry): Promise<void> => {
+const setMemberPin = async (user: IdentityMember): Promise<void> => {
   const { status, value } = await useDialog().promptDialog({
     title: 'Set PIN',
     message: `Enter user PIN for '${user.backend}@${user.username}':`,
@@ -872,7 +890,7 @@ const setUserPin = async (user: SubUserEntry): Promise<void> => {
   user.options.PLEX_USER_PIN = pin;
 };
 
-const setClass = (user: SubUserEntry): string | undefined => {
+const setClass = (user: IdentityMember): string | undefined => {
   if (!user?.protected) {
     return;
   }
@@ -880,11 +898,11 @@ const setClass = (user: SubUserEntry): string | undefined => {
   return user?.options?.PLEX_USER_PIN ? 'is-success' : 'is-danger';
 };
 
-const userWithNoPin = computed<Array<string>>(() => {
+const membersWithNoPin = computed<Array<string>>(() => {
   const no_pin: Array<string> = [];
 
   matched.value.forEach((group) =>
-    group.matched.forEach((user) => {
+    group.members.forEach((user) => {
       if (!user?.protected) {
         return;
       }
@@ -895,7 +913,7 @@ const userWithNoPin = computed<Array<string>>(() => {
     }),
   );
 
-  if (!allowSingleBackendUsers.value) {
+  if (!allowSingleBackendIdentities.value) {
     return no_pin;
   }
 
@@ -914,7 +932,11 @@ const userWithNoPin = computed<Array<string>>(() => {
 
 onMounted(async (): Promise<void> => {
   if ('main' !== api_user.value) {
-    notification('error', 'Error', 'The sub users page is only available for the main user.');
+    notification(
+      'error',
+      'Error',
+      'The identity provision page is only available for the main identity.',
+    );
     await navigateTo({ name: 'backends' });
     return;
   }
@@ -923,7 +945,7 @@ onMounted(async (): Promise<void> => {
 </script>
 
 <style scoped>
-.ws-sub-user-chip {
+.ws-identity-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -937,15 +959,15 @@ onMounted(async (): Promise<void> => {
   overflow-wrap: anywhere;
 }
 
-.ws-sub-user-chip.is-danger {
+.ws-identity-chip.is-danger {
   border-color: color-mix(in srgb, var(--ui-color-error-500) 55%, transparent);
 }
 
-.ws-sub-user-chip.is-success {
+.ws-identity-chip.is-success {
   border-color: color-mix(in srgb, var(--ui-color-success-500) 55%, transparent);
 }
 
-.ws-sub-user-chip-placeholder {
+.ws-identity-chip-placeholder {
   cursor: default;
   border-style: dashed;
   background: transparent;
