@@ -90,55 +90,94 @@
       </template>
 
       <form class="space-y-3" @submit.prevent="void loadContent(1)">
-        <div class="grid gap-3 lg:grid-cols-[14rem_minmax(0,1fr)_auto_auto] lg:items-start">
-          <USelect
-            v-model="searchField"
-            :items="searchFieldItems"
-            value-key="value"
-            label-key="label"
-            color="neutral"
-            variant="outline"
-            size="sm"
-            placeholder="Select field"
-            icon="i-lucide-folder-tree"
-          />
-
-          <UInput
-            v-model="query"
-            type="search"
-            placeholder="Search..."
-            icon="i-lucide-search"
-            size="sm"
-            :disabled="'' === searchField || isLoading"
-          />
-
-          <UButton
-            color="primary"
-            size="sm"
-            icon="i-lucide-search"
-            type="submit"
-            :disabled="!query || '' === searchField || isLoading"
-            :loading="isLoading"
+        <div class="space-y-3">
+          <div
+            v-for="(searchFilter, index) in searchFilters"
+            :key="searchFilter.id"
+            class="rounded-md border border-default bg-elevated/20 p-3"
           >
-            Search
-          </UButton>
+            <div class="grid gap-3 lg:grid-cols-[14rem_minmax(0,1fr)_auto] lg:items-start">
+              <USelect
+                v-model="searchFilter.field"
+                :items="getSearchFieldItems(index)"
+                value-key="value"
+                label-key="label"
+                color="neutral"
+                variant="outline"
+                size="sm"
+                placeholder="Select field"
+                icon="i-lucide-folder-tree"
+                :disabled="isLoading"
+              />
 
-          <UButton
-            color="neutral"
-            variant="outline"
-            size="sm"
-            icon="i-lucide-x"
-            type="button"
-            :disabled="isLoading"
-            @click="clearSearch"
-          >
-            Reset
-          </UButton>
+              <UInput
+                v-model="searchFilter.value"
+                type="search"
+                placeholder="Search..."
+                icon="i-lucide-search"
+                size="sm"
+                :disabled="'' === searchFilter.field || isLoading"
+              />
+
+              <UTooltip text="Remove filter">
+                <UButton
+                  color="neutral"
+                  variant="outline"
+                  size="sm"
+                  square
+                  icon="i-lucide-trash-2"
+                  type="button"
+                  :disabled="isLoading"
+                  aria-label="Remove filter"
+                  @click="removeSearchFilter(index)"
+                />
+              </UTooltip>
+            </div>
+
+            <p v-if="getHelpText(searchFilter.field)" class="mt-2 text-sm text-toned">
+              {{ getHelpText(searchFilter.field) }}
+            </p>
+          </div>
         </div>
 
-        <p v-if="searchHelpText" class="text-sm text-toned">
-          {{ searchHelpText }}
-        </p>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="sm"
+            icon="i-lucide-plus"
+            type="button"
+            :disabled="isLoading || !canAddSearchFilter"
+            @click="addSearchFilter"
+          >
+            Add Filter
+          </UButton>
+
+          <div class="flex flex-wrap items-center justify-end gap-2">
+            <UButton
+              color="primary"
+              size="sm"
+              icon="i-lucide-search"
+              type="submit"
+              :disabled="!canSubmitSearch"
+              :loading="isLoading"
+            >
+              Search
+            </UButton>
+
+            <UButton
+              color="neutral"
+              variant="outline"
+              size="sm"
+              icon="i-lucide-x"
+              type="button"
+              :disabled="isLoading"
+              @click="clearSearch"
+            >
+              Reset
+            </UButton>
+          </div>
+        </div>
       </form>
     </UCard>
 
@@ -214,12 +253,9 @@
         <div class="space-y-2 text-sm text-default">
           <p>
             No items found.
-            <span v-if="query">
+            <span v-if="activeSearchSummary">
               For
-              <code
-                ><strong>{{ searchField }}</strong
-                >: <strong>{{ query }}</strong></code
-              >
+              <code>{{ activeSearchSummary }}</code>
             </span>
             <span v-if="filter">
               For
@@ -452,6 +488,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter, useHead } from '#app';
 import { useStorage } from '@vueuse/core';
 import moment from 'moment';
+import type { LocationQuery } from 'vue-router';
 import Lazy from '~/components/Lazy.vue';
 import Pager from '~/components/Pager.vue';
 import { NuxtLink } from '#components';
@@ -482,6 +519,12 @@ type HistorySearchableField = {
   type?: string | Array<string>;
 };
 
+type HistorySearchFilter = {
+  id: string;
+  field: string;
+  value: string;
+};
+
 const route = useRoute();
 const router = useRouter();
 
@@ -507,15 +550,58 @@ type HistoryItemWithUIState = Omit<
 const jsonFields = ref<Array<string>>(['metadata', 'extra']);
 const items = ref<Array<HistoryItemWithUIState>>([]);
 const searchable = ref<Array<HistorySearchableField>>([
-  { key: 'id' },
-  { key: 'via' },
-  { key: 'year' },
-  { key: 'type' },
-  { key: 'title' },
-  { key: 'season' },
-  { key: 'episode' },
-  { key: 'parent' },
-  { key: 'guid' },
+  { key: 'id', description: 'Search using local history id.', type: 'int' },
+  { key: 'watched', description: 'Search using watched status.', type: ['0', '1'] },
+  { key: 'via', display: 'Backend', description: 'Search using the backend name.', type: 'string' },
+  { key: 'year', description: 'Search using the year.', type: 'int' },
+  { key: 'type', description: 'Search using the content type.', type: ['movie', 'episode'] },
+  { key: 'title', description: 'Search using the title.', type: 'string' },
+  { key: 'season', description: 'Search using the season number.', type: 'int' },
+  { key: 'episode', description: 'Search using the episode number.', type: 'int' },
+  {
+    key: 'parent',
+    display: 'Series GUID',
+    description: 'Search using the parent GUID.',
+    type: 'provider://id',
+  },
+  {
+    key: 'guids',
+    display: 'Content GUID',
+    description: 'Search using the GUID.',
+    type: 'provider://id',
+  },
+  {
+    key: 'metadata',
+    description: 'Search using the metadata JSON field. Searching this field might be slow.',
+    type: 'backend.field://value',
+  },
+  {
+    key: 'extra',
+    description: 'Search using the extra JSON field. Searching this field might be slow.',
+    type: 'backend.field://value',
+  },
+  {
+    key: 'rguid',
+    description: 'Search using the rGUID.',
+    type: 'guid://parentID/seasonNumber[/episodeNumber]',
+  },
+  {
+    key: 'path',
+    description: 'Search using file path. Searching this field might be slow.',
+    type: 'string',
+  },
+  {
+    key: 'subtitle',
+    display: 'Subtitle',
+    description: 'Search using subtitle. Searching this field will be slow.',
+    type: 'string',
+  },
+  {
+    key: 'genres',
+    display: 'Genre',
+    description: 'Search using genres. Searching this field will be slow.',
+    type: 'string',
+  },
 ]);
 const error = ref('');
 
@@ -524,8 +610,6 @@ const perpage = ref<number>(parseInt(route.query.perpage as string) || 50);
 const total = ref<number>(0);
 const last_page = computed<number>(() => Math.ceil(total.value / perpage.value));
 
-const query = ref<string>((route.query.q as string) || '');
-const searchField = ref<string>((route.query.key as string) || 'title');
 const isLoading = ref(false);
 const filter = ref<string>((route.query.filter as string) || '');
 const showFilter = ref<boolean>(Boolean(filter.value));
@@ -533,6 +617,7 @@ const searchForm = ref(false);
 const selectAll = ref(false);
 const selected_ids = ref<Array<number>>([]);
 const massActionInProgress = ref(false);
+let searchFilterCounter = 0;
 
 const panelCardUi = {
   header: 'p-4',
@@ -550,12 +635,88 @@ const perPageItems = [50, 100, 200, 400, 500].map((value) => ({
   value,
 }));
 
-const searchFieldItems = computed(() =>
-  searchable.value.map((field) => ({
+const createSearchFilter = (field = '', value = ''): HistorySearchFilter => ({
+  id: `filter-${searchFilterCounter++}`,
+  field,
+  value,
+});
+
+const emptySearchFilter = (): HistorySearchFilter => createSearchFilter('', '');
+
+const searchFilters = ref<Array<HistorySearchFilter>>([emptySearchFilter()]);
+
+const isJsonSearchField = (fieldKey: string): boolean => jsonFields.value.includes(fieldKey);
+
+const normalizeSearchFilters = (
+  filters: Array<HistorySearchFilter>,
+): Array<HistorySearchFilter> => {
+  const normalized = filters
+    .map((item) => createSearchFilter(item.field, item.value.trim()))
+    .filter((item) => item.field || item.value);
+
+  if (normalized.length < 1) {
+    return [emptySearchFilter()];
+  }
+
+  return normalized;
+};
+
+const getAvailableFields = (selectedField = ''): Array<HistorySearchableField> => {
+  const used = new Set(
+    searchFilters.value
+      .map((item) => item.field)
+      .filter((field) => field && field !== selectedField),
+  );
+
+  const activeJsonField = searchFilters.value.find(
+    (item) => item.field && item.field !== selectedField && isJsonSearchField(item.field),
+  )?.field;
+
+  return searchable.value.filter((field) => {
+    if (used.has(field.key) && field.key !== selectedField) {
+      return false;
+    }
+
+    if (activeJsonField && isJsonSearchField(field.key) && field.key !== activeJsonField) {
+      return field.key === selectedField;
+    }
+
+    return true;
+  });
+};
+
+const getSearchFieldItems = (index: number): Array<{ label: string; value: string }> => {
+  const selectedField = searchFilters.value[index]?.field ?? '';
+
+  return getAvailableFields(selectedField).map((field) => ({
     label: field.display ?? field.key,
     value: field.key,
-  })),
-);
+  }));
+};
+
+const canAddSearchFilter = computed<boolean>(() => {
+  return getAvailableFields('').length > 0 && searchFilters.value.every((item) => item.field);
+});
+
+const canSubmitSearch = computed<boolean>(() => {
+  if (isLoading.value) {
+    return false;
+  }
+
+  const activeFilters = searchFilters.value.filter((item) => item.field || item.value.trim());
+
+  if (activeFilters.length < 1) {
+    return false;
+  }
+
+  return activeFilters.every((item) => item.field && item.value.trim());
+});
+
+const activeSearchSummary = computed<string>(() => {
+  const activeFilters = searchFilters.value.filter((item) => item.field && item.value.trim());
+
+  return activeFilters.map((item) => `${item.field}: ${item.value.trim()}`).join(', ');
+});
 
 const getHelpText = (key: string): string => {
   if (!key) {
@@ -575,8 +736,6 @@ const getHelpText = (key: string): string => {
 
   return text;
 };
-
-const searchHelpText = computed(() => getHelpText(searchField.value));
 
 const stringifyItem = (item: HistoryItemWithUIState): string => JSON.stringify(item).toLowerCase();
 
@@ -609,6 +768,120 @@ const navigatePage = (pageNumber: number): void => {
   void loadContent(pageNumber);
 };
 
+const addSearchFilter = (): void => {
+  if (!canAddSearchFilter.value) {
+    return;
+  }
+
+  searchFilters.value = [...searchFilters.value, emptySearchFilter()];
+};
+
+const removeSearchFilter = (index: number): void => {
+  if (searchFilters.value.length <= 1) {
+    searchFilters.value = [emptySearchFilter()];
+    return;
+  }
+
+  searchFilters.value = searchFilters.value.filter((_, itemIndex) => itemIndex !== index);
+};
+
+const buildSearchParams = (
+  filters: Array<HistorySearchFilter>,
+): { params: URLSearchParams; titleParts: Array<string>; queryState: Record<string, string> } => {
+  const params = new URLSearchParams();
+  const titleParts: Array<string> = [];
+  const queryState: Record<string, string> = {};
+
+  for (const item of filters) {
+    const field = item.field;
+    const value = item.value.trim();
+
+    if (!field || !value) {
+      continue;
+    }
+
+    titleParts.push(`${field}: ${value}`);
+
+    if (isJsonSearchField(field)) {
+      const [jsonKey, jsonValue] = splitQuery(value, '://');
+
+      if (-1 === value.indexOf('://') || !jsonValue || !jsonKey) {
+        throw new Error(`Invalid search format for '${field}'.`);
+      }
+
+      params.set(field, '1');
+      params.set('key', jsonKey);
+      params.set('value', jsonValue);
+      queryState[field] = value;
+      continue;
+    }
+
+    params.set(field, value);
+    queryState[field] = value;
+  }
+
+  return { params, titleParts, queryState };
+};
+
+const readSearchFiltersFromQuery = (queryParams: LocationQuery): Array<HistorySearchFilter> => {
+  const filters: Array<HistorySearchFilter> = [];
+
+  const singleKey = typeof queryParams.key === 'string' ? queryParams.key : '';
+  const singleValue = typeof queryParams.q === 'string' ? queryParams.q : '';
+
+  if (singleKey && singleValue) {
+    filters.push(createSearchFilter(singleKey, singleValue));
+  }
+
+  for (const field of searchable.value) {
+    if (
+      ['key', 'q', 'page', 'perpage', 'filter', 'sort', 'view', 'with_duplicates'].includes(
+        field.key,
+      )
+    ) {
+      continue;
+    }
+
+    const rawValue = queryParams[field.key];
+    const value = Array.isArray(rawValue) ? rawValue[0] : rawValue;
+
+    if (typeof value !== 'string' || !value) {
+      continue;
+    }
+
+    if (filters.some((item) => item.field === field.key)) {
+      continue;
+    }
+
+    if (isJsonSearchField(field.key)) {
+      const rawKey = queryParams.key;
+      const rawJsonValue = queryParams.value;
+      const nestedKey = Array.isArray(rawKey) ? rawKey[0] : rawKey;
+      const nestedValue = Array.isArray(rawJsonValue) ? rawJsonValue[0] : rawJsonValue;
+
+      if ('1' !== value) {
+        filters.push(createSearchFilter(field.key, value));
+        continue;
+      }
+
+      if (
+        typeof nestedKey === 'string' &&
+        typeof nestedValue === 'string' &&
+        nestedKey &&
+        nestedValue
+      ) {
+        filters.push(createSearchFilter(field.key, `${nestedKey}://${nestedValue}`));
+      }
+
+      continue;
+    }
+
+    filters.push(createSearchFilter(field.key, value));
+  }
+
+  return normalizeSearchFilters(filters);
+};
+
 const loadContent = async (pageNumber: number, fromPopState: boolean = false): Promise<void> => {
   pageNumber = parseInt(pageNumber.toString());
 
@@ -622,38 +895,41 @@ const loadContent = async (pageNumber: number, fromPopState: boolean = false): P
   search.set('perpage', perpage.value.toString());
   search.set('page', pageNumber.toString());
 
-  if (searchField.value && query.value) {
-    search.set('q', query.value);
-    search.set('key', searchField.value);
-    title += `. (Search: ${query.value})`;
-  }
+  const activeFilters = searchFilters.value
+    .map((item) => ({ ...item, value: item.value.trim() }))
+    .filter((item) => item.field || item.value);
 
   if (filter.value) {
     title += `. (Filter: ${filter.value})`;
   }
 
-  useHead({ title });
-
-  const newUrl = `${window.location.pathname}?${search.toString()}`;
-
   try {
-    if (searchField.value && query.value) {
-      search.delete('q');
-      search.delete('key');
-
-      if (jsonFields.value.includes(searchField.value)) {
-        search.set(searchField.value, '1');
-        const [field, value] = splitQuery(query.value, '://');
-        if (-1 === query.value.indexOf('://') || !value || !field) {
-          notification('error', 'Error', `Invalid search format for '${searchField.value}'.`);
-          return;
-        }
-        search.set('key', field);
-        search.set('value', value);
-      } else {
-        search.set(searchField.value, query.value);
-      }
+    if (activeFilters.some((item) => !item.field || !item.value)) {
+      notification('error', 'Error', 'Each search filter requires both a field and a value.');
+      return;
     }
+
+    const { params, titleParts, queryState } = buildSearchParams(activeFilters);
+
+    params.forEach((value, key) => search.set(key, value));
+
+    if (titleParts.length > 0) {
+      title += `. (Search: ${titleParts.join(', ')})`;
+    }
+
+    useHead({ title });
+
+    const routeSearch = new URLSearchParams();
+    routeSearch.set('perpage', perpage.value.toString());
+    routeSearch.set('page', pageNumber.toString());
+
+    Object.entries(queryState).forEach(([key, value]) => routeSearch.set(key, value));
+
+    if (filter.value) {
+      routeSearch.set('filter', filter.value);
+    }
+
+    const targetRouteUrl = `${window.location.pathname}?${routeSearch.toString()}`;
 
     isLoading.value = true;
     items.value = [];
@@ -678,16 +954,13 @@ const loadContent = async (pageNumber: number, fromPopState: boolean = false): P
 
     const currentUrl = `${window.location.pathname}?${new URLSearchParams(window.location.search).toString()}`;
 
-    if (!fromPopState && currentUrl !== newUrl) {
+    if (!fromPopState && currentUrl !== targetRouteUrl) {
       const history_query: Record<string, string | number | undefined> = {
         perpage: perpage.value,
         page: pageNumber,
       };
 
-      if (searchField.value && query.value) {
-        history_query.q = query.value;
-        history_query.key = searchField.value;
-      }
+      Object.assign(history_query, queryState);
 
       if (filter.value) {
         history_query.filter = filter.value;
@@ -720,6 +993,11 @@ const loadContent = async (pageNumber: number, fromPopState: boolean = false): P
       searchable.value = json.searchable;
     }
   } catch (e) {
+    if (e instanceof Error && e.message.startsWith('Invalid search format')) {
+      notification('error', 'Error', e.message);
+      return;
+    }
+
     console.error('Failed to load content:', e);
   } finally {
     isLoading.value = false;
@@ -729,7 +1007,7 @@ const loadContent = async (pageNumber: number, fromPopState: boolean = false): P
 };
 
 const clearSearch = (): void => {
-  query.value = '';
+  searchFilters.value = [emptySearchFilter()];
   filter.value = '';
   searchForm.value = false;
   showFilter.value = false;
@@ -856,12 +1134,10 @@ const stateCallBack = async (event: Event): Promise<void> => {
   }
 
   if ('clear' in state) {
-    query.value = '';
-    searchField.value = 'title';
+    searchFilters.value = [emptySearchFilter()];
   } else {
-    query.value = (currentRoute.query.q as string) || '';
-    searchField.value = (currentRoute.query.key as string) || 'title';
-    if (query.value) {
+    searchFilters.value = readSearchFiltersFromQuery(currentRoute.query);
+    if (searchFilters.value.some((item) => item.field && item.value.trim())) {
       searchForm.value = true;
     }
   }
@@ -910,23 +1186,26 @@ watch(
 
     const nextPage = parseInt(route.query.page as string) || 1;
     const nextPerPage = parseInt(route.query.perpage as string) || 50;
-    const nextQuery = (route.query.q as string) || '';
-    const nextSearchField = (route.query.key as string) || 'title';
     const nextFilter = (route.query.filter as string) || '';
+    const nextSearchFilters = readSearchFiltersFromQuery(route.query);
+    const currentSearchFilters = JSON.stringify(
+      searchFilters.value.map((item) => ({ field: item.field, value: item.value.trim() })),
+    );
+    const incomingSearchFilters = JSON.stringify(
+      nextSearchFilters.map((item) => ({ field: item.field, value: item.value.trim() })),
+    );
 
     const shouldReload =
       nextPage !== page.value ||
       nextPerPage !== perpage.value ||
-      nextQuery !== query.value ||
-      nextSearchField !== searchField.value;
+      incomingSearchFilters !== currentSearchFilters;
 
     page.value = nextPage;
     perpage.value = nextPerPage;
-    query.value = nextQuery;
-    searchField.value = nextSearchField;
+    searchFilters.value = nextSearchFilters;
     filter.value = nextFilter;
     showFilter.value = Boolean(nextFilter);
-    searchForm.value = Boolean(nextQuery);
+    searchForm.value = nextSearchFilters.some((item) => item.field && item.value.trim());
 
     if (!shouldReload) {
       return;
@@ -937,7 +1216,9 @@ watch(
 );
 
 onMounted(async (): Promise<void> => {
-  if (query.value) {
+  searchFilters.value = readSearchFiltersFromQuery(route.query);
+
+  if (searchFilters.value.some((item) => item.field && item.value.trim())) {
     searchForm.value = true;
   }
 

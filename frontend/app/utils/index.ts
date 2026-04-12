@@ -353,12 +353,28 @@ const stringToRegex = (str: string): RegExp => {
 /**
  * Make history search link.
  */
-const makeSearchLink = (type: string, query: string): string => {
+const makeSearchLink = (
+  type: string | Record<string, string | number | boolean | null | undefined>,
+  query?: string,
+): string => {
   const params = new URLSearchParams();
   params.append('perpage', '50');
   params.append('page', '1');
-  params.append('q', query);
-  params.append('key', type);
+
+  if ('string' === typeof type) {
+    params.append('q', query ?? '');
+    params.append('key', type);
+    return `/history?${params.toString()}`;
+  }
+
+  Object.entries(type).forEach(([key, value]) => {
+    if (undefined === value || null === value || '' === String(value)) {
+      return;
+    }
+
+    params.append(key, String(value));
+  });
+
   return `/history?${params.toString()}`;
 };
 
