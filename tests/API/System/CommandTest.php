@@ -86,8 +86,134 @@ final class CommandTest extends TestCase
 
         $streamResponse = $handler->stream($this->getRequest(), $token);
 
-        $this->assertSame(Status::BAD_REQUEST->value, $streamResponse->getStatusCode());
+        $this->assertSame(Status::NOT_FOUND->value, $streamResponse->getStatusCode());
         $this->assertFalse(is_dir($sessionPath));
+    }
+
+    public function test_stream_allows_completed_session_drain_while_connection_is_still_attached(): void
+    {
+        $handler = new Command();
+        $response = $handler->queue($this->getRequest(post: ['command' => 'system:tasks']));
+
+        $payload = json_decode((string) $response->getBody(), true);
+        $token = (string) ag($payload, 'token');
+        $sessionPath = $this->tmpDir . '/console/' . $token;
+        $statePath = $sessionPath . '/state.json';
+
+        $state = json_decode((string) file_get_contents($statePath), true);
+        $state['status'] = 'completed';
+        $state['connections'] = 1;
+        $state['last_sequence'] = 2;
+
+        file_put_contents($statePath, json_encode($state, JSON_PRETTY_PRINT | JSON_INVALID_UTF8_IGNORE));
+
+        $streamResponse = $handler->stream($this->getRequest(), $token);
+
+        $this->assertSame(Status::OK->value, $streamResponse->getStatusCode());
+        $this->assertTrue(is_dir($sessionPath));
+    }
+
+    public function test_stream_keeps_recently_completed_session_during_reconnect_gap(): void
+    {
+        $handler = new Command();
+        $response = $handler->queue($this->getRequest(post: ['command' => 'system:tasks']));
+
+        $payload = json_decode((string) $response->getBody(), true);
+        $token = (string) ag($payload, 'token');
+        $sessionPath = $this->tmpDir . '/console/' . $token;
+        $statePath = $sessionPath . '/state.json';
+
+        $state = json_decode((string) file_get_contents($statePath), true);
+        $state['status'] = 'completed';
+        $state['connections'] = 0;
+        $state['finished_at'] = make_date()->format(DATE_ATOM);
+
+        file_put_contents($statePath, json_encode($state, JSON_PRETTY_PRINT | JSON_INVALID_UTF8_IGNORE));
+
+        $streamResponse = $handler->stream($this->getRequest(), $token);
+
+        $this->assertSame(Status::OK->value, $streamResponse->getStatusCode());
+        $this->assertTrue(is_dir($sessionPath));
+    }
+
+    public function test_cancel_removes_queued_session(): void
+    {
+        $handler = new Command();
+        $response = $handler->queue($this->getRequest(post: ['command' => 'system:tasks']));
+
+        $payload = json_decode((string) $response->getBody(), true);
+        $token = (string) ag($payload, 'token');
+        $sessionPath = $this->tmpDir . '/console/' . $token;
+
+        $cancelResponse = $handler->cancel($token);
+        $cancelPayload = json_decode((string) $cancelResponse->getBody(), true);
+
+        $this->assertSame(Status::ACCEPTED->value, $cancelResponse->getStatusCode());
+        $this->assertSame('Command cancellation requested.', ag($cancelPayload, 'message'));
+        $this->assertFalse(is_dir($sessionPath));
+    }
+
+    public function test_cancel_marks_running_session_for_stop(): void
+    {
+        $handler = new Command();
+        $response = $handler->queue($this->getRequest(post: ['command' => 'system:tasks']));
+
+        $payload = json_decode((string) $response->getBody(), true);
+        $token = (string) ag($payload, 'token');
+        $sessionPath = $this->tmpDir . '/console/' . $token;
+        $statePath = $sessionPath . '/state.json';
+
+        $state = json_decode((string) file_get_contents($statePath), true);
+        $state['status'] = 'running';
+
+        file_put_contents($statePath, json_encode($state, JSON_PRETTY_PRINT | JSON_INVALID_UTF8_IGNORE));
+
+        $cancelResponse = $handler->cancel($token);
+        $cancelPayload = json_decode((string) $cancelResponse->getBody(), true);
+
+        $this->assertSame(Status::ACCEPTED->value, $cancelResponse->getStatusCode());
+        $this->assertSame('Command cancellation requested.', ag($cancelPayload, 'message'));
+        $this->assertFileExists($sessionPath . '/cancel.flag');
+    }
+
+    public function test_attach_session_promotes_newest_connection_as_active(): void
+    {
+        $handler = new Command();
+        $response = $handler->queue($this->getRequest(post: ['command' => 'system:tasks']));
+
+        $payload = json_decode((string) $response->getBody(), true);
+        $token = (string) ag($payload, 'token');
+        $sessionPath = $this->tmpDir . '/console/' . $token;
+        $statePath = $sessionPath . '/state.json';
+        $method = new \ReflectionMethod($handler, 'attachSession');
+
+        $first = $method->invoke($handler, $sessionPath);
+        $second = $method->invoke($handler, $sessionPath);
+        $state = json_decode((string) file_get_contents($statePath), true);
+
+        $this->assertSame(1, ag($first, 'active_connection'));
+        $this->assertSame(2, ag($second, 'active_connection'));
+        $this->assertSame(2, ag($state, 'active_connection'));
+        $this->assertSame(2, ag($state, 'connection_seq'));
+        $this->assertSame(2, ag($state, 'connections'));
+    }
+
+    public function test_is_active_connection_rejects_stale_connection_ids(): void
+    {
+        $handler = new Command();
+        $response = $handler->queue($this->getRequest(post: ['command' => 'system:tasks']));
+
+        $payload = json_decode((string) $response->getBody(), true);
+        $token = (string) ag($payload, 'token');
+        $sessionPath = $this->tmpDir . '/console/' . $token;
+        $attach = new \ReflectionMethod($handler, 'attachSession');
+        $isActive = new \ReflectionMethod($handler, 'isActiveConnection');
+
+        $attach->invoke($handler, $sessionPath);
+        $attach->invoke($handler, $sessionPath);
+
+        $this->assertFalse($isActive->invoke($handler, $sessionPath, 1));
+        $this->assertTrue($isActive->invoke($handler, $sessionPath, 2));
     }
 
     private function removeDirectory(string $path): void

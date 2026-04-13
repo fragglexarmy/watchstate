@@ -119,6 +119,20 @@ class EmitterTest extends TestCase
         $this->assertSame('test', $this->body, 'Body is not set correctly.');
     }
 
+    public function test_emitter_body_streamable_run_once(): void
+    {
+        $calls = 0;
+        $response = new Response(Status::OK, body: StreamedBody::create(function () use (&$calls): string {
+            $calls++;
+            return 'test';
+        }, runOnce: true));
+
+        $this->emitter->__invoke($response->withHeader('X-Emitter-Max-Buffer-Length', '1'));
+
+        $this->assertSame('test', $this->body, 'Body is not set correctly.');
+        $this->assertSame(1, $calls, 'One-shot streamed bodies must execute exactly once.');
+    }
+
     public function test_fail_conditions()
     {
         $response = new Response(Status::OK, headers: [

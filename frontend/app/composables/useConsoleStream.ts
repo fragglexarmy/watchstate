@@ -1,14 +1,8 @@
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useStorage } from '@vueuse/core';
-import { useState } from '#app';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { request, parse_api_response } from '~/utils';
 import type { GenericError, GenericResponse } from '~/types';
-
-type ConsoleChunk = {
-  id: string;
-  value: string;
-};
 
 type ConsoleEventMessage = {
   id: string;
@@ -29,7 +23,7 @@ type PersistedConsoleView = {
   displayCommand: string;
   exitCode: number;
   lastSequence: number;
-  chunks: Array<ConsoleChunk>;
+  chunks: Array<string>;
 };
 
 type ConsoleStreamRunResult =
@@ -42,15 +36,16 @@ type ConsoleStreamState = {
   command: string;
   displayCommand: string;
   exitCode: number;
+  completedAt: number;
   token: string | null;
   error: string;
-  chunks: Array<ConsoleChunk>;
-  streamedIds: Array<string>;
+  chunks: Array<string>;
   lastSequence: number;
 };
 
 const MAX_CHUNKS = 4000;
 const RESTORE_EXPIRED = '__restore_expired__';
+const isExpiredStreamStatus = (status: number): boolean => [400, 404].includes(status);
 const ACTIVE_SESSION_STORAGE_KEY = 'consoleActiveSession';
 const ACTIVE_VIEW_STORAGE_KEY = 'consoleActiveView';
 
@@ -95,19 +90,17 @@ const writeConsoleStorage = (key: string, value: unknown): void => {
   storage.setItem(key, JSON.stringify(value));
 };
 
-const normalizeConsoleChunk = (input: unknown): ConsoleChunk | null => {
+const normalizeConsoleChunk = (input: unknown): string | null => {
+  if ('string' === typeof input) {
+    return input;
+  }
+
   if (!input || 'object' !== typeof input) {
     return null;
   }
 
-  const id = Reflect.get(input, 'id');
   const value = Reflect.get(input, 'value');
-
-  if ('string' !== typeof id || 'string' !== typeof value) {
-    return null;
-  }
-
-  return { id, value };
+  return 'string' === typeof value ? value : null;
 };
 
 const normalizePersistedConsoleSession = (input: unknown): PersistedConsoleSession | null => {
@@ -168,7 +161,7 @@ const normalizePersistedConsoleView = (input: unknown): PersistedConsoleView | n
     lastSequence,
     chunks: chunks
       .map((chunk) => normalizeConsoleChunk(chunk))
-      .filter((chunk): chunk is ConsoleChunk => null !== chunk),
+      .filter((chunk): chunk is string => null !== chunk),
   };
 };
 
@@ -177,16 +170,12 @@ const makeInitialState = (): ConsoleStreamState => ({
   command: '',
   displayCommand: '',
   exitCode: 0,
+  completedAt: 0,
   token: null,
   error: '',
   chunks: [],
-  streamedIds: [],
   lastSequence: 0,
 });
-
-const makeLocalChunkId = (): string => {
-  return `local-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-};
 
 const trimChunks = (state: ConsoleStreamState): void => {
   if (state.chunks.length > MAX_CHUNKS) {
@@ -194,21 +183,8 @@ const trimChunks = (state: ConsoleStreamState): void => {
   }
 };
 
-const appendChunk = (state: ConsoleStreamState, id: string, value: string): void => {
-  if (state.chunks.some((chunk) => chunk.id === id)) {
-    return;
-  }
-
-  state.chunks.push({ id, value });
-  trimChunks(state);
-};
-
-const appendLocalChunk = (state: ConsoleStreamState, value: string): void => {
-  state.chunks.push({
-    id: makeLocalChunkId(),
-    value,
-  });
-
+const appendChunk = (state: ConsoleStreamState, value: string): void => {
+  state.chunks.push(value);
   trimChunks(state);
 };
 
@@ -240,12 +216,9 @@ const normalizeSequence = (value: string): number => {
 export function useConsoleStream() {
   const token = useStorage<string>('token', '');
   const commandHistory = useStorage<Array<string>>('executedCommands', []);
-  const activeSession = useState<PersistedConsoleSession | null>(
-    'console-active-session',
-    () => null,
-  );
-  const persistedView = useState<PersistedConsoleView | null>('console-active-view', () => null);
-  const state = useState<ConsoleStreamState>('console-stream-state', makeInitialState);
+  const activeSession = ref<PersistedConsoleSession | null>(null);
+  const persistedView = ref<PersistedConsoleView | null>(null);
+  const state = ref<ConsoleStreamState>(makeInitialState());
 
   const isActive = computed(() =>
     ['starting', 'streaming', 'reconnecting'].includes(state.value.status),
@@ -299,13 +272,8 @@ export function useConsoleStream() {
     });
   };
 
-  const appendStateChunk = (id: string, value: string): void => {
-    appendChunk(state.value, id, value);
-    syncPersistedView();
-  };
-
-  const appendStateLocalChunk = (value: string): void => {
-    appendLocalChunk(state.value, value);
+  const appendStateChunk = (value: string): void => {
+    appendChunk(state.value, value);
     syncPersistedView();
   };
 
@@ -324,6 +292,7 @@ export function useConsoleStream() {
 
     state.value.status = 'error';
     state.value.error = message;
+    state.value.completedAt = 0;
     state.value.token = null;
   };
 
@@ -333,6 +302,7 @@ export function useConsoleStream() {
     state.value.status = 'idle';
     state.value.token = null;
     state.value.error = '';
+    state.value.completedAt = Date.now();
     streamController = null;
   };
 
@@ -357,7 +327,6 @@ export function useConsoleStream() {
 
   const clearOutput = (): void => {
     state.value.chunks = [];
-    state.value.streamedIds = [];
 
     if (!activeSession.value) {
       return;
@@ -371,25 +340,11 @@ export function useConsoleStream() {
     syncPersistedView();
   };
 
-  const resetFlushedOutput = (): void => {
-    state.value.streamedIds = [];
+  const bufferedChunks = computed<Array<string>>(() => state.value.chunks.slice());
+
+  const appendOutput = (value: string): void => {
+    appendStateChunk(value);
   };
-
-  const markChunkFlushed = (id: string): void => {
-    if (state.value.streamedIds.includes(id)) {
-      return;
-    }
-
-    state.value.streamedIds.push(id);
-
-    if (state.value.streamedIds.length > MAX_CHUNKS) {
-      state.value.streamedIds.splice(0, state.value.streamedIds.length - MAX_CHUNKS);
-    }
-  };
-
-  const unflushedChunks = computed<Array<ConsoleChunk>>(() =>
-    state.value.chunks.filter((chunk) => !state.value.streamedIds.includes(chunk.id)),
-  );
 
   const closeStreamView = (): void => {
     stopStream();
@@ -398,6 +353,7 @@ export function useConsoleStream() {
     state.value.status = 'idle';
     state.value.token = null;
     state.value.error = '';
+    state.value.completedAt = 0;
   };
 
   const connectToStream = async (
@@ -427,7 +383,6 @@ export function useConsoleStream() {
     streamController = controller;
     let didReceiveClose = false;
     let didRememberHistory = false;
-    let didRestorePrompt = false;
 
     void fetchEventSource(`/v1/api/system/command/${session.token}`, {
       signal: controller.signal,
@@ -438,17 +393,6 @@ export function useConsoleStream() {
         }
 
         if (response.ok) {
-          if (
-            'restore' === mode &&
-            !didRestorePrompt &&
-            state.value.chunks.length < 1 &&
-            0 === session.resumeSequence &&
-            session.displayCommand.trim()
-          ) {
-            appendStateLocalChunk(`(${state.value.exitCode}) ~ ${session.displayCommand}\n`);
-            didRestorePrompt = true;
-          }
-
           state.value.status = 'streaming';
           state.value.error = '';
           state.value.token = session.token;
@@ -471,7 +415,7 @@ export function useConsoleStream() {
           message = '400: Unable to open command stream.';
         }
 
-        if ('restore' === mode && 400 === response.status) {
+        if ('restore' === mode && isExpiredStreamStatus(response.status)) {
           clearPersistedSession();
           clearPersistedView();
           state.value.status = 'idle';
@@ -493,7 +437,7 @@ export function useConsoleStream() {
         switch (evt.event) {
           case 'data': {
             const eventData = JSON.parse(evt.data) as { data: string };
-            appendStateChunk(evt.id || makeLocalChunkId(), eventData.data);
+            appendStateChunk(eventData.data);
             break;
           }
           case 'exit_code': {
@@ -504,7 +448,6 @@ export function useConsoleStream() {
           }
           case 'close':
             didReceiveClose = true;
-            appendStateLocalChunk(`\n(${state.value.exitCode}) ~ `);
             finalizeRun();
             break;
           default:
@@ -586,10 +529,7 @@ export function useConsoleStream() {
     state.value.exitCode = 0;
     state.value.error = '';
     state.value.lastSequence = 0;
-
-    if (historyCommand.trim()) {
-      appendStateLocalChunk(`(${state.value.exitCode}) ~ ${displayCommand}\n`);
-    }
+    state.value.completedAt = 0;
 
     try {
       const response = await request('/system/command', {
@@ -648,25 +588,51 @@ export function useConsoleStream() {
     state.value.exitCode = view?.exitCode ?? 0;
     state.value.error = '';
     state.value.chunks = view ? [...view.chunks] : [];
-    state.value.streamedIds = [];
     state.value.lastSequence = view?.lastSequence ?? session.lastSequence;
     state.value.status = 'reconnecting';
+    state.value.completedAt = 0;
 
     await connectToStream('restore');
     return true;
   };
 
+  const stopCommand = async (): Promise<void> => {
+    if (!activeSession.value) {
+      finalizeRun();
+      return;
+    }
+
+    try {
+      const response = await request(`/system/command/${activeSession.value.token}`, {
+        method: 'DELETE',
+      });
+      const json = await parse_api_response<GenericResponse>(response);
+
+      if ('error' in json) {
+        const message = `${json.error.code}: ${json.error.message}`;
+        setFatalError(message, false);
+
+        if (404 === response.status) {
+          finalizeRun();
+        }
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to stop the active command.';
+      setFatalError(message, false);
+    }
+  };
+
   return {
     commandHistory,
     state,
+    bufferedChunks,
+    appendOutput,
     isActive,
-    unflushedChunks,
     clearOutput,
     closeStreamView,
-    markChunkFlushed,
-    resetFlushedOutput,
     restoreRun,
     startRun,
+    stopCommand,
     stopStream,
   };
 }

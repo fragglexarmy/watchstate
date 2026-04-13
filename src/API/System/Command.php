@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\API\System;
 
+use App\Libs\Attributes\Route\Delete;
 use App\Libs\Attributes\Route\Get;
 use App\Libs\Attributes\Route\Post;
 use App\Libs\Config;
@@ -27,6 +28,7 @@ final class Command
 
     private const int TIMES_BEFORE_PING = 6;
     private const int PING_INTERVAL = 200_000;
+    private const int COMPLETED_RECONNECT_GRACE_SECONDS = 3;
 
     private const string STATUS_QUEUED = 'queued';
     private const string STATUS_RUNNING = 'running';
@@ -38,6 +40,7 @@ final class Command
     private const string STATE_LOCK_FILE = 'state.lock';
     private const string STREAM_FILE = 'stream.log';
     private const string WRITER_LOCK_FILE = 'writer.lock';
+    private const string CANCEL_FILE = 'cancel.flag';
 
     /**
      * @throws RandomException
@@ -84,20 +87,19 @@ final class Command
         $state = $this->readState($sessionPath);
 
         if (null === $state) {
-            return api_error('Token is invalid or has expired.', Status::BAD_REQUEST);
+            return api_error('Token is invalid or has expired.', Status::NOT_FOUND);
         }
 
-        if ($this->isCompleted($state)) {
+        if ($this->isCompletedAndExpired($state)) {
             if (0 === (int) ag($state, 'connections', 0)) {
                 $this->cleanupSession($sessionPath);
+                return api_error('Token is invalid or has expired.', Status::NOT_FOUND);
             }
-
-            return api_error('Token is invalid or has expired.', Status::BAD_REQUEST);
         }
 
         if ($this->isQueuedAndExpired($state)) {
             $this->cleanupSession($sessionPath);
-            return api_error('Token is invalid or has expired.', Status::BAD_REQUEST);
+            return api_error('Token is invalid or has expired.', Status::NOT_FOUND);
         }
 
         $since = $this->getReplayCursor($request);
@@ -112,13 +114,15 @@ final class Command
                 return '';
             }
 
+            $connectionId = $this->currentConnectionId($state);
+
             try {
                 if (self::STATUS_QUEUED === ag($state, 'status') && null !== ($writerLock = $this->acquireWriterLock($sessionPath))) {
-                    $this->runWriter($sessionPath);
+                    $this->runWriter($sessionPath, $connectionId);
                     return '';
                 }
 
-                $this->runReader($sessionPath, $since);
+                $this->runReader($sessionPath, $since, $connectionId);
                 return '';
             } finally {
                 if (is_resource($writerLock)) {
@@ -130,18 +134,51 @@ final class Command
             }
         };
 
-        return api_response(Status::OK, body: StreamedBody::create($callable), headers: [
+        return api_response(Status::OK, body: StreamedBody::create($callable, runOnce: true), headers: [
             'Content-Type' => 'text/event-stream; charset=UTF-8',
             'Cache-Control' => 'no-cache',
             'Connection' => 'keep-alive',
             'X-Accel-Buffering' => 'no',
+            'Content-Encoding' => 'none',
         ]);
     }
 
-    private function runWriter(string $sessionPath): void
+    #[Delete(self::URL . '/{token}[/]', name: 'system.command.cancel')]
+    public function cancel(#[\SensitiveParameter] string $token): iResponse
+    {
+        $sessionPath = $this->getSessionPath($token);
+        $state = $this->readState($sessionPath);
+
+        if (null === $state) {
+            return api_error('Token is invalid or has expired.', Status::NOT_FOUND);
+        }
+
+        if (self::STATUS_QUEUED === ag($state, 'status')) {
+            $this->cleanupSession($sessionPath);
+
+            return api_response(Status::ACCEPTED, [
+                'message' => 'Command cancellation requested.',
+            ]);
+        }
+
+        if ($this->isCompleted($state)) {
+            return api_response(Status::ACCEPTED, [
+                'message' => 'Command has already completed.',
+            ]);
+        }
+
+        $this->requestCancel($sessionPath);
+
+        return api_response(Status::ACCEPTED, [
+            'message' => 'Command cancellation requested.',
+        ]);
+    }
+
+    private function runWriter(string $sessionPath, int $connectionId): void
     {
         $params = $this->readRequest($sessionPath);
         $command = ag($params, 'command');
+        $pty = false !== ag($params, 'pty', true);
 
         if (!is_array($params) || !is_string($command) || '' === trim($command)) {
             $this->failSession($sessionPath, 'No command was given.');
@@ -171,30 +208,33 @@ final class Command
 
         $counter = self::TIMES_BEFORE_PING;
         $clientConnected = !connection_aborted();
+        $isActiveConnection = fn(): bool => $this->isActiveConnection($sessionPath, $connectionId);
 
-        $this->recordEvent($sessionPath, 'cmd', (string) json_encode($cmd), $clientConnected);
-        $this->recordEvent($sessionPath, 'cwd', $cwd, $clientConnected);
+        $this->recordEvent($sessionPath, 'cmd', (string) json_encode($cmd), $clientConnected && $isActiveConnection());
+        $this->recordEvent($sessionPath, 'cwd', $cwd, $clientConnected && $isActiveConnection());
 
         $process = new Process(
             command: $cmd,
             cwd: $cwd,
-            env: array_replace_recursive([
-                'LANG' => 'en_US.UTF-8',
-                'LC_ALL' => 'en_US.UTF-8',
-                'TERM' => 'xterm-256color',
-                'FORCE_COLOR' => (string) ag($params, 'force_color', 'true'),
-                'PWD' => $path,
-            ], $_ENV),
+            env: $this->getCommandEnv($params, $pty, $cwd),
             timeout: ag($params, 'timeout', 7200),
         );
 
         try {
-            $process->setPty(true);
-            $process->start(function ($type, $data) use ($sessionPath, &$counter, &$clientConnected): void {
+            if (true === $pty) {
+                $process->setPty(true);
+            }
+
+            $process->start(function ($type, $data) use ($sessionPath, $connectionId, &$counter, &$clientConnected): void {
                 $counter = self::TIMES_BEFORE_PING;
 
                 $payload = json_encode(['data' => $data, 'type' => $type], flags: JSON_INVALID_UTF8_IGNORE);
-                $this->recordEvent($sessionPath, 'data', (string) $payload, $clientConnected);
+                $this->recordEvent(
+                    $sessionPath,
+                    'data',
+                    (string) $payload,
+                    $clientConnected && $this->isActiveConnection($sessionPath, $connectionId),
+                );
 
                 if ($clientConnected && connection_aborted()) {
                     $clientConnected = false;
@@ -202,6 +242,14 @@ final class Command
             });
 
             while ($process->isRunning()) {
+                if (!$isActiveConnection()) {
+                    $clientConnected = false;
+                }
+
+                if ($this->isCancelRequested($sessionPath)) {
+                    $process->stop(1, 9);
+                }
+
                 usleep(self::PING_INTERVAL);
                 $counter--;
 
@@ -209,7 +257,7 @@ final class Command
                     $counter = self::TIMES_BEFORE_PING;
                     $this->touchSession($sessionPath);
 
-                    if ($clientConnected) {
+                    if ($clientConnected && $isActiveConnection()) {
                         $this->emitPing();
 
                         if (connection_aborted()) {
@@ -220,21 +268,26 @@ final class Command
             }
 
             $exitCode = $process->getExitCode() ?? 1;
-            $this->recordEvent($sessionPath, 'exit_code', (string) $exitCode, $clientConnected);
-            $this->recordEvent($sessionPath, 'close', (string) make_date(), $clientConnected);
+            $this->recordEvent($sessionPath, 'exit_code', (string) $exitCode, $clientConnected && $isActiveConnection());
+            $this->recordEvent($sessionPath, 'close', (string) make_date(), $clientConnected && $isActiveConnection());
             $this->markSessionCompleted($sessionPath, $exitCode);
         } catch (ProcessTimedOutException $e) {
-            $this->failSession($sessionPath, $e->getMessage(), 124, $clientConnected);
+            $this->failSession($sessionPath, $e->getMessage(), 124, $clientConnected && $isActiveConnection());
         } catch (Throwable $e) {
-            $this->failSession($sessionPath, $e->getMessage(), 1, $clientConnected);
+            $this->failSession($sessionPath, $e->getMessage(), 1, $clientConnected && $isActiveConnection());
         }
     }
 
-    private function runReader(string $sessionPath, int $since): void
+    private function runReader(string $sessionPath, int $since, int $connectionId): void
     {
         $offset = 0;
+        $counter = self::TIMES_BEFORE_PING;
 
         while (!connection_aborted()) {
+            if (!$this->isActiveConnection($sessionPath, $connectionId)) {
+                return;
+            }
+
             [$since, $offset] = $this->replayTranscript($sessionPath, $since, $offset);
 
             $state = $this->readState($sessionPath);
@@ -247,8 +300,19 @@ final class Command
                 return;
             }
 
-            $this->emitPing();
+            if (!$this->isActiveConnection($sessionPath, $connectionId)) {
+                return;
+            }
+
             usleep(self::PING_INTERVAL);
+            $counter--;
+
+            if ($counter > 1) {
+                continue;
+            }
+
+            $counter = self::TIMES_BEFORE_PING;
+            $this->emitPing();
         }
     }
 
@@ -304,6 +368,8 @@ final class Command
             'finished_at' => null,
             'exit_code' => null,
             'last_sequence' => 0,
+            'connection_seq' => 0,
+            'active_connection' => 0,
             'connections' => 0,
         ];
 
@@ -318,10 +384,17 @@ final class Command
     private function attachSession(string $sessionPath): ?array
     {
         return $this->mutateState($sessionPath, function (array $state): ?array {
-            if ($this->isCompleted($state) || $this->isQueuedAndExpired($state)) {
+            if ($this->isQueuedAndExpired($state)) {
                 return null;
             }
 
+            if ($this->isCompletedAndExpired($state)) {
+                return null;
+            }
+
+            $nextConnection = (int) ag($state, 'connection_seq', 0) + 1;
+            $state['connection_seq'] = $nextConnection;
+            $state['active_connection'] = $nextConnection;
             $state['connections'] = max(0, (int) ag($state, 'connections', 0)) + 1;
             $state['updated_at'] = make_date()->format(Date::ATOM);
             return $state;
@@ -337,8 +410,28 @@ final class Command
         });
 
         if (null !== $state && $this->isCompleted($state) && 0 === (int) ag($state, 'connections', 0)) {
+            $finishedAt = ag($state, 'finished_at');
+            if (is_string($finishedAt) && (strtotime($finishedAt) + self::COMPLETED_RECONNECT_GRACE_SECONDS) > time()) {
+                return;
+            }
+
             $this->cleanupSession($sessionPath);
         }
+    }
+
+    private function currentConnectionId(array $state): int
+    {
+        return (int) ag($state, 'connection_seq', 0);
+    }
+
+    private function isActiveConnection(string $sessionPath, int $connectionId): bool
+    {
+        $state = $this->readState($sessionPath);
+        if (null === $state) {
+            return false;
+        }
+
+        return $connectionId === (int) ag($state, 'active_connection', 0);
     }
 
     private function markSessionRunning(string $sessionPath, string $cwd): void
@@ -385,7 +478,11 @@ final class Command
             return $state;
         });
 
-        $sequence = (int) ag($state ?? [], 'last_sequence', 0);
+        if (null === $state) {
+            return 0;
+        }
+
+        $sequence = (int) ag($state, 'last_sequence', 0);
         $payload = json_encode([
             'id' => $sequence,
             'event' => $event,
@@ -477,11 +574,7 @@ final class Command
             }
 
             $state = $this->readState($sessionPath);
-            if (
-                null === $state
-                || $this->isQueuedAndExpired($state)
-                || $this->isCompleted($state) && 0 === (int) ag($state, 'connections', 0)
-            ) {
+            if (null === $state || $this->isQueuedAndExpired($state) || $this->isCompletedAndExpired($state)) {
                 $this->cleanupSession($sessionPath);
             }
         }
@@ -499,6 +592,7 @@ final class Command
             self::STATE_LOCK_FILE,
             self::STREAM_FILE,
             self::WRITER_LOCK_FILE,
+            self::CANCEL_FILE,
         ];
 
         foreach ($files as $file) {
@@ -509,6 +603,26 @@ final class Command
         }
 
         @rmdir($sessionPath);
+    }
+
+    private function getCommandEnv(array $params, bool $pty, string $cwd): array
+    {
+        $env = [
+            'LANG' => 'en_US.UTF-8',
+            'LC_ALL' => 'en_US.UTF-8',
+            'PWD' => $cwd,
+        ];
+
+        if (true === $pty) {
+            $env = array_replace($env, [
+                'TERM' => 'xterm-256color',
+                'COLORTERM' => 'truecolor',
+                'FORCE_COLOR' => (string) ag($params, 'force_color', '1'),
+                'CLICOLOR' => '1',
+            ]);
+        }
+
+        return array_replace_recursive($env, $_ENV);
     }
 
     private function getReplayCursor(iRequest $request): int
@@ -623,15 +737,38 @@ final class Command
         return self::STATUS_COMPLETED === ag($state, 'status');
     }
 
+    private function isCompletedAndExpired(array $state): bool
+    {
+        if (!$this->isCompleted($state) || 0 !== (int) ag($state, 'connections', 0)) {
+            return false;
+        }
+
+        $finishedAt = ag($state, 'finished_at');
+        if (!is_string($finishedAt) || '' === trim($finishedAt)) {
+            return true;
+        }
+
+        return (strtotime($finishedAt) + self::COMPLETED_RECONNECT_GRACE_SECONDS) <= time();
+    }
+
+    private function requestCancel(string $sessionPath): void
+    {
+        @touch($sessionPath . '/' . self::CANCEL_FILE);
+    }
+
+    private function isCancelRequested(string $sessionPath): bool
+    {
+        return file_exists($sessionPath . '/' . self::CANCEL_FILE);
+    }
+
     private function emitPing(): void
     {
         echo "event: ping\n";
         echo 'data: ' . make_date() . "\n\n";
-        flush();
-
-        if (ob_get_length() > 0) {
-            ob_end_flush();
+        if (ob_get_level() > 0) {
+            @ob_flush();
         }
+        flush();
     }
 
     private function emitEvent(string $event, string $data, ?int $id = null): void
@@ -642,10 +779,9 @@ final class Command
 
         echo "event: {$event}\n";
         echo "data: {$data}\n\n";
-        flush();
-
-        if (ob_get_length() > 0) {
-            ob_end_flush();
+        if (ob_get_level() > 0) {
+            @ob_flush();
         }
+        flush();
     }
 }

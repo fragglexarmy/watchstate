@@ -98,6 +98,7 @@ WatchState HTTP API reference. Examples use the default `/v1/api` prefix.
       - [DELETE /v1/api/system/events](#delete-v1apisystemevents)
       - [POST /v1/api/system/command](#post-v1apisystemcommand)
       - [GET /v1/api/system/command/{token}](#get-v1apisystemcommandtoken)
+      - [DELETE /v1/api/system/command/{token}](#delete-v1apisystemcommandtoken)
       - [GET /v1/api/system/scheduler](#get-v1apisystemscheduler)
       - [POST /v1/api/system/scheduler/restart](#post-v1apisystemschedulerrestart)
       - [GET /v1/api/system/report](#get-v1apisystemreport)
@@ -2484,7 +2485,7 @@ Deletes all non-pending events.
 ---
 
 #### POST /v1/api/system/command
-Queues a one-time command for streamed execution.
+Queues a one-time command for execution.
 
 **Body**:
 ```json
@@ -2508,14 +2509,10 @@ Queues a one-time command for streamed execution.
 **Errors**:
 - `400 Bad Request` if the body is empty or `command` is missing/invalid.
 
-**Notes**:
-- This is a high-risk admin endpoint.
-- If `console.enable.all` is enabled and the command starts with `$`, WatchState executes it through `sh -c`.
-
 ---
 
 #### GET /v1/api/system/command/{token}
-Executes the queued command and streams output over SSE.
+Attaches to an active queued/running command session and streams output.
 
 **Path**:
 - `token`: Command token returned by `POST /v1/api/system/command`.
@@ -2540,10 +2537,34 @@ Executes the queued command and streams output over SSE.
 ```
 
 **Errors**:
-- `400 Bad Request` if the token is invalid/expired or the queued command is invalid.
+- `404 Not Found` if the token is invalid/expired or the session has already been cleaned up.
 
 **Notes**:
-- Tokens are single-use and are deleted before execution starts.
+- Sessions are resumable while the command is still active.
+- Use `Last-Event-ID` or `?since=` to resume from a known event sequence.
+- Completed sessions are cleaned up shortly after the final reader disconnects.
+
+---
+
+#### DELETE /v1/api/system/command/{token}
+Requests cancellation for a queued or running command.
+
+**Path**:
+- `token`: Command token returned by `POST /v1/api/system/command`.
+
+**Response**:
+```json
+{
+  "message": "Command cancellation requested."
+}
+```
+
+**Errors**:
+- `404 Not Found` if the token is invalid/expired.
+
+**Notes**:
+- Queued sessions are removed immediately.
+- Running sessions are marked for cancellation and stop as soon as the worker loop observes the cancel request.
 
 ---
 

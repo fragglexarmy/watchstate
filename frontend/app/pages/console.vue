@@ -156,7 +156,7 @@
                       variant="outline"
                       size="sm"
                       icon="i-lucide-trash"
-                      :disabled="commandHistory.length < 1"
+                      :disabled="historyEntries.length < 1"
                       @click="clearHistory"
                     >
                       Clear history
@@ -164,7 +164,7 @@
                   </div>
 
                   <UAlert
-                    v-if="commandHistory.length < 1"
+                    v-if="historyEntries.length < 1"
                     color="info"
                     variant="soft"
                     icon="i-lucide-clock-3"
@@ -177,7 +177,7 @@
                   >
                     <table class="w-full text-sm">
                       <tbody class="divide-y divide-default">
-                        <tr v-for="item in commandHistory" :key="item" class="hover:bg-muted/20">
+                        <tr v-for="item in historyEntries" :key="item" class="hover:bg-muted/20">
                           <td class="px-3 py-3 align-middle">
                             <button
                               type="button"
@@ -278,6 +278,8 @@ type ConsoleInputRef = {
 let flushFrame: number | null = null;
 let fitFrame: number | null = null;
 let terminalResizeObserver: ResizeObserver | null = null;
+let didInitialRender = false;
+let renderedChunkCount = 0;
 const terminal = ref<Terminal | null>(null);
 const terminalFit = ref<FitAddon | null>(null);
 const command = ref<string>(fromCommand);
@@ -286,13 +288,13 @@ const commandInput = ref<ConsoleInputRef | null>(null);
 const {
   commandHistory,
   state: streamState,
-  unflushedChunks,
+  bufferedChunks,
+  appendOutput,
   clearOutput: clearStreamOutput,
-  closeStreamView,
-  markChunkFlushed,
-  resetFlushedOutput,
   restoreRun,
   startRun,
+  stopCommand,
+  stopStream,
 } = useConsoleStream();
 
 const isLoading = computed(() =>
@@ -344,6 +346,8 @@ const streamStatusSpinning = computed(() => {
   return ['starting', 'streaming', 'reconnecting'].includes(streamState.value.status);
 });
 
+const historyEntries = computed(() => commandHistory.value.slice().reverse());
+
 const hasPrefix = computed(
   () => command.value.startsWith('console') || command.value.startsWith('docker'),
 );
@@ -380,12 +384,22 @@ const scheduleTerminalFit = (): void => {
 };
 
 const restoreBufferedTerminalOutput = (): void => {
-  if (streamState.value.chunks.length < 1) {
+  if (!terminal.value) {
     return;
   }
 
-  resetFlushedOutput();
-  scheduleFlush();
+  terminal.value.clear();
+  renderedChunkCount = 0;
+
+  if (streamState.value.chunks.length < 1) {
+    didInitialRender = true;
+    scheduleTerminalFit();
+    return;
+  }
+
+  terminal.value.write(bufferedChunks.value.join(''));
+  renderedChunkCount = bufferedChunks.value.length;
+  didInitialRender = true;
   scheduleTerminalFit();
 
   window.requestAnimationFrame(() => {
@@ -406,22 +420,31 @@ const bindTerminalResizeObserver = (): void => {
 };
 
 const flushTerminal = (): void => {
-  if (!terminal.value || unflushedChunks.value.length < 1) {
+  if (!terminal.value) {
     return;
   }
 
-  const pending = [...unflushedChunks.value];
-  const text = pending.map((chunk) => chunk.value).join('');
+  if (!didInitialRender) {
+    didInitialRender = true;
+  }
+
+  if (bufferedChunks.value.length < renderedChunkCount) {
+    restoreBufferedTerminalOutput();
+    return;
+  }
+
+  if (bufferedChunks.value.length === renderedChunkCount) {
+    return;
+  }
+
+  const text = bufferedChunks.value.slice(renderedChunkCount).join('');
 
   if (!text) {
     return;
   }
 
   terminal.value.write(text);
-
-  for (const chunk of pending) {
-    markChunkFlushed(chunk.id);
-  }
+  renderedChunkCount = bufferedChunks.value.length;
 };
 
 const scheduleFlush = (): void => {
@@ -433,6 +456,14 @@ const scheduleFlush = (): void => {
     flushFrame = null;
     flushTerminal();
   });
+};
+
+const writePrompt = (value: string): void => {
+  appendOutput(`(${streamState.value.exitCode}) ~ ${value}\n`);
+};
+
+const writeFooter = (): void => {
+  appendOutput(`\n(${streamState.value.exitCode}) ~ `);
 };
 
 const RunCommand = async (): Promise<void> => {
@@ -483,6 +514,8 @@ const RunCommand = async (): Promise<void> => {
     userCommand = `console ${userCommand}`;
   }
 
+  writePrompt(userCommand);
+
   const result = await startRun(commandBody.command, userCommand, historyCommand);
 
   if ('error' === result.status) {
@@ -531,8 +564,8 @@ const showHelp = async (): Promise<void> => {
   await RunCommand();
 };
 
-const closeOutput = (): void => {
-  closeStreamView();
+const closeOutput = async (): Promise<void> => {
+  await stopCommand();
   focusCommandInput();
 };
 
@@ -543,7 +576,7 @@ const loadCommand = async (value: string): Promise<void> => {
 };
 
 const clearHistory = async (): Promise<void> => {
-  if (commandHistory.value.length < 1) {
+  if (historyEntries.value.length < 1) {
     return;
   }
 
@@ -565,8 +598,14 @@ const removeFromHistory = (value: string): void => {
   commandHistory.value = commandHistory.value.filter((item) => item !== value);
 };
 
+const handlePageLeave = (): void => {
+  stopStream();
+};
+
 onUnmounted(() => {
   window.removeEventListener('resize', reSizeTerminal);
+  window.removeEventListener('pagehide', handlePageLeave);
+  window.removeEventListener('beforeunload', handlePageLeave);
   terminalResizeObserver?.disconnect();
   terminalResizeObserver = null;
   if (flushFrame) {
@@ -577,6 +616,7 @@ onUnmounted(() => {
     window.cancelAnimationFrame(fitFrame);
     fitFrame = null;
   }
+  stopStream();
   enableOpacity();
 });
 
@@ -584,6 +624,8 @@ onMounted(async () => {
   disableOpacity();
 
   window.addEventListener('resize', reSizeTerminal);
+  window.addEventListener('pagehide', handlePageLeave);
+  window.addEventListener('beforeunload', handlePageLeave);
 
   focusCommandInput();
 
@@ -643,15 +685,19 @@ onMounted(async () => {
 });
 
 watch(
-  unflushedChunks,
-  () => {
-    if (!terminal.value || unflushedChunks.value.length < 1) {
+  () => bufferedChunks.value.length,
+  (length, previousLength) => {
+    if (!terminal.value) {
+      return;
+    }
+
+    if (length < previousLength) {
+      restoreBufferedTerminalOutput();
       return;
     }
 
     scheduleFlush();
   },
-  { deep: true },
 );
 
 watch(
@@ -663,6 +709,19 @@ watch(
 
     notification('error', 'Error', message, 5000);
     focusCommandInput();
+  },
+);
+
+watch(
+  () => streamState.value.completedAt,
+  (value, previousValue) => {
+    if (value > 0 && value !== previousValue) {
+      writeFooter();
+    }
+
+    if (streamState.value.command) {
+      command.value = streamState.value.command;
+    }
   },
 );
 
