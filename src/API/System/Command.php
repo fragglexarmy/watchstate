@@ -13,42 +13,45 @@ use App\Libs\Extends\Date;
 use App\Libs\Shlex;
 use App\Libs\StreamedBody;
 use DateInterval;
+use DirectoryIterator;
 use Psr\Http\Message\ResponseInterface as iResponse;
 use Psr\Http\Message\ServerRequestInterface as iRequest;
-use Psr\SimpleCache\CacheInterface as iCache;
-use Psr\SimpleCache\InvalidArgumentException;
 use Random\RandomException;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
+use Throwable;
 
 final class Command
 {
     public const string URL = '%{api.prefix}/system/command';
+
     private const int TIMES_BEFORE_PING = 6;
     private const int PING_INTERVAL = 200_000;
 
-    private int $counter = 1;
+    private const string STATUS_QUEUED = 'queued';
+    private const string STATUS_RUNNING = 'running';
+    private const string STATUS_COMPLETED = 'completed';
 
-    private bool $toBackground = false;
-
-    public function __construct(
-        private iCache $cache,
-    ) {}
+    private const string SESSIONS_DIR = 'console';
+    private const string REQUEST_FILE = 'request.json';
+    private const string STATE_FILE = 'state.json';
+    private const string STATE_LOCK_FILE = 'state.lock';
+    private const string STREAM_FILE = 'stream.log';
+    private const string WRITER_LOCK_FILE = 'writer.lock';
 
     /**
-     * @throws InvalidArgumentException
      * @throws RandomException
      */
     #[Post(self::URL . '[/]', name: 'system.command.queue')]
     public function queue(iRequest $request): iResponse
     {
-        $params = $request->getParsedBody();
+        $params = DataUtil::fromRequest($request);
 
-        if (!is_array($params) || empty($params)) {
+        if (empty($params->getAll())) {
             return api_error('No json data was given.', Status::BAD_REQUEST);
         }
 
-        if (null === ($cmd = ag($params, 'command', null))) {
+        if (null === ($cmd = $params->get('command'))) {
             return api_error('No command was given.', Status::BAD_REQUEST);
         }
 
@@ -56,148 +59,591 @@ final class Command
             return api_error('Command is invalid.', Status::BAD_REQUEST);
         }
 
-        $code = hash('sha256', random_bytes(12) . $cmd);
-
         $ttl = new DateInterval('PT5M');
-        $this->cache->set($code, $params, $ttl);
+        $code = hash('sha256', random_bytes(12) . $cmd);
+        $expires = make_date()->add($ttl);
+
+        try {
+            $this->cleanupExpiredSessions();
+            $this->createSession($code, $params->getAll(), $expires->format(Date::ATOM));
+        } catch (Throwable $e) {
+            return api_error($e->getMessage(), Status::INTERNAL_SERVER_ERROR);
+        }
 
         return api_response(Status::CREATED, [
             'token' => $code,
             'tracking' => r('{url}/{code}', ['url' => parse_config_value(self::URL), 'code' => $code]),
-            'expires' => make_date()->add($ttl)->format(Date::ATOM),
+            'expires' => $expires->format(Date::ATOM),
         ]);
     }
 
-    /**
-     * @throws InvalidArgumentException
-     */
     #[Get(self::URL . '/{token}[/]', name: 'system.command.stream')]
-    public function stream(#[\SensitiveParameter] string $token): iResponse
+    public function stream(iRequest $request, #[\SensitiveParameter] string $token): iResponse
     {
-        if (null === ($data = $this->cache->get($token))) {
+        $sessionPath = $this->getSessionPath($token);
+        $state = $this->readState($sessionPath);
+
+        if (null === $state) {
             return api_error('Token is invalid or has expired.', Status::BAD_REQUEST);
         }
 
-        if ($this->cache->has($token)) {
-            $this->cache->delete($token);
+        if ($this->isCompleted($state)) {
+            if (0 === (int) ag($state, 'connections', 0)) {
+                $this->cleanupSession($sessionPath);
+            }
+
+            return api_error('Token is invalid or has expired.', Status::BAD_REQUEST);
         }
 
-        $data = DataUtil::fromArray($data);
-
-        if (null === ($command = $data->get('command'))) {
-            return api_error('No command was given.', Status::BAD_REQUEST);
+        if ($this->isQueuedAndExpired($state)) {
+            $this->cleanupSession($sessionPath);
+            return api_error('Token is invalid or has expired.', Status::BAD_REQUEST);
         }
 
-        if (!is_string($command)) {
-            return api_error('Command is invalid.', Status::BAD_REQUEST);
-        }
+        $since = $this->getReplayCursor($request);
 
-        $callable = function () use ($command, $data) {
+        $callable = function () use ($sessionPath, $since) {
             ignore_user_abort(true);
+            set_time_limit(0);
 
-            $path = realpath(__DIR__ . '/../../../');
-            $cwd = $data->get('cwd', Config::get('path', getcwd(...)));
+            $writerLock = null;
+
+            if (null === ($state = $this->attachSession($sessionPath))) {
+                return '';
+            }
 
             try {
-                if (true === (bool) Config::get('console.enable.all') && str_starts_with($command, '$')) {
-                    $userCommand = trim(after($command, '$'));
-                    $cmd = ['sh', '-c', $userCommand];
-                } else {
-                    try {
-                        $cmd = Shlex::split("{$path}/bin/console -n " . trim(after($command, 'console')));
-                    } catch (\InvalidArgumentException $e) {
-                        $this->write('error', "Failed to parse command: {$e->getMessage()}");
-                        $this->write('exit_code', '1');
-                        $this->write('close', (string) make_date());
-                        return;
-                    }
+                if (self::STATUS_QUEUED === ag($state, 'status') && null !== ($writerLock = $this->acquireWriterLock($sessionPath))) {
+                    $this->runWriter($sessionPath);
+                    return '';
                 }
 
-                $process = new Process(
-                    command: $cmd,
-                    cwd: $cwd,
-                    env: array_replace_recursive([
-                        'LANG' => 'en_US.UTF-8',
-                        'LC_ALL' => 'en_US.UTF-8',
-                        'TERM' => 'xterm-256color',
-                        'FORCE_COLOR' => (string) $data->get('force_color', 'true'),
-                        'PWD' => $path,
-                    ], $_ENV),
-                    timeout: $data->get('timeout', 7200),
-                );
-
-                $this->write('cmd', (string) json_encode($cmd));
-                $this->write('cwd', (string) $cwd);
-
-                $process->setPty(true);
-
-                $process->start(callback: function ($type, $data) use ($process) {
-                    if (true === $this->toBackground) {
-                        return;
-                    }
-                    $this->counter = self::TIMES_BEFORE_PING;
-
-                    $this->write(
-                        'data',
-                        json_encode(['data' => $data, 'type' => $type], flags: JSON_INVALID_UTF8_IGNORE),
-                    );
-
-                    if (connection_aborted()) {
-                        $this->toBackground = true;
-                    }
-                });
-
-                while (false === $this->toBackground && $process->isRunning()) {
-                    usleep(self::PING_INTERVAL);
-                    $this->counter--;
-
-                    if ($this->counter > 1) {
-                        continue;
-                    }
-
-                    $this->counter = self::TIMES_BEFORE_PING;
-
-                    $this->write('ping', (string) make_date());
-
-                    if (connection_aborted()) {
-                        $this->toBackground = true;
-                    }
+                $this->runReader($sessionPath, $since);
+                return '';
+            } finally {
+                if (is_resource($writerLock)) {
+                    flock($writerLock, LOCK_UN);
+                    fclose($writerLock);
                 }
 
-                $this->write('exit_code', (string) $process->getExitCode());
-            } catch (ProcessTimedOutException) {
+                $this->detachSession($sessionPath);
             }
-
-            if (false === $this->toBackground && !connection_aborted()) {
-                $this->write('close', (string) make_date());
-            }
-            exit();
         };
 
-        set_time_limit(0);
-
         return api_response(Status::OK, body: StreamedBody::create($callable), headers: [
-            'Content-Type' => 'text/event-stream',
+            'Content-Type' => 'text/event-stream; charset=UTF-8',
             'Cache-Control' => 'no-cache',
             'Connection' => 'keep-alive',
             'X-Accel-Buffering' => 'no',
-            'Last-Event-Id' => time(),
         ]);
     }
 
-    private function write(string $event, string $data, bool $multiLine = false): void
+    private function runWriter(string $sessionPath): void
     {
-        echo 'id: ' . hrtime(true) . "\n";
-        echo "event: {$event}\n";
-        if (true === $multiLine) {
-            foreach (explode(PHP_EOL, $data) as $line) {
-                echo "data: {$line}\n";
-            }
-        } else {
-            echo "data: {$data}\n";
+        $params = $this->readRequest($sessionPath);
+        $command = ag($params, 'command');
+
+        if (!is_array($params) || !is_string($command) || '' === trim($command)) {
+            $this->failSession($sessionPath, 'No command was given.');
+            return;
         }
-        echo "\n\n";
+
+        $path = realpath(__DIR__ . '/../../../');
+        $cwd = ag($params, 'cwd', Config::get('path', getcwd(...)));
+
+        if (!is_string($cwd) || '' === trim($cwd)) {
+            $cwd = Config::get('path', getcwd(...));
+        }
+
+        try {
+            if (true === (bool) Config::get('console.enable.all') && str_starts_with($command, '$')) {
+                $userCommand = trim(after($command, '$'));
+                $cmd = ['sh', '-c', $userCommand];
+            } else {
+                $cmd = Shlex::split("{$path}/bin/console -n " . trim(after($command, 'console')));
+            }
+        } catch (\InvalidArgumentException $e) {
+            $this->failSession($sessionPath, "Failed to parse command: {$e->getMessage()}");
+            return;
+        }
+
+        $this->markSessionRunning($sessionPath, $cwd);
+
+        $counter = self::TIMES_BEFORE_PING;
+        $clientConnected = !connection_aborted();
+
+        $this->recordEvent($sessionPath, 'cmd', (string) json_encode($cmd), $clientConnected);
+        $this->recordEvent($sessionPath, 'cwd', $cwd, $clientConnected);
+
+        $process = new Process(
+            command: $cmd,
+            cwd: $cwd,
+            env: array_replace_recursive([
+                'LANG' => 'en_US.UTF-8',
+                'LC_ALL' => 'en_US.UTF-8',
+                'TERM' => 'xterm-256color',
+                'FORCE_COLOR' => (string) ag($params, 'force_color', 'true'),
+                'PWD' => $path,
+            ], $_ENV),
+            timeout: ag($params, 'timeout', 7200),
+        );
+
+        try {
+            $process->setPty(true);
+            $process->start(function ($type, $data) use ($sessionPath, &$counter, &$clientConnected): void {
+                $counter = self::TIMES_BEFORE_PING;
+
+                $payload = json_encode(['data' => $data, 'type' => $type], flags: JSON_INVALID_UTF8_IGNORE);
+                $this->recordEvent($sessionPath, 'data', (string) $payload, $clientConnected);
+
+                if ($clientConnected && connection_aborted()) {
+                    $clientConnected = false;
+                }
+            });
+
+            while ($process->isRunning()) {
+                usleep(self::PING_INTERVAL);
+                $counter--;
+
+                if ($counter <= 1) {
+                    $counter = self::TIMES_BEFORE_PING;
+                    $this->touchSession($sessionPath);
+
+                    if ($clientConnected) {
+                        $this->emitPing();
+
+                        if (connection_aborted()) {
+                            $clientConnected = false;
+                        }
+                    }
+                }
+            }
+
+            $exitCode = $process->getExitCode() ?? 1;
+            $this->recordEvent($sessionPath, 'exit_code', (string) $exitCode, $clientConnected);
+            $this->recordEvent($sessionPath, 'close', (string) make_date(), $clientConnected);
+            $this->markSessionCompleted($sessionPath, $exitCode);
+        } catch (ProcessTimedOutException $e) {
+            $this->failSession($sessionPath, $e->getMessage(), 124, $clientConnected);
+        } catch (Throwable $e) {
+            $this->failSession($sessionPath, $e->getMessage(), 1, $clientConnected);
+        }
+    }
+
+    private function runReader(string $sessionPath, int $since): void
+    {
+        $offset = 0;
+
+        while (!connection_aborted()) {
+            [$since, $offset] = $this->replayTranscript($sessionPath, $since, $offset);
+
+            $state = $this->readState($sessionPath);
+            if (null === $state) {
+                return;
+            }
+
+            if ($this->isCompleted($state)) {
+                $this->replayTranscript($sessionPath, $since, $offset);
+                return;
+            }
+
+            $this->emitPing();
+            usleep(self::PING_INTERVAL);
+        }
+    }
+
+    private function failSession(
+        string $sessionPath,
+        string $message,
+        int $exitCode = 1,
+        bool $sendToClient = true,
+    ): void {
+        $payload = json_encode([
+            'data' => r("ERROR: {message}\n", ['message' => trim($message)]),
+            'type' => 'err',
+        ], flags: JSON_INVALID_UTF8_IGNORE);
+
+        $this->recordEvent($sessionPath, 'data', (string) $payload, $sendToClient);
+        $this->recordEvent($sessionPath, 'exit_code', (string) $exitCode, $sendToClient);
+        $this->recordEvent($sessionPath, 'close', (string) make_date(), $sendToClient);
+        $this->markSessionCompleted($sessionPath, $exitCode);
+    }
+
+    private function createSession(#[\SensitiveParameter] string $token, array $params, string $expiresAt): void
+    {
+        $root = $this->getSessionsRoot();
+        if (false === is_dir($root)) {
+            throw new \RuntimeException(r("The path '{path}' is not a directory.", ['path' => $root]));
+        }
+
+        if (false === is_writable($root)) {
+            throw new \RuntimeException(r("Unable to write to '{path}' directory. Check user permissions and/or user mapping.", [
+                'path' => $root,
+            ]));
+        }
+
+        if (false === is_readable($root)) {
+            throw new \RuntimeException(r("Unable to read data from '{path}' directory. Check user permissions and/or user mapping.", [
+                'path' => $root,
+            ]));
+        }
+
+        $sessionPath = $this->getSessionPath($token);
+        if (false === @mkdir($sessionPath, 0o755, true) && false === is_dir($sessionPath)) {
+            throw new \RuntimeException("Unable to create console session '{$token}'.");
+        }
+
+        $state = [
+            'status' => self::STATUS_QUEUED,
+            'command' => (string) ag($params, 'command', ''),
+            'cwd' => null,
+            'created_at' => make_date()->format(Date::ATOM),
+            'expires_at' => $expiresAt,
+            'updated_at' => null,
+            'started_at' => null,
+            'finished_at' => null,
+            'exit_code' => null,
+            'last_sequence' => 0,
+            'connections' => 0,
+        ];
+
+        $this->writeJsonFile($sessionPath . '/' . self::REQUEST_FILE, $params);
+        $this->writeJsonFile($sessionPath . '/' . self::STATE_FILE, $state);
+
+        if (false === @touch($sessionPath . '/' . self::STREAM_FILE)) {
+            throw new \RuntimeException("Unable to create console session transcript '{$token}'.");
+        }
+    }
+
+    private function attachSession(string $sessionPath): ?array
+    {
+        return $this->mutateState($sessionPath, function (array $state): ?array {
+            if ($this->isCompleted($state) || $this->isQueuedAndExpired($state)) {
+                return null;
+            }
+
+            $state['connections'] = max(0, (int) ag($state, 'connections', 0)) + 1;
+            $state['updated_at'] = make_date()->format(Date::ATOM);
+            return $state;
+        });
+    }
+
+    private function detachSession(string $sessionPath): void
+    {
+        $state = $this->mutateState($sessionPath, static function (array $state): array {
+            $state['connections'] = max(0, (int) ag($state, 'connections', 0) - 1);
+            $state['updated_at'] = make_date()->format(Date::ATOM);
+            return $state;
+        });
+
+        if (null !== $state && $this->isCompleted($state) && 0 === (int) ag($state, 'connections', 0)) {
+            $this->cleanupSession($sessionPath);
+        }
+    }
+
+    private function markSessionRunning(string $sessionPath, string $cwd): void
+    {
+        $this->mutateState($sessionPath, static function (array $state) use ($cwd): array {
+            $now = make_date()->format(Date::ATOM);
+            $state['status'] = self::STATUS_RUNNING;
+            $state['cwd'] = $cwd;
+            $state['started_at'] = $now;
+            $state['updated_at'] = $now;
+            return $state;
+        });
+    }
+
+    private function markSessionCompleted(string $sessionPath, int $exitCode): void
+    {
+        $this->mutateState($sessionPath, static function (array $state) use ($exitCode): array {
+            $now = make_date()->format(Date::ATOM);
+            $state['status'] = self::STATUS_COMPLETED;
+            $state['exit_code'] = $exitCode;
+            $state['finished_at'] = $now;
+            $state['updated_at'] = $now;
+            return $state;
+        });
+    }
+
+    private function touchSession(string $sessionPath): void
+    {
+        $this->mutateState($sessionPath, function (array $state): array {
+            if ($this->isCompleted($state)) {
+                return $state;
+            }
+
+            $state['updated_at'] = make_date()->format(Date::ATOM);
+            return $state;
+        });
+    }
+
+    private function recordEvent(string $sessionPath, string $event, string $data, bool $sendToClient = true): int
+    {
+        $state = $this->mutateState($sessionPath, static function (array $state): array {
+            $state['last_sequence'] = (int) ag($state, 'last_sequence', 0) + 1;
+            $state['updated_at'] = make_date()->format(Date::ATOM);
+            return $state;
+        });
+
+        $sequence = (int) ag($state ?? [], 'last_sequence', 0);
+        $payload = json_encode([
+            'id' => $sequence,
+            'event' => $event,
+            'data' => $data,
+        ], flags: JSON_INVALID_UTF8_IGNORE);
+
+        if (is_string($payload)) {
+            @file_put_contents($sessionPath . '/' . self::STREAM_FILE, $payload . PHP_EOL, FILE_APPEND | LOCK_EX);
+        }
+
+        if ($sendToClient && !connection_aborted()) {
+            $this->emitEvent($event, $data, $sequence);
+        }
+
+        return $sequence;
+    }
+
+    /**
+     * @return array{0: int, 1: int}
+     */
+    private function replayTranscript(string $sessionPath, int $since, int $offset): array
+    {
+        $path = $sessionPath . '/' . self::STREAM_FILE;
+        if (false === file_exists($path)) {
+            return [$since, $offset];
+        }
+
+        $handle = @fopen($path, 'rb');
+        if (false === $handle) {
+            return [$since, $offset];
+        }
+
+        if ($offset > 0) {
+            fseek($handle, $offset);
+        }
+
+        while (false !== ($line = fgets($handle))) {
+            $position = ftell($handle);
+            $offset = false === $position ? $offset : $position;
+            $entry = json_decode(trim($line), true);
+
+            if (!is_array($entry)) {
+                continue;
+            }
+
+            $sequence = (int) ag($entry, 'id', 0);
+            if ($sequence <= $since) {
+                continue;
+            }
+
+            $since = $sequence;
+            $this->emitEvent((string) ag($entry, 'event', 'data'), (string) ag($entry, 'data', ''), $sequence);
+        }
+
+        fclose($handle);
+        return [$since, $offset];
+    }
+
+    private function acquireWriterLock(string $sessionPath): mixed
+    {
+        $handle = @fopen($sessionPath . '/' . self::WRITER_LOCK_FILE, 'c+');
+        if (false === $handle) {
+            return null;
+        }
+
+        if (false === flock($handle, LOCK_EX | LOCK_NB)) {
+            fclose($handle);
+            return null;
+        }
+
+        return $handle;
+    }
+
+    private function cleanupExpiredSessions(): void
+    {
+        $root = $this->getSessionsRoot();
+        if (false === is_dir($root)) {
+            return;
+        }
+
+        foreach (new DirectoryIterator($root) as $item) {
+            if ($item->isDot() || false === $item->isDir()) {
+                continue;
+            }
+
+            $sessionPath = $item->getRealPath();
+            if (false === $sessionPath) {
+                continue;
+            }
+
+            $state = $this->readState($sessionPath);
+            if (
+                null === $state
+                || $this->isQueuedAndExpired($state)
+                || $this->isCompleted($state) && 0 === (int) ag($state, 'connections', 0)
+            ) {
+                $this->cleanupSession($sessionPath);
+            }
+        }
+    }
+
+    private function cleanupSession(string $sessionPath): void
+    {
+        if (false === is_dir($sessionPath)) {
+            return;
+        }
+
+        $files = [
+            self::REQUEST_FILE,
+            self::STATE_FILE,
+            self::STATE_LOCK_FILE,
+            self::STREAM_FILE,
+            self::WRITER_LOCK_FILE,
+        ];
+
+        foreach ($files as $file) {
+            $path = $sessionPath . '/' . $file;
+            if (file_exists($path)) {
+                @unlink($path);
+            }
+        }
+
+        @rmdir($sessionPath);
+    }
+
+    private function getReplayCursor(iRequest $request): int
+    {
+        $header = trim($request->getHeaderLine('Last-Event-ID'));
+        if ('' !== $header && is_numeric($header)) {
+            return max(0, (int) $header);
+        }
+
+        $since = ag($request->getQueryParams(), 'since', 0);
+        if (is_numeric($since)) {
+            return max(0, (int) $since);
+        }
+
+        return 0;
+    }
+
+    private function getSessionsRoot(): string
+    {
+        return fix_path(Config::get('tmpDir', getcwd(...)) . '/' . self::SESSIONS_DIR);
+    }
+
+    private function getSessionPath(#[\SensitiveParameter] string $token): string
+    {
+        return fix_path($this->getSessionsRoot() . '/' . $token);
+    }
+
+    private function readRequest(string $sessionPath): ?array
+    {
+        return $this->readJsonFile($sessionPath . '/' . self::REQUEST_FILE);
+    }
+
+    private function readState(string $sessionPath): ?array
+    {
+        return $this->readJsonFile($sessionPath . '/' . self::STATE_FILE);
+    }
+
+    private function readJsonFile(string $path): ?array
+    {
+        if (false === file_exists($path) || false === is_readable($path)) {
+            return null;
+        }
+
+        $content = @file_get_contents($path);
+        if (false === $content || '' === trim($content)) {
+            return null;
+        }
+
+        $data = json_decode($content, true);
+        return is_array($data) ? $data : null;
+    }
+
+    private function writeJsonFile(string $path, array $data): void
+    {
+        $payload = json_encode($data, flags: JSON_PRETTY_PRINT | JSON_INVALID_UTF8_IGNORE);
+        $tmpPath = $path . '.tmp';
+
+        if (false === $payload || false === @file_put_contents($tmpPath, $payload, LOCK_EX) || false === @rename($tmpPath, $path)) {
+            if (file_exists($tmpPath)) {
+                @unlink($tmpPath);
+            }
+
+            throw new \RuntimeException("Unable to write console session file '{$path}'.");
+        }
+    }
+
+    private function mutateState(string $sessionPath, callable $callback): ?array
+    {
+        $lockPath = $sessionPath . '/' . self::STATE_LOCK_FILE;
+        $handle = @fopen($lockPath, 'c+');
+        if (false === $handle) {
+            return null;
+        }
+
+        flock($handle, LOCK_EX);
+
+        try {
+            $state = $this->readState($sessionPath);
+            if (null === $state) {
+                return null;
+            }
+
+            $state = $callback($state);
+            if (null === $state) {
+                return null;
+            }
+
+            $this->writeJsonFile($sessionPath . '/' . self::STATE_FILE, $state);
+            return $state;
+        } finally {
+            flock($handle, LOCK_UN);
+            fclose($handle);
+        }
+    }
+
+    private function isQueuedAndExpired(array $state): bool
+    {
+        if (self::STATUS_QUEUED !== ag($state, 'status')) {
+            return false;
+        }
+
+        $expiresAt = ag($state, 'expires_at');
+        if (!is_string($expiresAt) || '' === trim($expiresAt)) {
+            return true;
+        }
+
+        return strtotime($expiresAt) < time();
+    }
+
+    private function isCompleted(array $state): bool
+    {
+        return self::STATUS_COMPLETED === ag($state, 'status');
+    }
+
+    private function emitPing(): void
+    {
+        echo "event: ping\n";
+        echo 'data: ' . make_date() . "\n\n";
         flush();
+
+        if (ob_get_length() > 0) {
+            ob_end_flush();
+        }
+    }
+
+    private function emitEvent(string $event, string $data, ?int $id = null): void
+    {
+        if (null !== $id) {
+            echo 'id: ' . $id . "\n";
+        }
+
+        echo "event: {$event}\n";
+        echo "data: {$data}\n\n";
+        flush();
+
         if (ob_get_length() > 0) {
             ob_end_flush();
         }

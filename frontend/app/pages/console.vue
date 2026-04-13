@@ -63,12 +63,15 @@
                 Shell commands stay disabled unless <code>WS_CONSOLE_ENABLE_ALL</code> is enabled.
               </template>
             </p>
-            <UBadge :color="isLoading ? 'info' : 'neutral'" variant="soft" size="sm">
-              <span v-if="isLoading" class="inline-flex items-center gap-1.5">
-                <UIcon name="i-lucide-loader-circle" class="size-3.5 animate-spin" />
-                <span>Streaming</span>
+            <UBadge :color="streamStatusColor" variant="soft" size="sm">
+              <span v-if="streamStatusSpinning" class="inline-flex items-center gap-1.5">
+                <UIcon :name="streamStatusIcon" class="size-3.5 animate-spin" />
+                <span>{{ streamStatusLabel }}</span>
               </span>
-              <span v-else>Idle</span>
+              <span v-else class="inline-flex items-center gap-1.5">
+                <UIcon :name="streamStatusIcon" class="size-3.5" />
+                <span>{{ streamStatusLabel }}</span>
+              </span>
             </UBadge>
           </div>
         </div>
@@ -273,6 +276,8 @@ type ConsoleInputRef = {
 };
 
 let flushFrame: number | null = null;
+let fitFrame: number | null = null;
+let terminalResizeObserver: ResizeObserver | null = null;
 const terminal = ref<Terminal | null>(null);
 const terminalFit = ref<FitAddon | null>(null);
 const command = ref<string>(fromCommand);
@@ -286,12 +291,58 @@ const {
   closeStreamView,
   markChunkFlushed,
   resetFlushedOutput,
+  restoreRun,
   startRun,
 } = useConsoleStream();
 
-const isLoading = computed(
-  () => 'starting' === streamState.value.status || 'streaming' === streamState.value.status,
+const isLoading = computed(() =>
+  ['starting', 'streaming', 'reconnecting'].includes(streamState.value.status),
 );
+
+const streamStatusLabel = computed(() => {
+  switch (streamState.value.status) {
+    case 'starting':
+      return 'Starting';
+    case 'streaming':
+      return 'Streaming';
+    case 'reconnecting':
+      return 'Reconnecting';
+    case 'error':
+      return 'Failed';
+    default:
+      return 'Idle';
+  }
+});
+
+const streamStatusColor = computed(() => {
+  switch (streamState.value.status) {
+    case 'starting':
+    case 'streaming':
+    case 'reconnecting':
+      return 'info';
+    case 'error':
+      return 'error';
+    default:
+      return 'neutral';
+  }
+});
+
+const streamStatusIcon = computed(() => {
+  switch (streamState.value.status) {
+    case 'starting':
+    case 'streaming':
+    case 'reconnecting':
+      return 'i-lucide-loader-circle';
+    case 'error':
+      return 'i-lucide-triangle-alert';
+    default:
+      return 'i-lucide-circle-dot';
+  }
+});
+
+const streamStatusSpinning = computed(() => {
+  return ['starting', 'streaming', 'reconnecting'].includes(streamState.value.status);
+});
 
 const hasPrefix = computed(
   () => command.value.startsWith('console') || command.value.startsWith('docker'),
@@ -306,6 +357,52 @@ const historyCardUi = {
 
 const focusCommandInput = (): void => {
   commandInput.value?.inputRef?.focus({ preventScroll: true });
+};
+
+const scheduleTerminalFit = (): void => {
+  if (!terminal.value || !terminalFit.value) {
+    return;
+  }
+
+  if (fitFrame) {
+    return;
+  }
+
+  fitFrame = window.requestAnimationFrame(() => {
+    fitFrame = null;
+
+    if (!terminal.value || !terminalFit.value) {
+      return;
+    }
+
+    terminalFit.value.fit();
+  });
+};
+
+const restoreBufferedTerminalOutput = (): void => {
+  if (streamState.value.chunks.length < 1) {
+    return;
+  }
+
+  resetFlushedOutput();
+  scheduleFlush();
+  scheduleTerminalFit();
+
+  window.requestAnimationFrame(() => {
+    scheduleTerminalFit();
+  });
+};
+
+const bindTerminalResizeObserver = (): void => {
+  if (!outputConsole.value || 'undefined' === typeof ResizeObserver) {
+    return;
+  }
+
+  terminalResizeObserver?.disconnect();
+  terminalResizeObserver = new ResizeObserver(() => {
+    scheduleTerminalFit();
+  });
+  terminalResizeObserver.observe(outputConsole.value);
 };
 
 const flushTerminal = (): void => {
@@ -403,7 +500,7 @@ const RunCommand = async (): Promise<void> => {
     await useRouter().replace({ path: '/console' });
   }
 
-  command.value = '';
+  command.value = commandBody.command;
   await nextTick();
 
   focusCommandInput();
@@ -413,7 +510,8 @@ const reSizeTerminal = (): void => {
   if (!terminal.value || !terminalFit.value) {
     return;
   }
-  terminalFit.value.fit();
+
+  scheduleTerminalFit();
 };
 
 const clearOutput = async (): Promise<void> => {
@@ -469,9 +567,15 @@ const removeFromHistory = (value: string): void => {
 
 onUnmounted(() => {
   window.removeEventListener('resize', reSizeTerminal);
+  terminalResizeObserver?.disconnect();
+  terminalResizeObserver = null;
   if (flushFrame) {
     window.cancelAnimationFrame(flushFrame);
     flushFrame = null;
+  }
+  if (fitFrame) {
+    window.cancelAnimationFrame(fitFrame);
+    fitFrame = null;
   }
   enableOpacity();
 });
@@ -495,16 +599,33 @@ onMounted(async () => {
     });
     terminal.value.open(outputConsole.value);
     terminal.value.loadAddon(terminalFit.value);
-    terminalFit.value.fit();
+    bindTerminalResizeObserver();
+
+    await nextTick();
+    scheduleTerminalFit();
+
+    if ('fonts' in document) {
+      void document.fonts.ready.then(() => {
+        scheduleTerminalFit();
+      });
+    }
+
     if (streamState.value.chunks.length > 0) {
-      resetFlushedOutput();
-      flushTerminal();
+      restoreBufferedTerminalOutput();
     }
   }
 
   const run: boolean = route.query?.run ? Boolean(route.query.run) : false;
   if (true === run && command.value) {
     await RunCommand();
+  } else {
+    const restored = await restoreRun();
+
+    if (restored) {
+      command.value = streamState.value.command;
+      await nextTick();
+      restoreBufferedTerminalOutput();
+    }
   }
 
   try {
@@ -542,6 +663,15 @@ watch(
 
     notification('error', 'Error', message, 5000);
     focusCommandInput();
+  },
+);
+
+watch(
+  () => streamState.value.status,
+  () => {
+    if (streamState.value.command) {
+      command.value = streamState.value.command;
+    }
   },
 );
 </script>
