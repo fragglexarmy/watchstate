@@ -763,8 +763,7 @@ final class Command
 
     private function emitPing(): void
     {
-        echo "event: ping\n";
-        echo 'data: ' . make_date() . "\n\n";
+        echo ': ping ' . make_date() . "\n\n";
         if (ob_get_level() > 0) {
             @ob_flush();
         }

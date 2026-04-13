@@ -293,8 +293,7 @@ final class Index
 
                     $this->counter = 3;
 
-                    echo "event: ping\n";
-                    echo 'data: ' . make_date() . "\n\n";
+                    echo ': ping ' . make_date() . "\n\n";
                     flush();
 
                     if (ob_get_length() > 0) {

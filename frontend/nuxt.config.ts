@@ -1,3 +1,5 @@
+import { defineNuxtConfig } from 'nuxt/config';
+
 let extraNitro = {};
 try {
   const API_URL = import.meta.env.NUXT_API_URL;
@@ -20,7 +22,6 @@ try {
 export default defineNuxtConfig({
   ssr: false,
   devtools: { enabled: true },
-
   devServer: {
     port: 8082,
     host: '0.0.0.0',
@@ -72,6 +73,7 @@ export default defineNuxtConfig({
   telemetry: false,
   compatibilityDate: '2025-08-02',
   experimental: {
+    payloadExtraction: 'client',
     checkOutdatedBuildInterval: 1000 * 60 * 10,
   },
   vite: {
@@ -90,7 +92,6 @@ export default defineNuxtConfig({
         'marked-base-url',
         'marked-alert',
         'marked-gfm-heading-id',
-
       ],
     },
     server: {
