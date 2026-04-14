@@ -71,4 +71,20 @@ class StreamedBodyTest extends TestCase
             'isReadable(): Must return false as closure is not readable'
         );
     }
+
+    public function test_run_once_mode_executes_callback_once(): void
+    {
+        $calls = 0;
+        $stream = new StreamedBody(function () use (&$calls): string {
+            $calls++;
+            return 'streamed';
+        }, runOnce: true);
+
+        $this->assertFalse($stream->eof());
+        $this->assertSame('streamed', $stream->read(8192));
+        $this->assertTrue($stream->eof());
+        $this->assertSame('', $stream->read(8192));
+        $this->assertSame('', $stream->getContents());
+        $this->assertSame(1, $calls);
+    }
 }

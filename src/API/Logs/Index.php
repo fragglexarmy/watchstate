@@ -293,8 +293,7 @@ final class Index
 
                     $this->counter = 3;
 
-                    echo "event: ping\n";
-                    echo 'data: ' . make_date() . "\n\n";
+                    echo ': ping ' . make_date() . "\n\n";
                     flush();
 
                     if (ob_get_length() > 0) {
@@ -311,7 +310,7 @@ final class Index
             return '';
         };
 
-        return api_response(Status::OK, StreamedBody::create($callable), headers: [
+        return api_response(Status::OK, StreamedBody::create($callable, runOnce: true), headers: [
             'Content-Type' => 'text/event-stream; charset=UTF-8',
             'Cache-Control' => 'no-cache',
             'Connection' => 'keep-alive',

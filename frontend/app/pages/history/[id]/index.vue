@@ -84,6 +84,18 @@
           </UButton>
         </UTooltip>
 
+        <UTooltip text="View raw record payload">
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="sm"
+            icon="i-lucide-bug"
+            @click="showRawData = true"
+          >
+            Raw Data
+          </UButton>
+        </UTooltip>
+
         <UTooltip text="Delete the record">
           <UButton
             color="neutral"
@@ -110,6 +122,8 @@
         </UButton>
       </div>
     </div>
+
+    <TextModal v-model:open="showRawData" :title="historyTitle" :text="rawData" />
 
     <div class="space-y-4">
       <UAlert
@@ -482,7 +496,7 @@
                       <UTooltip text="Copy subtitle">
                         <UButton
                           color="neutral"
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
                           square
                           icon="i-lucide-copy"
@@ -546,7 +560,7 @@
                       <UTooltip text="Copy file path">
                         <UButton
                           color="neutral"
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
                           square
                           icon="i-lucide-copy"
@@ -784,7 +798,7 @@
                     <div class="flex shrink-0 items-center gap-3">
                       <UButton
                         color="neutral"
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
                         icon="i-lucide-trash-2"
                         @click="
@@ -1030,7 +1044,7 @@
                           <UTooltip text="Copy subtitle">
                             <UButton
                               color="neutral"
-                              variant="ghost"
+                              variant="outline"
                               size="sm"
                               square
                               icon="i-lucide-copy"
@@ -1094,7 +1108,7 @@
                           <UTooltip text="Copy file path">
                             <UButton
                               color="neutral"
-                              variant="ghost"
+                              variant="outline"
                               size="sm"
                               square
                               icon="i-lucide-copy"
@@ -1322,13 +1336,18 @@
                                     : 'text-warning',
                               ]"
                             />
-                            <span class="truncate">{{ backend.key }}</span>
+                            <NuxtLink
+                              :to="`/backend/${backend.key}`"
+                              class="truncate hover:text-primary"
+                            >
+                              {{ backend.key }}
+                            </NuxtLink>
                           </div>
                         </div>
 
                         <UButton
                           color="neutral"
-                          variant="ghost"
+                          variant="outline"
                           size="xs"
                           icon="i-lucide-trash-2"
                           @click="
@@ -1357,8 +1376,13 @@
                         @click="row.expandable ? toggleComparisonRow(row.key) : undefined"
                       >
                         <div
-                          class="inline-flex min-w-0 items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-toned"
+                          class="flex min-w-0 items-center justify-between gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-toned"
                         >
+                          <span class="inline-flex min-w-0 items-center gap-2">
+                            <UIcon :name="row.icon" class="size-4 shrink-0" />
+                            <span>{{ row.label }}</span>
+                          </span>
+
                           <UIcon
                             v-if="row.expandable"
                             :name="
@@ -1368,8 +1392,6 @@
                             "
                             class="size-3.5 shrink-0"
                           />
-                          <UIcon :name="row.icon" class="size-4 shrink-0" />
-                          <span>{{ row.label }}</span>
                         </div>
                       </div>
 
@@ -1378,84 +1400,102 @@
                         :key="`${row.key}:${entry.backend}`"
                         class="border border-default/50 px-3 py-3 text-sm text-default transition-colors"
                         :class="[
-                          entry.differs
+                          false !== row.compareDiffs && entry.differs
                             ? 'bg-warning/10 ring-1 ring-inset ring-warning/20'
                             : 0 === rowIndex % 2
                               ? 'bg-default/90'
                               : 'bg-elevated/20',
-                          entry.differs
+                          false !== row.compareDiffs && entry.differs
                             ? 'group-hover/row:bg-warning/15'
                             : 'group-hover/row:bg-elevated/50',
                         ]"
                       >
-                        <template v-if="'tags' === entry.cell.kind">
-                          <div
-                            v-if="(entry.cell.tags?.length ?? 0) > 0"
-                            class="flex flex-wrap gap-2"
-                          >
-                            <UBadge
-                              v-for="tag in entry.cell.tags"
-                              :key="`${row.key}:${entry.backend}:${tag.label}`"
-                              color="neutral"
-                              variant="soft"
-                              class="max-w-full"
-                            >
-                              <NuxtLink
-                                v-if="tag.href"
-                                :to="tag.href"
-                                :target="tag.target"
-                                class="break-all hover:text-primary"
+                        <div class="flex min-w-0 items-start justify-between gap-2">
+                          <div class="min-w-0 flex-1">
+                            <template v-if="'tags' === entry.cell.kind">
+                              <div
+                                v-if="(entry.cell.tags?.length ?? 0) > 0"
+                                class="flex flex-wrap gap-2"
                               >
-                                {{ tag.label }}
-                              </NuxtLink>
-                              <span v-else class="break-all">{{ tag.label }}</span>
-                            </UBadge>
+                                <UBadge
+                                  v-for="tag in entry.cell.tags"
+                                  :key="`${row.key}:${entry.backend}:${tag.label}`"
+                                  color="neutral"
+                                  variant="soft"
+                                  class="max-w-full"
+                                >
+                                  <NuxtLink
+                                    v-if="tag.href"
+                                    :to="tag.href"
+                                    :target="tag.target"
+                                    class="break-all hover:text-primary"
+                                  >
+                                    {{ tag.label }}
+                                  </NuxtLink>
+                                  <span v-else class="break-all">{{ tag.label }}</span>
+                                </UBadge>
+                              </div>
+                              <span v-else class="text-toned">None</span>
+                            </template>
+
+                            <template v-else-if="'date' === entry.cell.kind && entry.cell.tooltip">
+                              <UTooltip :text="entry.cell.tooltip">
+                                <span class="cursor-help font-medium text-highlighted">
+                                  {{ entry.cell.value }}
+                                </span>
+                              </UTooltip>
+                            </template>
+
+                            <template v-else>
+                              <div
+                                class="min-w-0 text-default"
+                                :class="[
+                                  entry.cell.expandable
+                                    ? expandableBlockClass(
+                                        isComparisonRowExpanded(row.key),
+                                        entry.cell.allowBreakAll,
+                                      )
+                                    : entry.cell.allowBreakAll
+                                      ? 'break-all'
+                                      : 'wrap-break-word',
+                                ]"
+                              >
+                                <NuxtLink
+                                  v-if="entry.cell.href"
+                                  :to="entry.cell.href"
+                                  class="block min-w-0 font-medium text-highlighted hover:text-primary"
+                                  @click.stop
+                                >
+                                  {{ entry.cell.value }}
+                                </NuxtLink>
+                                <span
+                                  v-else
+                                  :class="
+                                    ['None', 'Unknown'].includes(entry.cell.value ?? '')
+                                      ? 'text-toned'
+                                      : 'font-medium text-highlighted'
+                                  "
+                                >
+                                  {{ entry.cell.value }}
+                                </span>
+                              </div>
+                            </template>
                           </div>
-                          <span v-else class="text-toned">None</span>
-                        </template>
 
-                        <template v-else-if="'date' === entry.cell.kind && entry.cell.tooltip">
-                          <UTooltip :text="entry.cell.tooltip">
-                            <span class="cursor-help font-medium text-highlighted">
-                              {{ entry.cell.value }}
-                            </span>
-                          </UTooltip>
-                        </template>
-
-                        <template v-else>
-                          <div
-                            class="min-w-0 text-default"
-                            :class="[
-                              entry.cell.expandable
-                                ? expandableBlockClass(
-                                    isComparisonRowExpanded(row.key),
-                                    entry.cell.allowBreakAll,
-                                  )
-                                : entry.cell.allowBreakAll
-                                  ? 'break-all'
-                                  : 'wrap-break-word',
-                            ]"
-                          >
-                            <NuxtLink
-                              v-if="entry.cell.href"
-                              :to="entry.cell.href"
-                              class="block min-w-0 font-medium text-highlighted hover:text-primary"
-                              @click.stop
-                            >
-                              {{ entry.cell.value }}
-                            </NuxtLink>
-                            <span
-                              v-else
-                              :class="
-                                ['None', 'Unknown'].includes(entry.cell.value ?? '')
-                                  ? 'text-toned'
-                                  : 'font-medium text-highlighted'
+                          <UTooltip text="Copy value">
+                            <UButton
+                              color="neutral"
+                              variant="outline"
+                              size="xs"
+                              square
+                              icon="i-lucide-copy"
+                              aria-label="Copy cell value"
+                              @click.stop="
+                                () => void copyText(comparisonCellCopyText(entry.cell), false)
                               "
-                            >
-                              {{ entry.cell.value }}
-                            </span>
-                          </div>
-                        </template>
+                            />
+                          </UTooltip>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1465,45 +1505,6 @@
           </UCard>
         </div>
       </div>
-
-      <UCard class="border border-default/70 bg-default/90 shadow-sm" :ui="rawDataCardUi">
-        <template #header>
-          <div class="flex items-center justify-between gap-3">
-            <button
-              type="button"
-              class="flex items-center gap-2 text-left text-sm font-semibold text-highlighted"
-              @click="showRawData = !showRawData"
-            >
-              <UIcon
-                :name="showRawData ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
-                class="size-4 text-toned"
-              />
-              <span>Show raw data</span>
-            </button>
-
-            <UTooltip text="Copy text">
-              <UButton
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                icon="i-lucide-copy"
-                @click="() => copyText(rawData)"
-              >
-                <span class="hidden sm:inline">Copy</span>
-              </UButton>
-            </UTooltip>
-          </div>
-        </template>
-
-        <div
-          v-if="showRawData"
-          class="mt-3 overflow-hidden rounded-md border border-default bg-elevated/60"
-        >
-          <code class="ws-terminal ws-terminal-panel ws-terminal-panel-md whitespace-pre-wrap">{{
-            rawData
-          }}</code>
-        </div>
-      </UCard>
 
       <UCard class="border border-default/70 bg-default/90 shadow-sm" :ui="tipsCardUi">
         <template #header>
@@ -1562,6 +1563,7 @@ import { useBreakpoints, useStorage } from '@vueuse/core';
 import moment from 'moment';
 import DuplicateRecordList from '~/components/DuplicateRecordList.vue';
 import Popover from '~/components/Popover.vue';
+import TextModal from '~/components/TextModal.vue';
 import { useDialog } from '~/composables/useDialog';
 import { usePageBackground } from '~/composables/usePageBackground';
 import { requireTopLevelPageShell } from '~/utils/topLevelNavigation';
@@ -1678,6 +1680,7 @@ type ComparisonRow = {
   label: string;
   icon: string;
   expandable: boolean;
+  compareDiffs?: boolean;
   cells: Array<ComparisonRowCell>;
 };
 
@@ -1706,11 +1709,6 @@ const {
 const backgroundOverrideId = `history:${id}`;
 
 const detailCardUi = {
-  header: 'p-4',
-  body: 'px-4 pb-4 pt-0',
-};
-
-const rawDataCardUi = {
   header: 'p-4',
   body: 'px-4 pb-4 pt-0',
 };
@@ -1915,6 +1913,20 @@ const comparisonCellValue = (cell: ComparisonCell): string => {
   return (cell.value ?? '').trim().toLowerCase();
 };
 
+const comparisonCellCopyText = (cell: ComparisonCell): string => {
+  if ('tags' === cell.kind) {
+    return cell.tags && cell.tags.length > 0
+      ? cell.tags.map((item) => item.label).join('\n')
+      : 'None';
+  }
+
+  if ('date' === cell.kind) {
+    return cell.tooltip ?? cell.value ?? 'Unknown';
+  }
+
+  return cell.value ?? '';
+};
+
 const differsFromBaseline = (baseline: ComparisonCell, cell: ComparisonCell): boolean =>
   comparisonCellValue(baseline) !== comparisonCellValue(cell);
 
@@ -1924,6 +1936,7 @@ const makeComparisonRow = (
   icon: string,
   baseline: ComparisonCell,
   backendCellFactory: (backend: ComparisonBackend) => ComparisonCell,
+  options: { compareDiffs?: boolean } = {},
 ): ComparisonRow | null => {
   const cells = comparisonBackends.value.map((backend) => {
     const cell = backendCellFactory(backend);
@@ -1949,12 +1962,26 @@ const makeComparisonRow = (
     icon,
     expandable:
       Boolean(baseline.expandable) || cells.some((entry) => Boolean(entry.cell.expandable)),
+    compareDiffs: options.compareDiffs,
     cells,
   };
 };
 
 const comparisonSections = computed<Array<ComparisonSection>>(() => {
   const identityRows = [
+    makeComparisonRow(
+      'source-id',
+      'Source ID',
+      'i-lucide-id-card',
+      makeTextCell(data.value.id, { emptyLabel: 'None', allowBreakAll: true, expandable: true }),
+      ({ item }) =>
+        makeLinkCell(item.id, item.webUrl, {
+          emptyLabel: 'None',
+          allowBreakAll: true,
+          expandable: true,
+        }),
+      { compareDiffs: false },
+    ),
     makeComparisonRow(
       'type',
       'Type',

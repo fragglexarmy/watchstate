@@ -12,4 +12,5 @@ return [
     '{tmp_dir}/profiler',
     '{tmp_dir}/webhooks',
     '{tmp_dir}/debug',
+    '{tmp_dir}/console',
 ];

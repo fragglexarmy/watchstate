@@ -7,20 +7,26 @@ namespace App\Libs;
 use Psr\Http\Message\StreamInterface;
 use RuntimeException;
 
-final readonly class StreamedBody implements StreamInterface
+final class StreamedBody implements StreamInterface
 {
     private mixed $func;
+    private bool $hasRun = false;
+    private string $buffer = '';
 
     public function __construct(
         callable $func,
         private bool $isReadable = true,
+        private bool $runOnce = false,
     ) {
         $this->func = $func;
     }
 
-    public static function create(callable $func, bool $isReadable = true): StreamInterface
-    {
-        return new self($func, isReadable: $isReadable);
+    public static function create(
+        callable $func,
+        bool $isReadable = true,
+        bool $runOnce = false,
+    ): StreamInterface {
+        return new self($func, isReadable: $isReadable, runOnce: $runOnce);
     }
 
     public function __destruct() {}
@@ -49,6 +55,10 @@ final readonly class StreamedBody implements StreamInterface
 
     public function eof(): bool
     {
+        if (true === $this->runOnce) {
+            return $this->hasRun;
+        }
+
         return false;
     }
 
@@ -78,11 +88,26 @@ final readonly class StreamedBody implements StreamInterface
 
     public function read($length): string
     {
+        if (true === $this->runOnce && true === $this->hasRun) {
+            return '';
+        }
+
         return $this->getContents();
     }
 
     public function getContents(): string
     {
+        if (true === $this->runOnce && true === $this->hasRun) {
+            return '';
+        }
+
+        if (true === $this->runOnce) {
+            $this->hasRun = true;
+            $result = ($this->func)();
+            $this->buffer = is_string($result) ? $result : '';
+            return $this->buffer;
+        }
+
         return ($this->func)();
     }
 

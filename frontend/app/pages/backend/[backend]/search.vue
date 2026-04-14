@@ -198,6 +198,16 @@
 
             <div class="flex shrink-0 items-center gap-2">
               <UButton
+                color="neutral"
+                variant="outline"
+                size="sm"
+                icon="i-lucide-bug"
+                @click="openRawData(item)"
+              >
+                <span class="hidden sm:inline">Raw Data</span>
+              </UButton>
+
+              <UButton
                 v-if="'show' !== item.type && item.id"
                 color="neutral"
                 variant="outline"
@@ -205,7 +215,7 @@
                 icon="i-lucide-history"
                 :to="`/history/${item.id}`"
               >
-                Local
+                <span class="hidden sm:inline">Local</span>
               </UButton>
             </div>
           </div>
@@ -298,6 +308,13 @@
       </UCard>
     </div>
 
+    <TextModal
+      :open="selectedRawItem !== null"
+      :title="selectedRawTitle"
+      :text="selectedRawText"
+      @update:open="handleRawModalOpenChange"
+    />
+
     <UCard class="border border-default/70 shadow-sm" :ui="panelCardUi">
       <template #header>
         <button
@@ -330,6 +347,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter, useHead } from '#app';
 import { useStorage } from '@vueuse/core';
 import FloatingImage from '~/components/FloatingImage.vue';
+import TextModal from '~/components/TextModal.vue';
 import { requireTopLevelPageShell } from '~/utils/topLevelNavigation';
 import moment from 'moment';
 import {
@@ -374,6 +392,7 @@ const isLoading = ref<boolean>(false);
 const hasSearched = ref<boolean>(false);
 const error = ref<{ message?: string; code?: number }>({});
 const show_page_tips = useStorage('show_page_tips', true);
+const selectedRawItem = ref<SearchItemWithUI | null>(null);
 
 const limitItems = computed<Array<{ label: string; value: number }>>(() =>
   limits.map((item) => ({ label: item.toString(), value: item })),
@@ -397,6 +416,45 @@ const getItemTypeIcon = (type: SearchItemWithUI['type']): string => {
   }
 
   return 'i-lucide-film';
+};
+
+const selectedRawTitle = computed<string>(() => {
+  if (!selectedRawItem.value) {
+    return 'Raw Data';
+  }
+
+  return makeName(selectedRawItem.value) as string;
+});
+
+const selectedRawText = computed<string>(() => {
+  if (!selectedRawItem.value) {
+    return '';
+  }
+
+  const rawRecord = selectedRawItem.value as unknown as Record<string, unknown>;
+  const cleaned = Object.keys(rawRecord)
+    .filter((key) => !['showItem'].includes(key))
+    .reduce(
+      (record: Record<string, unknown>, key: string) => {
+        record[key] = rawRecord[key];
+        return record;
+      },
+      {} as Record<string, unknown>,
+    );
+
+  return JSON.stringify(cleaned, null, 2);
+});
+
+const openRawData = (item: SearchItemWithUI): void => {
+  selectedRawItem.value = item;
+};
+
+const handleRawModalOpenChange = (open: boolean): void => {
+  if (open) {
+    return;
+  }
+
+  selectedRawItem.value = null;
 };
 
 const toggleOverflow = (event: Event): void => {
@@ -425,8 +483,10 @@ const searchContent = async (fromPopState: boolean = false): Promise<void> => {
   isLoading.value = true;
   items.value = [];
   error.value = {};
+  selectedRawItem.value = null;
 
   search.set('limit', limit.value.toString());
+  search.set('raw', 'true');
   search.set('id' === searchField.value ? 'id' : 'q', query.value);
 
   const title = `Backends: ${backend} - (Search - ${searchField.value}: ${query.value})`;
@@ -465,6 +525,7 @@ const clearSearch = async (): Promise<void> => {
   items.value = [];
   hasSearched.value = false;
   error.value = {};
+  selectedRawItem.value = null;
   const title = `Backends: ${backend} - Search`;
   useHead({ title });
   await router.push({ path: `/backend/${backend}/search`, query: {} });
