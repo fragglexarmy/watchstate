@@ -58,18 +58,4 @@ export default defineNuxtPlugin(() => {
   } else {
     startObserver();
   }
-
-  window.addEventListener(
-    'beforeunload',
-    () => {
-      observer?.disconnect();
-      observer = null;
-
-      if (isLocked) {
-        enableOpacity();
-        isLocked = false;
-      }
-    },
-    { once: true },
-  );
 });
