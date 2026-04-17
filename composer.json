@@ -10,9 +10,6 @@
         "optimize-autoloader": true,
         "preferred-install": {
             "*": "dist"
-        },
-        "allow-plugins": {
-            "carthage-software/mago": true
         }
     },
     "scripts": {

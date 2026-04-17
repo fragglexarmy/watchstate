@@ -270,7 +270,7 @@
               variant="outline"
               size="sm"
               icon="i-lucide-terminal"
-              @click="confirmRun(task)"
+              @click="toConsoleCmd(task)"
             >
               <span class="hidden sm:inline">Run via console</span>
               <span class="sm:hidden">Run now</span>
@@ -503,16 +503,7 @@ const makeEnvLink = (key: string, val: string | null = null): string => {
   return `/env?${search.toString()}`;
 };
 
-const confirmRun = async (task: TaskItem): Promise<void> => {
-  const { status: confirmStatus } = await dialog.confirmDialog({
-    title: 'Run Task via Console',
-    message: `This will redirect you to the web console and run the command for '${task.name}' task. Do you want to continue?`,
-  });
-
-  if (true !== confirmStatus) {
-    return;
-  }
-
-  await navigateTo(makeConsoleCommand(`${task.command} ${task.args || ''}`, true));
+const toConsoleCmd = async (task: TaskItem): Promise<void> => {
+  await navigateTo(makeConsoleCommand(`${task.command} ${task.args || ''}`));
 };
 </script>

@@ -20,6 +20,8 @@ return (function () {
     $inContainer = in_container();
     $progressTimeCheck = fn(int $v, int $d): int => 0 === $v || $v >= 180 ? $v : $d;
     $progressToMS = fn(int $v): int => $v < 60 ? $v * 1000 : 60000;
+    $tokenExpiry = max(1, (int) env('WS_AUTH_TOKEN_EXPIRY', 2 * 24 * 60 * 60));
+    $defaultRefreshWindow = max(60, min(24 * 60 * 60, max(60, intdiv($tokenExpiry, 4))));
 
     $config = [
         'name' => 'WatchState',
@@ -90,6 +92,19 @@ return (function () {
                 '::1/128', // localhost IPv6
                 '172.16.0.0/12', // RFC-1918 B-block.
             ],
+        ],
+        'rate_limit' => [
+            'enabled' => (bool) env('WS_RATE_LIMIT_ENABLED', true),
+            'max_attempts' => (int) env('WS_RATE_LIMIT_ATTEMPTS', 5),
+            'window' => (int) env('WS_RATE_LIMIT_WINDOW', 900),
+            'ban' => (int) env('WS_RATE_LIMIT_BAN', 900),
+        ],
+        'auth' => [
+            'token_expiry' => $tokenExpiry,
+            'token_refresh_window' => max(
+                1,
+                min($tokenExpiry, (int) env('WS_AUTH_TOKEN_REFRESH_WINDOW', $defaultRefreshWindow)),
+            ),
         ],
         'progress' => [
             // -- Allows to sync watch progress for played items.

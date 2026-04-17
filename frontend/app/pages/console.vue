@@ -657,17 +657,12 @@ onMounted(async () => {
     }
   }
 
-  const run: boolean = route.query?.run ? Boolean(route.query.run) : false;
-  if (true === run && command.value) {
-    await RunCommand();
-  } else {
-    const restored = await restoreRun();
+  const restored = await restoreRun();
 
-    if (restored) {
-      command.value = streamState.value.command;
-      await nextTick();
-      restoreBufferedTerminalOutput();
-    }
+  if (restored) {
+    command.value = streamState.value.command;
+    await nextTick();
+    restoreBufferedTerminalOutput();
   }
 
   try {

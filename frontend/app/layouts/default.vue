@@ -141,12 +141,16 @@
 
                   <UDashboardSearchButton class="hidden shrink-0 sm:inline-flex" />
 
-                  <UColorModeButton
-                    color="neutral"
-                    variant="ghost"
-                    size="sm"
-                    aria-label="Toggle color mode"
-                  />
+                  <UTooltip :text="colorModeButtonTitle" placement="bottom">
+                    <UButton
+                      color="neutral"
+                      variant="ghost"
+                      size="sm"
+                      :icon="colorModeButtonIcon"
+                      :aria-label="colorModeButtonAriaLabel"
+                      @click="cycleColorMode"
+                    />
+                  </UTooltip>
 
                   <UButton
                     color="neutral"
@@ -186,7 +190,9 @@
                 v-if="inContainer"
               />
 
-              <div class="ws-shell-panel flex min-h-0 flex-1 flex-col p-3 sm:p-4 lg:p-5">
+              <div
+                class="ws-shell-panel flex min-h-0 flex-1 flex-col p-3 sm:p-4 lg:p-5 ws-blur-text"
+              >
                 <NuxtPage />
               </div>
             </div>
@@ -277,6 +283,8 @@ type SearchGroup = {
   items: Array<SearchItem>;
 };
 
+type ColorModePreference = 'system' | 'light' | 'dark';
+
 const useVersionUpdate = () => {
   const newVersionIsAvailable = ref(false);
   const nuxtApp = useNuxtApp();
@@ -293,6 +301,7 @@ const useVersionUpdate = () => {
 };
 
 const route = useRoute();
+const colorMode = useColorMode();
 const { newVersionIsAvailable } = useVersionUpdate();
 const auth = useAuthStore();
 const breakpoints = useBreakpoints({ mobile: 0, desktop: 640 });
@@ -308,6 +317,57 @@ const showSettings = ref(false);
 const inContainer = ref(false);
 const showScheduler = ref(false);
 const showRouteSearch = ref(false);
+
+const colorModePreferences: Array<ColorModePreference> = ['system', 'light', 'dark'];
+
+const colorModePreference = computed<ColorModePreference>(() => {
+  const preference = colorMode.preference;
+  return colorModePreferences.includes(preference as ColorModePreference)
+    ? (preference as ColorModePreference)
+    : 'system';
+});
+
+const colorModeButtonIcon = computed(() => {
+  switch (colorModePreference.value) {
+    case 'light':
+      return 'i-lucide-sun';
+    case 'dark':
+      return 'i-lucide-moon';
+    default:
+      return 'i-lucide-monitor';
+  }
+});
+
+const nextColorModePreference = computed<ColorModePreference>(() => {
+  const currentIndex = colorModePreferences.indexOf(colorModePreference.value);
+  return colorModePreferences[(currentIndex + 1) % colorModePreferences.length] ?? 'system';
+});
+
+const colorModeButtonTitle = computed(() => {
+  switch (colorModePreference.value) {
+    case 'light':
+      return 'Theme: Light';
+    case 'dark':
+      return 'Theme: Dark';
+    default:
+      return 'Theme: System';
+  }
+});
+
+const colorModeButtonAriaLabel = computed(() => {
+  switch (nextColorModePreference.value) {
+    case 'light':
+      return 'Switch theme to light';
+    case 'dark':
+      return 'Switch theme to dark';
+    default:
+      return 'Switch theme to system';
+  }
+});
+
+const cycleColorMode = (): void => {
+  colorMode.preference = nextColorModePreference.value;
+};
 
 const identitySelectionModalUi = {
   content: 'sm:max-w-lg',

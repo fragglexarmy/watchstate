@@ -58,6 +58,42 @@ const error = ref<string>('');
 const isLoading = ref<boolean>(true);
 const contentRoot = ref<HTMLElement | null>(null);
 
+const toStaticAssetUrl = (href: string, prefix: string): string => {
+  const url = new URL(href, window.location.origin);
+  const normalizedPrefix = `/${prefix}`;
+
+  if (!url.pathname.startsWith(normalizedPrefix)) {
+    url.pathname = `${normalizedPrefix}/${url.pathname.replace(/^\/+/, '')}`;
+  }
+
+  url.pathname = `/v1/api/system/static${url.pathname}`;
+
+  return url.toString();
+};
+
+const rewriteGuideHref = (href: string): string => {
+  const normalized = href.trim();
+
+  if (normalized.startsWith('/screenshots/') || normalized.startsWith('screenshots/')) {
+    return toStaticAssetUrl(normalized, 'screenshots');
+  }
+
+  if (normalized.startsWith('/guides/') || normalized.startsWith('guides/')) {
+    return normalized.replace('/guides/', '/help/').replace('guides/', '/help/').replace('.md', '');
+  }
+
+  const guideFiles = ['API.md', 'FAQ.md', 'README.md', 'NEWS.md'];
+  if (!guideFiles.some((entry) => normalized.includes(entry))) {
+    return href;
+  }
+
+  const path = normalized.startsWith('/') ? normalized : `/${normalized}`;
+  const url = new URL(window.origin + path);
+  url.pathname = `/guides${url.pathname}`;
+
+  return url.toString().replace('/guides/', '/help/').replace('.md', '');
+};
+
 const resolveGuideIconName = (value: string): string => {
   const normalized = value.trim();
   const iconName = normalized.startsWith('i-lucide-') ? normalized : 'i-lucide-circle-help';
@@ -179,6 +215,12 @@ const loadContent = async (): Promise<void> => {
           ),
       },
       walkTokens: (token: Tokens.Generic) => {
+        if (token.type === 'image') {
+          const imageToken = token as Tokens.Image;
+          imageToken.href = rewriteGuideHref(imageToken.href);
+          return;
+        }
+
         if (token.type !== 'link') {
           return;
         }
@@ -188,23 +230,7 @@ const loadContent = async (): Promise<void> => {
           return;
         }
 
-        const urls = ['API.md', 'FAQ.md', 'README.md', 'NEWS.md'];
-        const list = ['guides/', ...urls];
-        if (!list.some((entry) => linkToken.href.includes(entry))) {
-          return;
-        }
-
-        if (urls.some((entry) => linkToken.href.includes(entry))) {
-          if (!linkToken.href.startsWith('/')) {
-            linkToken.href = '/' + linkToken.href;
-          }
-
-          const url = new URL(window.origin + linkToken.href);
-          url.pathname = `/guides${url.pathname}`;
-          linkToken.href = url.toString();
-        }
-
-        linkToken.href = linkToken.href.replace('/guides/', '/help/').replace('.md', '');
+        linkToken.href = rewriteGuideHref(linkToken.href);
       },
     } as MarkedExtension;
 
@@ -428,6 +454,7 @@ onBeforeUnmount(() => removeListeners());
 }
 
 .ws-markdown img {
+  display: inline-block;
   max-width: 100%;
   border-radius: 0.375rem;
 }

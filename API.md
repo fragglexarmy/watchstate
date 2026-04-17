@@ -76,6 +76,7 @@ WatchState HTTP API reference. Examples use the default `/v1/api` prefix.
       - [GET /v1/api/system/auth/user](#get-v1apisystemauthuser)
       - [POST /v1/api/system/auth/signup](#post-v1apisystemauthsignup)
       - [POST /v1/api/system/auth/login](#post-v1apisystemauthlogin)
+      - [POST /v1/api/system/auth/refresh](#post-v1apisystemauthrefresh)
       - [PUT /v1/api/system/auth/change\_password](#put-v1apisystemauthchange_password)
       - [DELETE /v1/api/system/auth/sessions](#delete-v1apisystemauthsessions)
       - [GET /v1/api/system/env](#get-v1apisystemenv)
@@ -1708,7 +1709,6 @@ Builds the top-level HLS playlist for a signed media file.
 
 **Notes**:
 - Sidecar subtitle files are auto-discovered when no subtitle is already selected.
-- Child playlist URLs automatically include `?apikey=` when secure API mode is enabled.
 
 ---
 
@@ -1882,6 +1882,9 @@ Returns whether the system account exists and may include an auto-login token fo
 }
 ```
 
+**Notes**:
+- Returned user tokens expire after the configured auth token lifetime. Default: 2 days.
+
 **Errors**:
 - `500 Internal Server Error` if token encoding fails.
 
@@ -1898,13 +1901,18 @@ Returns the decoded signed user token.
 ```json
 {
   "username": "admin",
-  "created_at": "2026-03-28T12:00:00+00:00"
+  "created_at": "2026-03-28T12:00:00+00:00",
+  "expires_at": "2026-04-11T12:00:00+00:00",
+  "refresh_required": false
 }
 ```
 
 **Errors**:
-- `401 Unauthorized` for missing or invalid user tokens.
+- `401 Unauthorized` for missing, invalid, or expired user tokens.
 - `500 Internal Server Error` if the system account is not configured.
+
+**Notes**:
+- `refresh_required` becomes `true` when the token is close enough to expiry that the client should call the refresh endpoint.
 
 ---
 
@@ -1946,9 +1954,37 @@ Exchanges username/password credentials for a signed user token.
 }
 ```
 
+**Notes**:
+- Returned user tokens expire after the configured auth token lifetime. Default: 2 days.
+
+---
+
+#### POST /v1/api/system/auth/refresh
+Re-issues the current signed user token when it is near expiry.
+
+**Auth**:
+- `Authorization: Token <token>`
+- `?ws_token=<token>`
+
+**Response**:
+```json
+{
+  "token": "...",
+  "username": "admin",
+  "created_at": "2026-04-10T12:00:00+00:00",
+  "expires_at": "2026-04-24T12:00:00+00:00",
+  "refreshed": true
+}
+```
+
+**Errors**:
+- `401 Unauthorized` for missing, invalid, or expired user tokens.
+- `500 Internal Server Error` if the system account is not configured.
+
 **Errors**:
 - `400 Bad Request` if credentials are missing.
 - `401 Unauthorized` if the credentials are invalid.
+- `429 Too Many Requests` if rate limited after repeated failures.
 - `500 Internal Server Error` if the system account is not configured or token encoding fails.
 
 ---

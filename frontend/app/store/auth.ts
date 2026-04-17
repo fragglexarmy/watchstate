@@ -2,14 +2,7 @@ import { defineStore } from 'pinia';
 import { useStorage } from '@vueuse/core';
 import { reactive, toRefs } from 'vue';
 import { request, parse_api_response } from '~/utils';
-import type { GenericError, GenericResponse } from '~/types';
-
-type AuthState = {
-  token: string | null;
-  authenticated: boolean;
-  loading: boolean;
-  username: string | null;
-};
+import type { AuthRefreshResponse, AuthUserResponse, GenericError, GenericResponse } from '~/types';
 
 type HasUserResponse = {
   token?: string;
@@ -21,12 +14,63 @@ type LoginResponse = {
 };
 
 export const useAuthStore = defineStore('auth', () => {
-  const state = reactive<AuthState>({
+  const state = reactive<{
+    token: string | null;
+    authenticated: boolean;
+    loading: boolean;
+    username: string | null;
+    expiresAt: string | null;
+  }>({
     token: null,
     authenticated: false,
     loading: false,
     username: null,
+    expiresAt: null,
   });
+
+  const token = useStorage<string | null>('token', null);
+
+  const clearAuth = (): void => {
+    state.token = null;
+    state.authenticated = false;
+    state.username = null;
+    state.expiresAt = null;
+    token.value = null;
+  };
+
+  const applySession = (
+    nextToken: string,
+    username: string,
+    expiresAt: string | null = null,
+  ): void => {
+    token.value = nextToken;
+    state.token = nextToken;
+    state.username = username;
+    state.expiresAt = expiresAt;
+    state.authenticated = true;
+  };
+
+  const refresh = async (): Promise<string> => {
+    const response = await request('/system/auth/refresh', {
+      method: 'POST',
+    });
+
+    const json = await parse_api_response<AuthRefreshResponse>(response);
+    if (response.status !== 200) {
+      if ('error' in json) {
+        throw new Error(json.error.message);
+      }
+      throw new Error('Failed to refresh token');
+    }
+
+    if ('error' in json || !json.token) {
+      throw new Error('Error. API did not return a refresh token.');
+    }
+
+    applySession(json.token, json.username, json.expires_at);
+
+    return json.token;
+  };
 
   const has_user = async (no_cache: boolean = false): Promise<boolean> => {
     let url = '/system/auth/has_user';
@@ -41,10 +85,10 @@ export const useAuthStore = defineStore('auth', () => {
         return status;
       }
       if (json.token && json.auto_login) {
-        const token = useStorage<string | null>('token', null);
         state.token = json.token;
         token.value = json.token;
         state.authenticated = true;
+        state.expiresAt = null;
       }
     }
     return status;
@@ -92,51 +136,45 @@ export const useAuthStore = defineStore('auth', () => {
       if ('error' in json || !json.token) {
         throw new Error('Error. API did not return a token.');
       }
-      const token = useStorage<string | null>('token', null);
-      token.value = json.token;
-      state.token = json.token;
-      state.authenticated = true;
-      state.username = username;
+      applySession(json.token, username);
     } finally {
       state.loading = false;
     }
   };
 
   const logout = async (): Promise<boolean> => {
-    const token = useStorage<string | null>('token', null);
-    state.authenticated = false;
-    token.value = null;
+    clearAuth();
     return true;
   };
 
-  const validate = async (token: string): Promise<boolean> => {
+  const validate = async (): Promise<boolean> => {
     try {
-      const response = await request('/system/auth/user', {
-        method: 'GET',
-        headers: {
-          Authorization: 'Token ' + token,
-        },
-      });
+      const response = await request('/system/auth/user');
 
-      if (200 !== response.status) {
-        state.token = null;
-        state.authenticated = false;
+      const json = await parse_api_response<AuthUserResponse>(response);
+
+      if (200 !== response.status || 'error' in json) {
+        clearAuth();
         return false;
       }
 
-      const json = await response.json();
+      if (!token.value) {
+        clearAuth();
+        return false;
+      }
 
-      state.token = token;
+      applySession(token.value, json.username, json.expires_at);
 
-      state.username = json.username;
-      state.authenticated = true;
+      if (json.refresh_required) {
+        await refresh();
+      }
+
       return true;
     } catch {
-      state.token = null;
-      state.authenticated = false;
+      clearAuth();
       return false;
     }
   };
 
-  return { ...toRefs(state), has_user, signup, login, logout, validate };
+  return { ...toRefs(state), has_user, signup, login, logout, refresh, validate };
 });

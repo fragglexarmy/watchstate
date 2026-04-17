@@ -277,7 +277,7 @@
           <li>
             If you added or removed a custom GUID, you should run
             <NuxtLink
-              :to="makeConsoleCommand('system:index --force-reindex', false)"
+              :to="makeConsoleCommand('system:index --force-reindex')"
               class="text-primary hover:underline"
             >
               <span class="inline-flex items-center gap-1">

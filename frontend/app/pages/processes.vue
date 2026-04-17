@@ -80,10 +80,10 @@
           <div class="text-center">
             <UTooltip text="Stop process">
               <UButton
-                color="error"
-                variant="soft"
+                :color="'Z' === row.original.stat ? 'neutral' : 'error'"
+                :variant="'Z' === row.original.stat ? 'outline' : 'soft'"
                 size="xs"
-                icon="i-lucide-x"
+                :icon="'Z' === row.original.stat ? 'i-lucide-x' : 'i-lucide-x-circle'"
                 :disabled="'Z' === row.original.stat"
                 @click="killProcess(row.original)"
               />
@@ -249,7 +249,10 @@ const killProcess = async (item: ProcessItem): Promise<void> => {
 
   const { status } = await useDialog().confirmDialog({
     title: 'Kill process',
-    rawHTML: `Killing a process without knowing what it does can cause system instability. Are you sure you want to proceed?<br><br>PID: <code>${item.pid}: ${item.user}</code><br>Process: <code>${item.command}</code>`,
+    message:
+      'Killing a process without knowing what it does can cause system instability. Are you sure you want to proceed?' +
+      `\n\nPID: ${item.pid}: ${item.user}` +
+      `\nProcess: ${item.command}`,
     confirmColor: 'error',
   });
 

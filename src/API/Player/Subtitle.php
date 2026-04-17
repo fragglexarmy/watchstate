@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\API\Player;
 
 use App\Libs\Attributes\Route\Get;
-use App\Libs\Config;
 use App\Libs\Enums\Http\Status;
 use App\Libs\Stream;
 use App\Libs\VttConverter;
@@ -76,7 +75,6 @@ final readonly class Subtitle
             $subtitle = array_shift($subtitle);
         }
 
-        $isSecure = (bool) Config::get('api.secure', false);
         $subtitleUrl = parse_config_value(Subtitle::URL);
 
         $lines = [];
@@ -87,12 +85,11 @@ final readonly class Subtitle
         $lines[] = '#EXT-X-MEDIA-SEQUENCE:0';
 
         $lines[] = '#EXTINF:' . ag($data, 'config.duration') . ',';
-        $lines[] = r('{api_url}/{token}/{source}{index}.webvtt{auth}', [
+        $lines[] = r('{api_url}/{token}/{source}{index}.webvtt', [
             'api_url' => $subtitleUrl,
             'token' => $token,
             'source' => $source,
             'index' => $index,
-            'auth' => $isSecure ? '?apikey=' . Config::get('api.key') : '',
         ]);
         $lines[] = '#EXT-X-ENDLIST';
 

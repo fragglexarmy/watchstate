@@ -28,11 +28,14 @@ final class AuthorizationMiddleware implements MiddlewareInterface
      * Public routes that are accessible without an API key. and must remain open.
      */
     private const array PUBLIC_ROUTES = [
-        HealthCheck::URL,
-        Auth::URL,
         PlayerIndex::URL,
         PlexToken::URL,
         StaticFiles::URL,
+        HealthCheck::URL,
+        Auth::URL . '/test',
+        Auth::URL . '/has_user',
+        Auth::URL . '/signup',
+        Auth::URL . '/login',
     ];
 
     /**
@@ -140,6 +143,11 @@ final class AuthorizationMiddleware implements MiddlewareInterface
                 return false;
             }
 
+            $expiresAt = self::getTokenExpiresAt($payload);
+            if ($expiresAt < 1 || time() >= $expiresAt) {
+                return false;
+            }
+
             // $version = (string)ag($payload, 'version', '');
             // $currentVersion = getAppVersion();
             // if (false === hash_equals($currentVersion, $version)) {
@@ -150,6 +158,17 @@ final class AuthorizationMiddleware implements MiddlewareInterface
         }
 
         return true;
+    }
+
+    private static function getTokenExpiresAt(array $payload): int
+    {
+        $issuedAt = (int) ag($payload, 'iat', 0);
+
+        return (int) ag(
+            $payload,
+            'exp',
+            $issuedAt > 0 ? $issuedAt + max(1, (int) Config::get('auth.token_expiry')) : 0,
+        );
     }
 
     private function parseTokens(iRequest $request): array

@@ -48,8 +48,8 @@ final class ServeStatic implements LoggerAwareInterface
     ];
 
     private const array MD_IMAGES = [
-        '/screenshots' => __DIR__ . '/../../',
-        '/guides' => __DIR__ . '/../../',
+        '/screenshots' => __DIR__ . '/../../screenshots',
+        '/guides' => __DIR__ . '/../../guides',
     ];
 
     public function __construct(
@@ -94,6 +94,10 @@ final class ServeStatic implements LoggerAwareInterface
             }
 
             $staticPath = realpath($value);
+            $requestPath = after($requestPath, $key);
+            if (empty($requestPath)) {
+                $requestPath = '/';
+            }
             break;
         }
 

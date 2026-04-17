@@ -10,6 +10,7 @@ use App\Libs\Config;
 use App\Libs\Enums\Http\Method;
 use App\Libs\Enums\Http\Status;
 use App\Libs\Stream;
+use CallbackFilterIterator;
 use DirectoryIterator;
 use finfo;
 use Psr\Http\Message\ResponseInterface as iResponse;
@@ -19,16 +20,24 @@ final class Backup
 {
     public const string URL = '%{api.prefix}/system/backup';
 
+    private const array EXTENSIONS = ['json', 'zip'];
+
     #[Get(self::URL . '[/]', name: 'system.backup')]
     public function list(): iResponse
     {
         $list = [];
+        $files = new CallbackFilterIterator(
+            new DirectoryIterator(fix_path(Config::get('path') . '/backup')),
+            static function (DirectoryIterator $file): bool {
+                if ($file->isDot() || $file->isDir() || $file->isLink() || false === $file->isFile()) {
+                    return false;
+                }
 
-        foreach (new DirectoryIterator(fix_path(Config::get('path') . '/backup')) as $file) {
-            if ($file->isDot() || $file->isDir() || $file->isLink() || false === $file->isFile()) {
-                continue;
-            }
+                return in_array(strtolower((string) get_extension($file->getBasename())), self::EXTENSIONS, true);
+            },
+        );
 
+        foreach ($files as $file) {
             $isAuto = 1 === preg_match('/^(\w+\.)?\w+\.\d{8}\.json(\.zip)?$/i', $file->getBasename());
 
             $builder = [
@@ -56,10 +65,12 @@ final class Backup
     {
         $path = realpath(fix_path(Config::get('path') . '/backup'));
 
-        $filePath = realpath($path . '/' . $filename);
-
-        if (false === $filePath) {
+        if (false === ($filePath = realpath($path . '/' . $filename))) {
             return api_error('File not found.', Status::NOT_FOUND);
+        }
+
+        if (!in_array(strtolower((string) get_extension($filename)), self::EXTENSIONS, true)) {
+            return api_error('Invalid file type.', Status::BAD_REQUEST);
         }
 
         if (false === str_starts_with($filePath, $path)) {
