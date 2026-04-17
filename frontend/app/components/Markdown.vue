@@ -454,6 +454,7 @@ onBeforeUnmount(() => removeListeners());
 }
 
 .ws-markdown img {
+  display: inline-block;
   max-width: 100%;
   border-radius: 0.375rem;
 }
