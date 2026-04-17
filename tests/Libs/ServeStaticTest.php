@@ -64,6 +64,22 @@ class ServeStaticTest extends TestCase
             exceptionCode: Status::BAD_REQUEST->value,
         );
 
+        $this->checkException(
+            closure: fn() => new ServeStatic()->serve($this->createRequest('GET', '/guides/../var/config/.env')),
+            reason: 'Guide routes should not break out of the guides directory.',
+            exception: \League\Route\Http\Exception\BadRequestException::class,
+            exceptionMessage: 'is invalid.',
+            exceptionCode: Status::BAD_REQUEST->value,
+        );
+
+        $this->checkException(
+            closure: fn() => new ServeStatic()->serve($this->createRequest('GET', '/screenshots/../var/config/.env')),
+            reason: 'Screenshot routes should not break out of the screenshots directory.',
+            exception: \League\Route\Http\Exception\BadRequestException::class,
+            exceptionMessage: 'is invalid.',
+            exceptionCode: Status::BAD_REQUEST->value,
+        );
+
         // -- Check for invalid root static path.
         $this->checkException(
             closure: fn() => new ServeStatic('/nonexistent')->serve($this->createRequest('GET', '/test.html')),
@@ -98,13 +114,18 @@ class ServeStaticTest extends TestCase
         $this->assertEquals(file_get_contents($this->dataPath . '/test.html'), (string)$response->getBody());
         $this->assertSame(filesize($this->dataPath . '/test.html'), $response->getBody()->getSize());
 
+        $response = new ServeStatic()->serve($this->createRequest('GET', '/guides/identities.md'));
+        $this->assertEquals(Status::OK->value, $response->getStatusCode());
+        $this->assertEquals('text/markdown; charset=utf-8', $response->getHeaderLine('Content-Type'));
+        $this->assertEquals(file_get_contents(__DIR__ . '/../../guides/identities.md'), (string)$response->getBody());
+
         // -- test screenshots serving, as screenshots path is not in public directory and not subject
         // -- to same path restrictions as other files.
-        $response = $this->server->serve($this->createRequest('GET', '/screenshots/index.png'));
+        $response = $this->server->serve($this->createRequest('GET', '/screenshots/index.jpg'));
         $this->assertEquals(Status::OK->value, $response->getStatusCode());
-        $this->assertEquals('image/png', $response->getHeaderLine('Content-Type'));
+        $this->assertEquals('image/jpeg', $response->getHeaderLine('Content-Type'));
         $this->assertEquals(
-            file_get_contents(__DIR__ . '/../../screenshots/index.png'),
+            file_get_contents(__DIR__ . '/../../screenshots/index.jpg'),
             (string)$response->getBody()
         );
 

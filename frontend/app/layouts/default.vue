@@ -186,7 +186,9 @@
                 v-if="inContainer"
               />
 
-              <div class="ws-shell-panel flex min-h-0 flex-1 flex-col p-3 sm:p-4 lg:p-5">
+              <div
+                class="ws-shell-panel flex min-h-0 flex-1 flex-col p-3 sm:p-4 lg:p-5 ws-blur-text"
+              >
                 <NuxtPage />
               </div>
             </div>
