@@ -1948,6 +1948,7 @@ Exchanges username/password credentials for a signed user token.
 **Errors**:
 - `400 Bad Request` if credentials are missing.
 - `401 Unauthorized` if the credentials are invalid.
+- `429 Too Many Requests` if rate limited after repeated failures.
 - `500 Internal Server Error` if the system account is not configured or token encoding fails.
 
 ---

@@ -212,6 +212,66 @@ return (function () {
             'type' => 'bool',
         ],
         [
+            'key' => 'WS_RATE_LIMIT_ENABLED',
+            'config' => 'rate_limit.enabled',
+            'description' => 'Enable rate limiting for certain routes.',
+            'type' => 'bool',
+        ],
+        [
+            'key' => 'WS_RATE_LIMIT_ATTEMPTS',
+            'config' => 'rate_limit.max_attempts',
+            'description' => 'How many failed attempts are allowed before applying a temporary ban.',
+            'type' => 'int',
+            'validate' => function (mixed $value, array $spec = []): int {
+                if (false === is_numeric($value)) {
+                    throw new ValidationException('Invalid rate-limit attempts value. Must be a number.');
+                }
+
+                $cmp = (int) $value;
+                if ($cmp < 1) {
+                    throw new ValidationException('Invalid rate-limit attempts value. Must be at least 1.');
+                }
+
+                return $cmp;
+            },
+        ],
+        [
+            'key' => 'WS_RATE_LIMIT_WINDOW',
+            'config' => 'rate_limit.window',
+            'description' => 'How long failed attempts are tracked for, in seconds.',
+            'type' => 'int',
+            'validate' => function (mixed $value, array $spec = []): int {
+                if (false === is_numeric($value)) {
+                    throw new ValidationException('Invalid rate-limit window. Must be a number.');
+                }
+
+                $cmp = (int) $value;
+                if ($cmp < 1) {
+                    throw new ValidationException('Invalid rate-limit window. Must be at least 1 second.');
+                }
+
+                return $cmp;
+            },
+        ],
+        [
+            'key' => 'WS_RATE_LIMIT_BAN',
+            'config' => 'rate_limit.ban',
+            'description' => 'How long a temporary rate-limit ban lasts for, in seconds.',
+            'type' => 'int',
+            'validate' => function (mixed $value, array $spec = []): int {
+                if (false === is_numeric($value)) {
+                    throw new ValidationException('Invalid rate-limit ban window. Must be a number.');
+                }
+
+                $cmp = (int) $value;
+                if ($cmp < 1) {
+                    throw new ValidationException('Invalid rate-limit ban window. Must be at least 1 second.');
+                }
+
+                return $cmp;
+            },
+        ],
+        [
             'key' => 'WS_API_LOG_INTERNAL',
             'config' => 'api.logInternal',
             'description' => 'Log internal requests to the API.',

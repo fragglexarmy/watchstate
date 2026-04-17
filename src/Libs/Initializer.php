@@ -362,10 +362,6 @@ final class Initializer
         (static function () use ($fn, $router) {
             $cache = Container::get(CacheInterface::class);
             foreach ($cache->has('routes_http') ? $cache->get('routes_http') : generate_routes('http') as $route) {
-                if (!empty($route['middlewares'])) {
-                    $route['lazymiddlewares'] = $route['middlewares'];
-                    unset($route['middlewares']);
-                }
                 $fn($router, $route);
             }
         })();

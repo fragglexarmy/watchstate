@@ -14,6 +14,7 @@ use App\Libs\Enums\Http\Method;
 use App\Libs\Enums\Http\Status;
 use App\Libs\IpUtils;
 use App\Libs\Middlewares\AuthorizationMiddleware;
+use App\Libs\Middlewares\RateLimitMiddleware;
 use App\Libs\TokenUtil;
 use App\Libs\Traits\APITraits;
 use Psr\Http\Message\ResponseInterface as iResponse;
@@ -182,7 +183,7 @@ final class Auth
         return api_response(Status::CREATED);
     }
 
-    #[Post(self::URL . '/login[/]', name: 'system.auth.login')]
+    #[Post(self::URL . '/login[/]', middleware: RateLimitMiddleware::class, name: 'system.auth.login')]
     public function login(iRequest $request): iResponse
     {
         $data = DataUtil::fromRequest($request);

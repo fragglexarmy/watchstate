@@ -91,6 +91,12 @@ return (function () {
                 '172.16.0.0/12', // RFC-1918 B-block.
             ],
         ],
+        'rate_limit' => [
+            'enabled' => (bool) env('WS_RATE_LIMIT_ENABLED', true),
+            'max_attempts' => (int) env('WS_RATE_LIMIT_ATTEMPTS', 5),
+            'window' => (int) env('WS_RATE_LIMIT_WINDOW', 900),
+            'ban' => (int) env('WS_RATE_LIMIT_BAN', 900),
+        ],
         'progress' => [
             // -- Allows to sync watch progress for played items.
             'threshold' => $progressTimeCheck((int) env('WS_PROGRESS_THRESHOLD', 0), 60 * 10),
