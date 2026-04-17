@@ -6,7 +6,6 @@ namespace App\API\Player;
 
 use App\API\System\Sign;
 use App\Libs\Attributes\Route\Get;
-use App\Libs\Config;
 use App\Libs\DataUtil;
 use App\Libs\Enums\Http\Status;
 use App\Libs\Stream;
@@ -54,8 +53,6 @@ readonly class Playlist
         }
 
         $lc = require __DIR__ . '/../../../config/languageCodes.php';
-
-        $isSecure = (bool) Config::get('api.secure', false);
 
         $hasSelectedSubs = !empty(ag($sConfig, ['subtitle', 'external'], null));
 
@@ -152,13 +149,11 @@ readonly class Playlist
                         $name = basename($file);
                     }
 
-                    $link = r('{api_url}/{token}/{type}.x{id}.m3u8{auth}', [
+                    $link = r('{api_url}/{token}/{type}.x{id}.m3u8', [
                         'api_url' => $subtitleUrl,
                         'id' => $id,
                         'type' => 'webvtt',
                         'token' => $token,
-                        'duration' => round((int) $duration),
-                        'auth' => $isSecure ? '?apikey=' . Config::get('api.key') : '',
                     ]);
 
                     // -- flag lang to 2 chars
@@ -191,12 +186,11 @@ readonly class Playlist
                     $lang = ag($x, 'tags.language', 'und');
                     $title = ag($x, 'tags.title', 'Unknown');
 
-                    $link = r('{api_url}/{token}/{type}.i{id}.m3u8{auth}', [
+                    $link = r('{api_url}/{token}/{type}.i{id}.m3u8', [
                         'api_url' => $subtitleUrl,
                         'id' => $id,
                         'type' => 'webvtt',
                         'token' => $token,
-                        'auth' => $isSecure ? '?apikey=' . Config::get('api.key') : '',
                     ]);
 
                     // -- flip lang to 2 chars
@@ -223,10 +217,9 @@ readonly class Playlist
                 'subs' => !empty(ag($sConfig, 'externals')) ? ',SUBTITLES="subs"' : '',
             ]);
 
-            $lines[] = r('{api_url}/{token}/segments.m3u8{auth}', [
+            $lines[] = r('{api_url}/{token}/segments.m3u8', [
                 'token' => $token,
                 'api_url' => parse_config_value(M3u8::URL),
-                'auth' => $isSecure ? '?apikey=' . Config::get('api.key') : '',
             ]);
 
             return api_response(Status::OK, Stream::create(implode("\n", $lines)), [

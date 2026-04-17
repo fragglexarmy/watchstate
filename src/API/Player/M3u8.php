@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\API\Player;
 
 use App\Libs\Attributes\Route\Get;
-use App\Libs\Config;
 use App\Libs\Enums\Http\Status;
 use App\Libs\Stream;
 use Psr\Http\Message\ResponseInterface as iResponse;
@@ -35,7 +34,6 @@ final readonly class M3u8
             return api_response(Status::NOT_MODIFIED, headers: ['Cache-Control' => 'public, max-age=25920000']);
         }
 
-        $isSecure = (bool) Config::get('api.secure', false);
         $duration = ag($data, 'config.duration');
         $segmentSize = number_format((float) ag($data, 'config.segment_size'), 6);
         $splits = (int) ceil($duration / $segmentSize);
@@ -52,10 +50,6 @@ final readonly class M3u8
             $lines[] = r('#EXTINF:{duration},', ['duration' => $sSize]);
 
             $query = [];
-
-            if ($isSecure) {
-                $query['apikey'] = Config::get('api.key');
-            }
 
             if ($sSize !== $segmentSize) {
                 $query['sd'] = $sSize;

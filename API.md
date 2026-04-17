@@ -1708,7 +1708,6 @@ Builds the top-level HLS playlist for a signed media file.
 
 **Notes**:
 - Sidecar subtitle files are auto-discovered when no subtitle is already selected.
-- Child playlist URLs automatically include `?apikey=` when secure API mode is enabled.
 
 ---
 
