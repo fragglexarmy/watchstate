@@ -28,11 +28,14 @@ final class AuthorizationMiddleware implements MiddlewareInterface
      * Public routes that are accessible without an API key. and must remain open.
      */
     private const array PUBLIC_ROUTES = [
-        HealthCheck::URL,
-        Auth::URL,
         PlayerIndex::URL,
         PlexToken::URL,
         StaticFiles::URL,
+        HealthCheck::URL,
+        Auth::URL . '/test',
+        Auth::URL . '/has_user',
+        Auth::URL . '/signup',
+        Auth::URL . '/login',
     ];
 
     /**

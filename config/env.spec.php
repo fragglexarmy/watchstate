@@ -104,6 +104,7 @@ return (function () {
             'config' => 'trust.proxy',
             'description' => 'Trust the IP from the WS_TRUST_HEADER header.',
             'type' => 'bool',
+            'danger' => true,
         ],
         [
             'key' => 'WS_TRUST_LOCAL',
