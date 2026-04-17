@@ -332,11 +332,8 @@ const copyText = (str: string | number, showNotification: boolean = true): void 
   notification('success', 'Success', 'Text copied to clipboard.');
 };
 
-const makeConsoleCommand = (cmd: string, run: boolean = false): string => {
+const makeConsoleCommand = (cmd: string): string => {
   const params = new URLSearchParams();
-  if (run) {
-    params.append('run', 'true');
-  }
   params.append('cmd', btoa(cmd));
   return `/console?${params.toString()}`;
 };
