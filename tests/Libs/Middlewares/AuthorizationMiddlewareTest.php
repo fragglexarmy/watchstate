@@ -10,6 +10,7 @@ use App\Libs\Config;
 use App\Libs\Enums\Http\Method;
 use App\Libs\Enums\Http\Status;
 use App\Libs\Middlewares\AuthorizationMiddleware;
+use App\Libs\TokenUtil;
 use App\Libs\TestCase;
 use Tests\Support\RequestResponseTrait;
 
@@ -118,6 +119,61 @@ class AuthorizationMiddlewareTest extends TestCase
         }
 
         Config::reset();
+    }
+
+    public function test_expired_user_token_is_rejected(): void
+    {
+        Config::save('api.prefix', '/v1/api');
+        Config::save('system.user', 'admin');
+        Config::save('system.secret', TokenUtil::generateSecret(32));
+        Config::save('auth.token_expiry', 60);
+
+        $token = $this->makeUserToken([
+            'username' => 'admin',
+            'iat' => time() - 120,
+            'exp' => time() - 60,
+            'version' => get_app_version(),
+        ]);
+
+        $result = new AuthorizationMiddleware()->process(
+            request: $this->getRequest(uri: '/v1/api/protected')->withHeader('Authorization', 'Token ' . $token),
+            handler: $this->getHandler(),
+        );
+
+        $this->assertSame(Status::UNAUTHORIZED, Status::from($result->getStatusCode()));
+
+        Config::reset();
+    }
+
+    public function test_legacy_user_token_without_exp_uses_configured_expiry(): void
+    {
+        Config::save('api.prefix', '/v1/api');
+        Config::save('system.user', 'admin');
+        Config::save('system.secret', TokenUtil::generateSecret(32));
+        Config::save('auth.token_expiry', 60);
+
+        $token = $this->makeUserToken([
+            'username' => 'admin',
+            'iat' => time() - 10,
+            'version' => get_app_version(),
+        ]);
+
+        $result = new AuthorizationMiddleware()->process(
+            request: $this->getRequest(uri: '/v1/api/protected')->withHeader('Authorization', 'Token ' . $token),
+            handler: $this->getHandler(),
+        );
+
+        $this->assertSame(Status::OK, Status::from($result->getStatusCode()));
+
+        Config::reset();
+    }
+
+    private function makeUserToken(array $payload): string
+    {
+        $json = json_encode($payload);
+        $this->assertNotFalse($json, 'User token payload JSON encoding should succeed in tests.');
+
+        return TokenUtil::encode(TokenUtil::sign($json) . '.' . $json);
     }
 
 }

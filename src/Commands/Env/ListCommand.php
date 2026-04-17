@@ -65,7 +65,7 @@ final class ListCommand extends Command
                 return self::SUCCESS;
             }
 
-            $this->displayContent(array_map(function (array $item): array {
+            $this->displayContent(array_map(static function (array $item): array {
                 $value = ag($item, 'value', ag($item, 'config_value'));
 
                 if (is_bool($value)) {
@@ -105,22 +105,6 @@ final class ListCommand extends Command
             }
 
             return $item;
-        }, $items);
-    }
-
-    private function formatTableData(array $items): array
-    {
-        return array_map(function (array $item): array {
-            $value = ag($item, 'value', ag($item, 'config_value'));
-
-            if (is_bool($value)) {
-                $value = $value ? 'true' : 'false';
-            }
-
-            return [
-                'key' => ag($item, 'key'),
-                'value' => $value,
-            ];
         }, $items);
     }
 }

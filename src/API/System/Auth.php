@@ -19,6 +19,7 @@ use App\Libs\TokenUtil;
 use App\Libs\Traits\APITraits;
 use Psr\Http\Message\ResponseInterface as iResponse;
 use Psr\Http\Message\ServerRequestInterface as iRequest;
+use SensitiveParameter;
 use Throwable;
 
 final class Auth
@@ -54,20 +55,13 @@ final class Auth
             return api_response(Status::OK);
         }
 
-        $payload = [
-            'username' => Config::get('system.user'),
-            'iat' => time(),
-            'version' => get_app_version(),
-        ];
-
-        if (false === ($token = json_encode($payload))) {
+        try {
+            $token = $this->makeToken((string) Config::get('system.user'));
+        } catch (Throwable) {
             return api_error('Failed to encode token.', Status::INTERNAL_SERVER_ERROR);
         }
 
-        return api_response(Status::OK, [
-            'auto_login' => true,
-            'token' => TokenUtil::encode(TokenUtil::sign($token) . '.' . $token),
-        ]);
+        return api_response(Status::OK, ['auto_login' => true, 'token' => $token]);
     }
 
     #[Get(self::URL . '/user[/]', name: 'system.auth.user')]
@@ -80,23 +74,7 @@ final class Auth
             return api_error('System user or password is not configured.', Status::INTERNAL_SERVER_ERROR);
         }
 
-        $token = null;
-        foreach ($request->getHeader('Authorization') as $auth) {
-            [$type, $value] = explode(' ', $auth, 2);
-            $type = strtolower(trim($type));
-
-            // @mago-expect lint:no-insecure-comparison
-            if ('token' !== $type) {
-                continue;
-            }
-
-            $token = trim($value);
-            break;
-        }
-
-        if (empty($token) && ag_exists($request->getQueryParams(), AuthorizationMiddleware::TOKEN_NAME)) {
-            $token = ag($request->getQueryParams(), AuthorizationMiddleware::TOKEN_NAME);
-        }
+        $token = $this->getRequestToken($request);
 
         if (empty($token)) {
             return api_error('This endpoint only works with user tokens.', Status::UNAUTHORIZED);
@@ -104,38 +82,25 @@ final class Auth
 
         $token = rawurldecode($token);
 
+        if (false === AuthorizationMiddleware::validateToken($token)) {
+            return api_error('Invalid or expired token.', Status::UNAUTHORIZED);
+        }
+
         try {
             $decoded = TokenUtil::decode($token);
             if (false === $decoded) {
                 throw new \RuntimeException('Failed to decode token.');
             }
-        } catch (Throwable) {
-            return api_error('Failed to decode token.', Status::UNAUTHORIZED);
-        }
 
-        $parts = explode('.', $decoded, 2);
-        if (2 !== count($parts)) {
-            return api_error('Invalid token.', Status::UNAUTHORIZED);
-        }
-
-        [$signature, $payload] = $parts;
-
-        if (false === TokenUtil::verify($payload, $signature)) {
-            return api_error('Invalid token.', Status::UNAUTHORIZED);
-        }
-
-        try {
+            [, $payload] = explode('.', $decoded, 2);
             $payload = json_decode($payload, true, flags: JSON_THROW_ON_ERROR);
-            $tokenUser = ag($payload, 'username', TokenUtil::generateSecret(...));
-            $systemUser = Config::get('system.user', TokenUtil::generateSecret(...));
-
-            if (false === hash_equals($systemUser, $tokenUser)) {
-                return api_error('Invalid token.', Status::UNAUTHORIZED);
-            }
+            $expiresAt = $this->getTokenExpiresAt($payload);
 
             return api_response(Status::OK, [
                 'username' => ag($payload, 'username', '??'),
                 'created_at' => make_date(ag($payload, 'iat', 0)),
+                'expires_at' => make_date($expiresAt),
+                'refresh_required' => $this->shouldRefreshToken($payload),
             ]);
         } catch (Throwable) {
             return api_error('Failed to decode payload.', Status::UNAUTHORIZED);
@@ -218,19 +183,62 @@ final class Auth
             api_request(Method::POST, '/system/env/WS_SYSTEM_PASSWORD', ['value' => $password]);
         }
 
-        $payload = [
-            'username' => $system_user,
-            'iat' => time(),
-            'version' => get_app_version(),
-        ];
-
-        if (false === ($token = json_encode($payload))) {
+        try {
+            $token = $this->makeToken($system_user);
+        } catch (Throwable) {
             return api_error('Failed to encode token.', Status::INTERNAL_SERVER_ERROR);
         }
 
-        $token = TokenUtil::encode(TokenUtil::sign($token) . '.' . $token);
-
         return api_response(Status::OK, ['token' => $token]);
+    }
+
+    #[Post(self::URL . '/refresh[/]', name: 'system.auth.refresh')]
+    public function refresh(iRequest $request): iResponse
+    {
+        $user = Config::get('system.user');
+        $pass = Config::get('system.password');
+
+        if (empty($user) || empty($pass)) {
+            return api_error('System user or password is not configured.', Status::INTERNAL_SERVER_ERROR);
+        }
+
+        $token = $this->getRequestToken($request);
+
+        if (empty($token)) {
+            return api_error('This endpoint only works with user tokens.', Status::UNAUTHORIZED);
+        }
+
+        $token = rawurldecode($token);
+
+        if (false === AuthorizationMiddleware::validateToken($token)) {
+            return api_error('Invalid or expired token.', Status::UNAUTHORIZED);
+        }
+
+        try {
+            $payload = $this->getTokenPayload($token);
+            $username = (string) ag($payload, 'username', $user);
+            $createdAt = (int) ag($payload, 'iat', 0);
+            $expiresAt = $this->getTokenExpiresAt($payload);
+            $refreshed = false;
+
+            if ($this->shouldRefreshToken($payload)) {
+                $token = $this->makeToken($username);
+                $payload = $this->getTokenPayload($token);
+                $createdAt = (int) ag($payload, 'iat', 0);
+                $expiresAt = $this->getTokenExpiresAt($payload);
+                $refreshed = true;
+            }
+
+            return api_response(Status::OK, [
+                'token' => $token,
+                'username' => $username,
+                'created_at' => make_date($createdAt),
+                'expires_at' => make_date($expiresAt),
+                'refreshed' => $refreshed,
+            ]);
+        } catch (Throwable) {
+            return api_error('Failed to decode payload.', Status::UNAUTHORIZED);
+        }
     }
 
     #[Put(self::URL . '/change_password[/]', name: 'system.auth.change_password')]
@@ -274,5 +282,86 @@ final class Auth
         }
 
         return api_message('Sessions invalidated successfully.', Status::OK);
+    }
+
+    private function makeToken(string $username): string
+    {
+        $issuedAt = time();
+        $payload = [
+            'username' => $username,
+            'iat' => $issuedAt,
+            'exp' => $issuedAt + $this->getTokenExpiry(),
+            'version' => get_app_version(),
+        ];
+
+        if (false === ($token = json_encode($payload))) {
+            throw new \RuntimeException('Failed to encode token.');
+        }
+
+        return TokenUtil::encode(TokenUtil::sign($token) . '.' . $token);
+    }
+
+    private function getTokenExpiry(): int
+    {
+        return max(1, (int) Config::get('auth.token_expiry'));
+    }
+
+    private function getTokenRefreshWindow(): int
+    {
+        return max(1, (int) Config::get('auth.token_refresh_window', min(86_400, $this->getTokenExpiry())));
+    }
+
+    private function getTokenExpiresAt(array $payload): int
+    {
+        $issuedAt = (int) ag($payload, 'iat', 0);
+
+        return (int) ag(
+            $payload,
+            'exp',
+            $issuedAt > 0 ? $issuedAt + $this->getTokenExpiry() : 0,
+        );
+    }
+
+    private function shouldRefreshToken(array $payload): bool
+    {
+        $expiresAt = $this->getTokenExpiresAt($payload);
+
+        if ($expiresAt < 1) {
+            return false;
+        }
+
+        return ($expiresAt - time()) <= $this->getTokenRefreshWindow();
+    }
+
+    private function getRequestToken(iRequest $request): ?string
+    {
+        foreach ($request->getHeader('Authorization') as $auth) {
+            [$type, $value] = explode(' ', $auth, 2);
+            $type = strtolower(trim($type));
+
+            // @mago-expect lint:no-insecure-comparison
+            if ('token' !== $type) {
+                continue;
+            }
+
+            return trim($value);
+        }
+
+        if (ag_exists($request->getQueryParams(), AuthorizationMiddleware::TOKEN_NAME)) {
+            return (string) ag($request->getQueryParams(), AuthorizationMiddleware::TOKEN_NAME);
+        }
+
+        return null;
+    }
+
+    private function getTokenPayload(#[SensitiveParameter] string $token): array
+    {
+        if (false === ($decoded = TokenUtil::decode($token))) {
+            throw new \RuntimeException('Failed to decode token.');
+        }
+
+        [, $payload] = explode('.', $decoded, 2);
+
+        return json_decode($payload, true, flags: JSON_THROW_ON_ERROR);
     }
 }

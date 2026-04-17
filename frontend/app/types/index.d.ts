@@ -22,6 +22,21 @@ export interface GenericResponse {
   };
 }
 
+export interface AuthUserResponse {
+  username: string;
+  created_at: string;
+  expires_at: string;
+  refresh_required: boolean;
+}
+
+export interface AuthRefreshResponse {
+  token: string;
+  username: string;
+  created_at: string;
+  expires_at: string;
+  refreshed: boolean;
+}
+
 export type JsonPrimitive = string | number | boolean | null;
 
 export type JsonValue = JsonPrimitive | Array<JsonValue> | JsonObject;

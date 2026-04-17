@@ -440,6 +440,42 @@ return (function () {
             'protected' => true,
         ],
         [
+            'key' => 'WS_AUTH_TOKEN_EXPIRY',
+            'config' => 'auth.token_expiry',
+            'description' => 'Signed user token lifetime in seconds.',
+            'type' => 'int',
+            'validate' => function (mixed $value, array $spec = []): int {
+                if (false === is_numeric($value)) {
+                    throw new ValidationException('Invalid auth token expiry. Must be a number.');
+                }
+
+                $cmp = (int) $value;
+                if ($cmp < 1) {
+                    throw new ValidationException('Invalid auth token expiry. Must be at least 1 second.');
+                }
+
+                return $cmp;
+            },
+        ],
+        [
+            'key' => 'WS_AUTH_TOKEN_REFRESH_WINDOW',
+            'config' => 'auth.token_refresh_window',
+            'description' => 'How soon before signed user token expiry to re-issue it, in seconds.',
+            'type' => 'int',
+            'validate' => function (mixed $value, array $spec = []): int {
+                if (false === is_numeric($value)) {
+                    throw new ValidationException('Invalid auth token refresh window. Must be a number.');
+                }
+
+                $cmp = (int) $value;
+                if ($cmp < 1) {
+                    throw new ValidationException('Invalid auth token refresh window. Must be at least 1 second.');
+                }
+
+                return $cmp;
+            },
+        ],
+        [
             'key' => 'WS_GUID_DISABLE_EPISODE',
             'config' => 'guid.disable.episode',
             'description' => 'Enable this option to disable matching episodes by GUIDs and rely on relative GUIDs to match.',
