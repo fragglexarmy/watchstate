@@ -2,7 +2,7 @@
   <UModal v-model:open="isOpen" :title="dialogTitle" :ui="modalUi" @after:enter="focusTarget">
     <template #body>
       <div class="space-y-4">
-        <p v-if="dialogMessage" class="text-sm text-default">
+        <p v-if="dialogMessage" class="text-sm text-default whitespace-pre-line wrap-break-word">
           {{ dialogMessage }}
         </p>
 
@@ -16,12 +16,6 @@
             @keydown.enter.stop.prevent="onEnter"
           />
         </UFormField>
-
-        <div
-          v-else-if="isConfirm && dialogRawHtml"
-          class="text-sm leading-6 text-default wrap-break-word [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_code]:rounded [&_code]:bg-elevated/60 [&_code]:px-1 [&_code]:py-0.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p:not(:last-child)]:mb-3 [&_pre]:overflow-auto [&_pre]:rounded-md [&_pre]:bg-elevated/60 [&_pre]:p-3 [&_ul]:list-disc [&_ul]:pl-5"
-          v-html="dialogRawHtml"
-        />
       </div>
     </template>
 
@@ -232,8 +226,6 @@ const dialogMessage = computed(() => {
 
   return alertOptions.value?.message ?? '';
 });
-
-const dialogRawHtml = computed(() => confirmOptions.value?.rawHTML ?? '');
 
 const defaultTitle = computed(() => {
   if (!currentDialog.value) {
