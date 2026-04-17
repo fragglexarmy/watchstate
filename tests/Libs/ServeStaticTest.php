@@ -65,7 +65,7 @@ class ServeStaticTest extends TestCase
         );
 
         $this->checkException(
-            closure: fn() => new ServeStatic()->serve($this->createRequest('GET', '/guides/../var/config/.env')),
+            closure: fn() => new ServeStatic()->serve($this->createRequest('GET', '/guides/../README.md')),
             reason: 'Guide routes should not break out of the guides directory.',
             exception: \League\Route\Http\Exception\BadRequestException::class,
             exceptionMessage: 'is invalid.',
@@ -73,7 +73,7 @@ class ServeStaticTest extends TestCase
         );
 
         $this->checkException(
-            closure: fn() => new ServeStatic()->serve($this->createRequest('GET', '/screenshots/../var/config/.env')),
+            closure: fn() => new ServeStatic()->serve($this->createRequest('GET', '/screenshots/../README.md')),
             reason: 'Screenshot routes should not break out of the screenshots directory.',
             exception: \League\Route\Http\Exception\BadRequestException::class,
             exceptionMessage: 'is invalid.',
